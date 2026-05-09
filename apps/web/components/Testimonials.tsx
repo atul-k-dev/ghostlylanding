@@ -1,0 +1,250 @@
+import { Bat } from "./Bat";
+import { BloodDrip } from "./BloodDrip";
+import { BloodSplatter } from "./BloodSplatter";
+import { Eyeball } from "./stickers/Eyeball";
+import { TextSticker } from "./stickers/TextSticker";
+
+type Testimonial = {
+  quote: string;
+  name: string;
+  role: string;
+  avatar: string;
+  tilt: number;
+};
+
+const TESTIMONIALS: Testimonial[] = [
+  {
+    quote:
+      "Cancelled my LinkedIn auto-comment SaaS the day after I tried Casper. The voice training actually reads my back catalog instead of pretending.",
+    name: "Maya Chen",
+    role: "Brand designer",
+    avatar: "https://i.pravatar.cc/120?img=20",
+    tilt: -1,
+  },
+  {
+    quote:
+      "I'm not hustle-posting at 11pm anymore. Casper handles it and I sleep. Followers up 38% in two months without lifting a finger.",
+    name: "Jordan Reyes",
+    role: "Indie founder · @jrbuilds",
+    avatar: "https://i.pravatar.cc/120?img=12",
+    tilt: 1,
+  },
+  {
+    quote:
+      "Other tools made me feel like I was running a sales floor. Casper feels like a friend handling my DMs while I focus on coaching clients.",
+    name: "Priya Sharma",
+    role: "Career coach",
+    avatar: "https://i.pravatar.cc/120?img=32",
+    tilt: -2,
+  },
+  {
+    quote:
+      "The fact that it runs in MY browser, not their cloud, is the only reason I trusted it. Three months in, zero issues. Account intact.",
+    name: "Tom Whitford",
+    role: "Freelance writer",
+    avatar: "https://i.pravatar.cc/120?img=68",
+    tilt: 1,
+  },
+  {
+    quote:
+      "Saved me about 90 minutes a day of engagement scrolling. The crazy part — comments still sound exactly like me. My audience can't tell.",
+    name: "Sara Lindgren",
+    role: "Frontend dev",
+    avatar: "https://i.pravatar.cc/120?img=49",
+    tilt: -1,
+  },
+  {
+    quote:
+      "Other tools wear creator clothes but they still speak SDR. Casper actually gets that I'm one person building a brand, not a sales pipeline.",
+    name: "Alex Park",
+    role: "Founder, Stillhouse",
+    avatar: "https://i.pravatar.cc/120?img=47",
+    tilt: 2,
+  },
+];
+
+function Star() {
+  return (
+    <svg
+      className="h-3 w-3"
+      viewBox="0 0 24 24"
+      fill="#b91c1c"
+      aria-hidden="true"
+    >
+      <path d="M12 2l2.95 6.36L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l7.05-.91L12 2z" />
+    </svg>
+  );
+}
+
+function QuoteMark({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 80 60"
+      fill="#b91c1c"
+      aria-hidden="true"
+    >
+      <path d="M 8 16 Q 8 8 16 8 L 30 8 L 30 28 L 22 28 Q 18 28 18 32 L 18 44 L 8 44 Z M 42 16 Q 42 8 50 8 L 64 8 L 64 28 L 56 28 Q 52 28 52 32 L 52 44 L 42 44 Z" />
+    </svg>
+  );
+}
+
+function TestimonialCard({ t }: { t: Testimonial }) {
+  return (
+    <article
+      className="group relative flex h-full flex-col rounded-3xl border border-cream/10 bg-ink/60 p-6 transition hover:border-coral/40 md:p-7"
+      style={{ transform: `rotate(${t.tilt}deg)` }}
+    >
+      {/* Big translucent quote mark in corner */}
+      <QuoteMark className="absolute right-5 top-5 h-7 w-auto opacity-15" />
+
+      {/* Stars */}
+      <div className="flex gap-0.5">
+        <Star />
+        <Star />
+        <Star />
+        <Star />
+        <Star />
+      </div>
+
+      {/* Quote */}
+      <p className="mt-4 flex-1 text-sm leading-relaxed text-cream/85 md:text-[15px]">
+        &ldquo;{t.quote}&rdquo;
+      </p>
+
+      {/* Author */}
+      <div className="mt-6 flex items-center gap-3 border-t border-cream/10 pt-5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={t.avatar}
+          alt=""
+          className="h-10 w-10 rounded-full border border-cream/20 object-cover"
+        />
+        <div className="leading-tight">
+          <div className="font-display text-sm tracking-tight text-cream">
+            {t.name}
+          </div>
+          <div className="mt-0.5 text-[11px] text-cream/55">{t.role}</div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export function Testimonials() {
+  return (
+    <section
+      id="testimonials"
+      className="relative overflow-hidden bg-ink-soft py-24 md:py-32"
+    >
+      {/* Background splatter */}
+      <BloodSplatter
+        className="pointer-events-none absolute -right-24 top-12 h-96 w-96 opacity-[0.05]"
+        rotate={20}
+      />
+      <BloodSplatter
+        className="pointer-events-none absolute -left-32 bottom-12 h-80 w-80 opacity-[0.04]"
+        rotate={-30}
+      />
+
+      {/* Drips */}
+      <BloodDrip
+        className="pointer-events-none absolute left-[6%] top-16 h-9 w-auto opacity-60"
+        rotate={-10}
+      />
+      <BloodDrip
+        className="pointer-events-none absolute right-[8%] top-20 h-7 w-auto opacity-50"
+        rotate={15}
+      />
+      <BloodDrip
+        className="pointer-events-none absolute right-[10%] bottom-24 h-6 w-auto opacity-45"
+        rotate={170}
+      />
+
+      {/* Bats */}
+      <div
+        className="pointer-events-none absolute left-[16%] top-[10%] text-cream/40 animate-fly"
+        style={{ animationDelay: "0.3s" }}
+      >
+        <Bat className="h-12 w-auto" flap />
+      </div>
+      <div
+        className="pointer-events-none absolute right-[20%] bottom-[12%] text-cream/30 animate-fly"
+        style={{ animationDelay: "1.9s" }}
+      >
+        <Bat className="h-10 w-auto" flap />
+      </div>
+
+      {/* Stickers */}
+      <TextSticker
+        text="RAVING!"
+        size="md"
+        tilt={-9}
+        className="absolute left-[3%] top-[28%] hidden lg:block"
+      />
+      <TextSticker
+        text="5 STARS!"
+        size="sm"
+        tilt={8}
+        className="absolute right-[3%] top-[34%] hidden lg:block"
+      />
+      <TextSticker
+        text="BIG FAN!"
+        size="md"
+        tilt={6}
+        className="absolute left-[4%] bottom-[14%] hidden lg:block"
+      />
+      <Eyeball
+        className="pointer-events-none absolute right-[5%] bottom-[28%] hidden h-10 w-auto opacity-80 md:block"
+        rotate={-12}
+      />
+
+      {/* Giant background quote mark for atmosphere */}
+      <QuoteMark className="pointer-events-none absolute right-[40%] top-[24%] hidden h-40 w-auto opacity-[0.04] md:block" />
+
+      <div className="relative z-10 mx-auto max-w-6xl px-6 md:px-10">
+        {/* Header */}
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-cream/15 bg-cream/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.25em] text-cream/70 md:text-[11px]">
+            <span className="h-1.5 w-1.5 rounded-full bg-coral" />
+            Testimonials
+          </span>
+          <h2 className="font-display text-4xl leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl">
+            Loved by creators
+            <br />
+            who actually <span className="text-coral">show up.</span>
+          </h2>
+          <p className="mx-auto mt-5 max-w-lg text-sm text-cream/70 md:text-base">
+            Solo founders, designers, coaches, writers. Real accounts, real
+            handles, real growth — without ever feeling like a sales tool.
+          </p>
+        </div>
+
+        {/* Testimonial grid */}
+        <div className="mt-16 grid grid-cols-1 gap-5 md:mt-20 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
+          {TESTIMONIALS.map((t) => (
+            <TestimonialCard key={t.name} t={t} />
+          ))}
+        </div>
+
+        {/* Footer stat row */}
+        <div className="mt-14 flex flex-col items-center justify-center gap-3 text-sm text-cream/60 md:mt-16 md:flex-row md:gap-6">
+          <span className="flex items-center gap-2">
+            <span className="font-display text-2xl text-cream">1,000+</span>{" "}
+            creators
+          </span>
+          <span className="hidden h-1 w-1 rounded-full bg-cream/30 md:block" />
+          <span className="flex items-center gap-2">
+            <span className="font-display text-2xl text-cream">4.9</span>{" "}
+            average rating
+          </span>
+          <span className="hidden h-1 w-1 rounded-full bg-cream/30 md:block" />
+          <span className="flex items-center gap-2">
+            <span className="font-display text-2xl text-coral">0</span>{" "}
+            account bans
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
