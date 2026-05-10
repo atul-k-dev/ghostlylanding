@@ -16,7 +16,8 @@ const sans = Inter({
   display: "swap",
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://casperai.app";
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://casperaii.vercel.app";
 const TITLE = "Casper AI — Grow your Twitter & LinkedIn while you sleep";
 const DESCRIPTION =
   "The friendly little ghost that likes, comments, and follows in your tone. A browser extension built for solo creators, not sales teams. Twitter + LinkedIn under one license.";
