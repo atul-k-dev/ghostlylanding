@@ -10,7 +10,7 @@ import { TextSticker } from "./stickers/TextSticker";
 
 function HeartShape({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 30 30" className={className} fill="#b91c1c" aria-hidden="true">
+    <svg viewBox="0 0 30 30" className={className} fill="#B81336" aria-hidden="true">
       <path d="M15 25 C5 18, 1 11, 7 6 C11 3, 14 6, 15 10 C16 6, 19 3, 23 6 C29 11, 25 18, 15 25 Z" />
     </svg>
   );
@@ -45,12 +45,12 @@ function AutoLikeArt() {
         <svg
           viewBox="0 0 120 120"
           className="h-36 w-auto md:h-44"
-          style={{ filter: "drop-shadow(0 12px 30px rgba(185,28,28,0.55))" }}
+          style={{ filter: "drop-shadow(0 12px 30px rgba(184,19,54,0.55))" }}
           aria-hidden="true"
         >
           <path
             d="M60 100 C20 75, 5 45, 25 25 C40 12, 55 22, 60 38 C65 22, 80 12, 95 25 C115 45, 100 75, 60 100 Z"
-            fill="#b91c1c"
+            fill="#B81336"
             stroke="#e8ddc7"
             strokeWidth="2.5"
             strokeLinejoin="round"
@@ -142,7 +142,7 @@ function SmartFollowArt() {
             <button
               className={`flex-none rounded-full px-3 py-1.5 text-[10px] font-semibold transition ${
                 c.active
-                  ? "bg-coral text-cream shadow-[0_4px_18px_rgba(185,28,28,0.4)]"
+                  ? "bg-coral text-cream shadow-[0_4px_18px_rgba(184,19,54,0.4)]"
                   : "border border-cream/25 text-cream/60"
               }`}
             >
@@ -161,7 +161,7 @@ function SmartFollowArt() {
       >
         <path
           d="M 80 80 Q 160 220 100 340"
-          stroke="#b91c1c"
+          stroke="#B81336"
           strokeWidth="2"
           strokeDasharray="4 7"
           strokeLinecap="round"
@@ -181,11 +181,11 @@ function SmartSchedulingArt() {
         {/* Active hours arc — 9 (left) clockwise to 5 (lower-right) */}
         <path
           d="M 30 150 A 120 120 0 0 1 230 222"
-          stroke="#b91c1c"
+          stroke="#B81336"
           strokeWidth="8"
           strokeLinecap="round"
           fill="none"
-          style={{ filter: "drop-shadow(0 0 16px rgba(185,28,28,0.5))" }}
+          style={{ filter: "drop-shadow(0 0 16px rgba(184,19,54,0.5))" }}
         />
         {/* Hour ticks */}
         {Array.from({ length: 12 }).map((_, h) => {
@@ -211,13 +211,13 @@ function SmartSchedulingArt() {
         })}
         {/* Hour labels */}
         <text x="150" y="62" fontFamily="var(--font-display, sans-serif)" fontSize="14" fill="#e8ddc7" opacity="0.7" textAnchor="middle">12</text>
-        <text x="246" y="156" fontFamily="var(--font-display, sans-serif)" fontSize="14" fill="#b91c1c" textAnchor="middle">3</text>
-        <text x="150" y="252" fontFamily="var(--font-display, sans-serif)" fontSize="14" fill="#b91c1c" textAnchor="middle">6</text>
-        <text x="56" y="156" fontFamily="var(--font-display, sans-serif)" fontSize="14" fill="#b91c1c" textAnchor="middle">9</text>
+        <text x="246" y="156" fontFamily="var(--font-display, sans-serif)" fontSize="14" fill="#B81336" textAnchor="middle">3</text>
+        <text x="150" y="252" fontFamily="var(--font-display, sans-serif)" fontSize="14" fill="#B81336" textAnchor="middle">6</text>
+        <text x="56" y="156" fontFamily="var(--font-display, sans-serif)" fontSize="14" fill="#B81336" textAnchor="middle">9</text>
         {/* Hands */}
         <line x1="150" y1="150" x2="150" y2="80" stroke="#e8ddc7" strokeWidth="3" strokeLinecap="round" />
-        <line x1="150" y1="150" x2="206" y2="186" stroke="#b91c1c" strokeWidth="4" strokeLinecap="round" />
-        <circle cx="150" cy="150" r="5" fill="#b91c1c" />
+        <line x1="150" y1="150" x2="206" y2="186" stroke="#B81336" strokeWidth="4" strokeLinecap="round" />
+        <circle cx="150" cy="150" r="5" fill="#B81336" />
       </svg>
 
       {/* "ACTIVE NOW" pill */}
@@ -246,14 +246,14 @@ function SafetyEngineArt() {
       >
         <defs>
           <linearGradient id="shield-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#b91c1c" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#b91c1c" stopOpacity="0.04" />
+            <stop offset="0%" stopColor="#B81336" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#B81336" stopOpacity="0.04" />
           </linearGradient>
         </defs>
         <path
           d="M 150 30 L 270 70 L 270 170 C 270 220, 220 270, 150 290 C 80 270, 30 220, 30 170 L 30 70 Z"
           fill="url(#shield-grad)"
-          stroke="#b91c1c"
+          stroke="#B81336"
           strokeWidth="3"
           strokeLinejoin="round"
         />
@@ -273,7 +273,7 @@ function SafetyEngineArt() {
 
       {/* "0 BANS" stamp */}
       <div
-        className="absolute bottom-8 right-4 rounded-full border-2 border-coral bg-coral/10 px-4 py-2 font-display text-xs tracking-[0.2em] text-coral shadow-[0_0_30px_rgba(185,28,28,0.4)]"
+        className="absolute bottom-8 right-4 rounded-full border-2 border-coral bg-coral/10 px-4 py-2 font-display text-xs tracking-[0.2em] text-coral shadow-[0_0_30px_rgba(184,19,54,0.4)]"
         style={{ transform: "rotate(8deg)" }}
       >
         0 BANS
@@ -285,7 +285,7 @@ function SafetyEngineArt() {
           viewBox="0 0 16 16"
           className="h-3.5 w-3.5"
           fill="none"
-          stroke="#b91c1c"
+          stroke="#B81336"
           strokeWidth="2"
           aria-hidden="true"
         >
@@ -472,7 +472,7 @@ export function Features() {
   return (
     <section
       id="features"
-      className="relative overflow-hidden bg-ink pattern-spotlight py-24 md:py-32"
+      className="relative overflow-hidden bg-ink py-24 md:py-32"
     >
       {/* Decorations */}
       <BloodDrip

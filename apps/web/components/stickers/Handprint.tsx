@@ -9,7 +9,7 @@ export function Handprint({ className, rotate = -8 }: Props) {
       viewBox="0 0 130 160"
       className={className}
       style={{ transform: `rotate(${rotate}deg)`, filter: "drop-shadow(2px 3px 0 rgba(0,0,0,0.5))" }}
-      fill="#b91c1c"
+      fill="#B81336"
       stroke="#e8ddc7"
       strokeWidth="2.5"
       strokeLinejoin="round"
@@ -29,8 +29,8 @@ export function Handprint({ className, rotate = -8 }: Props) {
       {/* Pinky (upper-right, angled) */}
       <ellipse cx="100" cy="62" rx="7" ry="18" transform="rotate(28 100 62)" />
       {/* Drips */}
-      <path d="M 50 142 Q 50 158 52 168" stroke="#b91c1c" strokeWidth="4" fill="none" strokeLinecap="round" />
-      <path d="M 75 145 Q 78 162 75 175" stroke="#b91c1c" strokeWidth="4" fill="none" strokeLinecap="round" />
+      <path d="M 50 142 Q 50 158 52 168" stroke="#B81336" strokeWidth="4" fill="none" strokeLinecap="round" />
+      <path d="M 75 145 Q 78 162 75 175" stroke="#B81336" strokeWidth="4" fill="none" strokeLinecap="round" />
     </svg>
   );
 }

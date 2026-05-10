@@ -67,7 +67,7 @@ export function Pricing() {
   return (
     <section
       id="pricing"
-      className="relative overflow-hidden bg-ink pattern-spotlight py-20 md:py-24"
+      className="relative overflow-hidden bg-ink py-20 md:py-24"
     >
       {/* Decoration */}
       <BloodSplatter
@@ -167,7 +167,7 @@ export function Pricing() {
                   onClick={() => setCycle(c)}
                   className={`relative cursor-pointer rounded-full px-4 py-2 text-xs font-medium transition md:px-5 md:text-sm ${
                     isActive
-                      ? "bg-coral text-cream shadow-[0_4px_18px_rgba(185,28,28,0.35)]"
+                      ? "bg-coral text-cream shadow-[0_4px_18px_rgba(184,19,54,0.35)]"
                       : "text-cream/60 hover:text-cream"
                   }`}
                 >
@@ -257,7 +257,7 @@ export function Pricing() {
           <div className="relative">
             {/* Most popular tape — lives ABOVE the card edge */}
             <span
-              className="absolute -top-3 right-6 z-20 rounded-full bg-coral px-3.5 py-1 font-display text-[10px] tracking-[0.3em] text-cream shadow-[0_4px_20px_rgba(185,28,28,0.55)]"
+              className="absolute -top-3 right-6 z-20 rounded-full bg-coral px-3.5 py-1 font-display text-[10px] tracking-[0.3em] text-cream shadow-[0_4px_20px_rgba(184,19,54,0.55)]"
               style={{ transform: "rotate(3deg)" }}
             >
               MOST POPULAR
@@ -305,7 +305,7 @@ export function Pricing() {
                     key={f.label}
                     className="flex items-start gap-2.5 text-sm text-cream"
                   >
-                    <span className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full bg-coral text-cream shadow-[0_2px_10px_rgba(185,28,28,0.3)]">
+                    <span className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full bg-coral text-cream shadow-[0_2px_10px_rgba(184,19,54,0.3)]">
                       <svg
                         viewBox="0 0 12 12"
                         className="h-2.5 w-2.5"
@@ -335,7 +335,7 @@ export function Pricing() {
 
               <a
                 href="#"
-                className="mt-7 block rounded-full bg-coral px-6 py-3 text-center text-sm font-semibold text-cream shadow-[0_8px_30px_rgba(185,28,28,0.4)] transition hover:bg-coral-dim"
+                className="mt-7 block rounded-full bg-coral px-6 py-3 text-center text-sm font-semibold text-cream shadow-[0_8px_30px_rgba(184,19,54,0.4)] transition hover:bg-coral-dim"
               >
                 Start 7-day free trial
               </a>

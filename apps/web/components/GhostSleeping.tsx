@@ -38,8 +38,8 @@ export function GhostSleeping({ className }: Props) {
       />
 
       {/* Cheeks */}
-      <circle cx="68" cy="115" r="5" fill="#b91c1c" opacity="0.7" />
-      <circle cx="152" cy="115" r="5" fill="#b91c1c" opacity="0.7" />
+      <circle cx="68" cy="115" r="5" fill="#B81336" opacity="0.7" />
+      <circle cx="152" cy="115" r="5" fill="#B81336" opacity="0.7" />
 
       {/* Tiny snoozing mouth */}
       <path
@@ -56,7 +56,7 @@ export function GhostSleeping({ className }: Props) {
         y="60"
         fontFamily="var(--font-display, sans-serif)"
         fontSize="22"
-        fill="#b91c1c"
+        fill="#B81336"
       >
         z
       </text>
@@ -65,7 +65,7 @@ export function GhostSleeping({ className }: Props) {
         y="42"
         fontFamily="var(--font-display, sans-serif)"
         fontSize="16"
-        fill="#b91c1c"
+        fill="#B81336"
         opacity="0.7"
       >
         z
@@ -75,7 +75,7 @@ export function GhostSleeping({ className }: Props) {
         y="28"
         fontFamily="var(--font-display, sans-serif)"
         fontSize="12"
-        fill="#b91c1c"
+        fill="#B81336"
         opacity="0.5"
       >
         z

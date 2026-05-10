@@ -9,12 +9,12 @@ export function FinalCTA() {
   return (
     <section
       id="final-cta"
-      className="relative overflow-hidden bg-ink pattern-spotlight-bottom py-32 md:py-40"
+      className="relative overflow-hidden bg-ink py-32 md:py-40"
     >
       {/* Drip curtain at top */}
       <BloodEdge
         className="absolute left-0 right-0 top-0 h-24 opacity-90 md:h-28"
-        color="#b91c1c"
+        color="#B81336"
       />
 
       {/* Background splatter */}
@@ -67,7 +67,7 @@ export function FinalCTA() {
               className="pointer-events-none absolute inset-0 -z-10 rounded-full opacity-30 blur-3xl"
               style={{
                 background:
-                  "radial-gradient(circle, #b91c1c 0%, transparent 70%)",
+                  "radial-gradient(circle, #B81336 0%, transparent 70%)",
               }}
               aria-hidden="true"
             />
@@ -92,7 +92,7 @@ export function FinalCTA() {
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a
             href="#"
-            className="rounded-full bg-coral px-8 py-3.5 text-sm font-semibold text-cream shadow-[0_10px_40px_rgba(185,28,28,0.45)] transition hover:bg-coral-dim"
+            className="rounded-full bg-coral px-8 py-3.5 text-sm font-semibold text-cream shadow-[0_10px_40px_rgba(184,19,54,0.45)] transition hover:bg-coral-dim"
           >
             Get started free
           </a>

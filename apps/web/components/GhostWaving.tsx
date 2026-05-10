@@ -25,8 +25,8 @@ export function GhostWaving({ className }: Props) {
       <ellipse cx="132" cy="92" rx="4" ry="6" fill="#e8ddc7" />
 
       {/* Cheeks */}
-      <circle cx="72" cy="115" r="5" fill="#b91c1c" opacity="0.85" />
-      <circle cx="148" cy="115" r="5" fill="#b91c1c" opacity="0.85" />
+      <circle cx="72" cy="115" r="5" fill="#B81336" opacity="0.85" />
+      <circle cx="148" cy="115" r="5" fill="#B81336" opacity="0.85" />
 
       {/* Open smile */}
       <path
@@ -60,7 +60,7 @@ export function GhostWaving({ className }: Props) {
       {/* Sparkle near the hand */}
       <path
         d="M210 40 L210 50 M205 45 L215 45"
-        stroke="#b91c1c"
+        stroke="#B81336"
         strokeWidth="2.5"
         strokeLinecap="round"
       />

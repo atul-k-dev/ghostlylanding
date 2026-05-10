@@ -57,7 +57,7 @@ const PATH = (() => {
   return parts;
 })();
 
-export function BloodEdge({ className, color = "#b91c1c", flip = false }: Props) {
+export function BloodEdge({ className, color = "#B81336", flip = false }: Props) {
   return (
     <svg
       viewBox="0 0 1200 130"

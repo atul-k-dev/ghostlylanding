@@ -196,7 +196,7 @@ function LikeCard({
     <article
       className={`overflow-hidden rounded-2xl border bg-ink-soft/95 p-3.5 backdrop-blur md:p-4 ${
         isAnimating
-          ? "border-coral/40 shadow-[0_10px_30px_rgba(185,28,28,0.18)]"
+          ? "border-coral/40 shadow-[0_10px_30px_rgba(184,19,54,0.18)]"
           : "border-cream/10"
       }`}
     >
@@ -304,7 +304,7 @@ function CommentCard({
   reply: string;
 }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-coral/40 bg-ink-soft/95 p-3.5 shadow-[0_10px_30px_rgba(185,28,28,0.18)] backdrop-blur md:p-4">
+    <article className="overflow-hidden rounded-2xl border border-coral/40 bg-ink-soft/95 p-3.5 shadow-[0_10px_30px_rgba(184,19,54,0.18)] backdrop-blur md:p-4">
       <ActionBanner
         icon={<ReplyIcon className="h-2.5 w-2.5" />}
         label="Casper replied for you"
@@ -361,7 +361,7 @@ function FollowCard({
   bio: string;
 }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-coral/40 bg-ink-soft/95 p-3.5 shadow-[0_10px_30px_rgba(185,28,28,0.18)] backdrop-blur md:p-4">
+    <article className="overflow-hidden rounded-2xl border border-coral/40 bg-ink-soft/95 p-3.5 shadow-[0_10px_30px_rgba(184,19,54,0.18)] backdrop-blur md:p-4">
       <ActionBanner
         icon={<PlusIcon className="h-2.5 w-2.5" />}
         label="Casper followed someone new"
@@ -388,7 +388,7 @@ function FollowCard({
           </button>
           <button
             type="button"
-            className="hv-follow-post absolute inset-0 flex items-center justify-center gap-1 rounded-full bg-coral text-[10px] font-bold text-cream shadow-[0_4px_14px_rgba(185,28,28,0.45)]"
+            className="hv-follow-post absolute inset-0 flex items-center justify-center gap-1 rounded-full bg-coral text-[10px] font-bold text-cream shadow-[0_4px_14px_rgba(184,19,54,0.45)]"
           >
             <CheckIcon className="h-2.5 w-2.5" />
             Following
@@ -435,7 +435,7 @@ export function HeroVisual() {
         className="pointer-events-none absolute inset-0 -z-10 rounded-[36px] opacity-50 blur-3xl"
         style={{
           background:
-            "radial-gradient(circle at 50% 40%, #b91c1c 0%, transparent 65%)",
+            "radial-gradient(circle at 50% 40%, #B81336 0%, transparent 65%)",
         }}
       />
 
@@ -483,7 +483,7 @@ export function HeroVisual() {
 
       {/* Floating Casper extension popup — bottom-right overlay */}
       <div
-        className="absolute -bottom-6 -right-3 w-[210px] rounded-2xl border border-coral/40 bg-ink-soft p-3.5 shadow-[0_18px_50px_rgba(185,28,28,0.3)]"
+        className="absolute -bottom-6 -right-3 w-[210px] rounded-2xl border border-coral/40 bg-ink-soft p-3.5 shadow-[0_18px_50px_rgba(184,19,54,0.3)]"
         style={{ transform: "rotate(2.5deg)" }}
       >
         <div className="flex items-center gap-2.5">

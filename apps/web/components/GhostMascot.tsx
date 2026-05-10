@@ -25,8 +25,8 @@ export function GhostMascot({ className }: Props) {
       <ellipse cx="122" cy="92" rx="4" ry="6" fill="#e8ddc7" />
 
       {/* Cheeks */}
-      <circle cx="64" cy="115" r="5" fill="#b91c1c" opacity="0.85" />
-      <circle cx="136" cy="115" r="5" fill="#b91c1c" opacity="0.85" />
+      <circle cx="64" cy="115" r="5" fill="#B81336" opacity="0.85" />
+      <circle cx="136" cy="115" r="5" fill="#B81336" opacity="0.85" />
 
       {/* Smile */}
       <path
@@ -56,7 +56,7 @@ export function GhostMascot({ className }: Props) {
       {/* Tiny coral heart */}
       <path
         d="M100 138 C97 134, 91 134, 91 140 C91 145, 100 152, 100 152 C100 152, 109 145, 109 140 C109 134, 103 134, 100 138 Z"
-        fill="#b91c1c"
+        fill="#B81336"
       />
     </svg>
   );

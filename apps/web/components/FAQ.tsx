@@ -41,7 +41,7 @@ export function FAQ() {
   return (
     <section
       id="faq"
-      className="relative overflow-hidden bg-ink pattern-dots py-24 md:py-32"
+      className="relative overflow-hidden bg-ink py-24 md:py-32"
     >
       <BloodDrip
         className="pointer-events-none absolute right-[10%] top-16 h-9 w-auto opacity-60"

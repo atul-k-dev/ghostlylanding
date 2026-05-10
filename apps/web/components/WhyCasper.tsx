@@ -64,7 +64,7 @@ export function WhyCasper() {
   return (
     <section
       id="why-casper"
-      className="relative overflow-hidden bg-ink pattern-diagonal py-24 md:py-32"
+      className="relative overflow-hidden bg-ink py-24 md:py-32"
     >
       {/* Background splatter */}
       <BloodSplatter
@@ -174,7 +174,7 @@ export function WhyCasper() {
 
             {/* Header */}
             <div className="relative flex items-center gap-3 border-b border-cream/10 pb-5">
-              <span className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full bg-coral text-cream shadow-[0_4px_18px_rgba(185,28,28,0.4)]">
+              <span className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full bg-coral text-cream shadow-[0_4px_18px_rgba(184,19,54,0.4)]">
                 <CheckIcon className="h-4 w-4" />
               </span>
               <div>
@@ -194,7 +194,7 @@ export function WhyCasper() {
                   key={point}
                   className="flex items-start gap-3 text-sm text-cream md:text-[15px]"
                 >
-                  <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-coral text-cream shadow-[0_2px_10px_rgba(185,28,28,0.35)]">
+                  <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-coral text-cream shadow-[0_2px_10px_rgba(184,19,54,0.35)]">
                     <CheckIcon className="h-2.5 w-2.5" />
                   </span>
                   <span>{point}</span>

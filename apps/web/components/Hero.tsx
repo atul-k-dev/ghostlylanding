@@ -8,7 +8,7 @@ import { TextSticker } from "./stickers/TextSticker";
 
 export function Hero() {
   return (
-    <section className="relative flex min-h-[100svh] flex-col overflow-hidden">
+    <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-ink pattern-dots">
       {/* Decorative balloons */}
       <div
         className="pointer-events-none absolute left-[6%] top-[26%] hidden opacity-50 animate-drift lg:block"
@@ -86,7 +86,7 @@ export function Hero() {
           </a>
           <a
             href="#"
-            className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-cream shadow-[0_6px_24px_rgba(185,28,28,0.4)] transition hover:bg-coral-dim md:px-5"
+            className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-cream shadow-[0_6px_24px_rgba(184,19,54,0.4)] transition hover:bg-coral-dim md:px-5"
           >
             Get started
           </a>
@@ -120,7 +120,7 @@ export function Hero() {
           <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:items-start lg:justify-start">
             <a
               href="#"
-              className="rounded-full bg-coral px-7 py-3 text-sm font-semibold text-cream shadow-[0_8px_30px_rgba(185,28,28,0.4)] transition hover:bg-coral-dim"
+              className="rounded-full bg-coral px-7 py-3 text-sm font-semibold text-cream shadow-[0_8px_30px_rgba(184,19,54,0.4)] transition hover:bg-coral-dim"
             >
               Get started free
             </a>

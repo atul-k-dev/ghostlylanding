@@ -11,7 +11,7 @@ function Star() {
     <svg
       className="h-3.5 w-3.5"
       viewBox="0 0 24 24"
-      fill="#b91c1c"
+      fill="#B81336"
       aria-hidden="true"
     >
       <path d="M12 2l2.95 6.36L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l7.05-.91L12 2z" />

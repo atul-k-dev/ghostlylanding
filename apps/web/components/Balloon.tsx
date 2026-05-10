@@ -16,13 +16,13 @@ export function Balloon({ className }: Props) {
         cy="40"
         rx="28"
         ry="34"
-        fill="#b91c1c"
+        fill="#B81336"
         stroke="#e8ddc7"
         strokeWidth="2.5"
       />
       <path
         d="M36 74 L40 80 L44 74 Z"
-        fill="#b91c1c"
+        fill="#B81336"
         stroke="#e8ddc7"
         strokeWidth="2"
         strokeLinejoin="round"

@@ -44,7 +44,7 @@ function Step1Mock() {
       </div>
 
       {/* Casper popup */}
-      <div className="absolute -right-4 top-14 w-[210px] rotate-[3deg] rounded-2xl border border-coral/40 bg-ink-soft p-4 shadow-[0_15px_50px_rgba(185,28,28,0.25)]">
+      <div className="absolute -right-4 top-14 w-[210px] rotate-[3deg] rounded-2xl border border-coral/40 bg-ink-soft p-4 shadow-[0_15px_50px_rgba(184,19,54,0.25)]">
         <div className="flex items-center gap-2.5">
           <GhostWaving className="h-7 w-7" />
           <div className="flex-1">
@@ -98,7 +98,7 @@ function Step2Mock() {
               key={p}
               className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
                 i === 0
-                  ? "bg-coral text-cream shadow-[0_4px_18px_rgba(185,28,28,0.35)]"
+                  ? "bg-coral text-cream shadow-[0_4px_18px_rgba(184,19,54,0.35)]"
                   : "border border-cream/20 text-cream/55"
               }`}
             >
@@ -316,7 +316,7 @@ export function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="relative overflow-hidden bg-ink pattern-dots py-24 md:py-32"
+      className="relative overflow-hidden bg-ink py-24 md:py-32"
     >
       {/* Decorative drips */}
       <BloodDrip

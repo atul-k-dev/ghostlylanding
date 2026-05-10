@@ -26,8 +26,8 @@ export function Bat({ className, flap = false }: Props) {
         <path d="M47 12 L46 6 L49 11 Z" />
         <path d="M53 12 L54 6 L51 11 Z" />
         {/* eyes */}
-        <circle cx="48" cy="19" r="0.8" fill="#b91c1c" />
-        <circle cx="52" cy="19" r="0.8" fill="#b91c1c" />
+        <circle cx="48" cy="19" r="0.8" fill="#B81336" />
+        <circle cx="52" cy="19" r="0.8" fill="#B81336" />
       </g>
     </svg>
   );

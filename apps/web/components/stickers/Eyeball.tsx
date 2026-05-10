@@ -23,16 +23,16 @@ export function Eyeball({ className, rotate = 0 }: Props) {
         strokeWidth="2.5"
       />
       {/* Iris */}
-      <circle cx="45" cy="45" r="16" fill="#b91c1c" />
+      <circle cx="45" cy="45" r="16" fill="#B81336" />
       {/* Pupil */}
       <circle cx="45" cy="45" r="7" fill="#0e0e0e" />
       {/* Highlight */}
       <circle cx="40" cy="40" r="3" fill="#e8ddc7" />
       {/* Veins */}
-      <path d="M 78 32 Q 65 35 58 42" stroke="#b91c1c" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-      <path d="M 10 50 Q 25 48 32 45" stroke="#b91c1c" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-      <path d="M 75 65 Q 65 60 58 55" stroke="#b91c1c" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-      <path d="M 20 70 Q 30 62 35 55" stroke="#b91c1c" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <path d="M 78 32 Q 65 35 58 42" stroke="#B81336" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <path d="M 10 50 Q 25 48 32 45" stroke="#B81336" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <path d="M 75 65 Q 65 60 58 55" stroke="#B81336" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <path d="M 20 70 Q 30 62 35 55" stroke="#B81336" strokeWidth="1.5" fill="none" strokeLinecap="round" />
     </svg>
   );
 }

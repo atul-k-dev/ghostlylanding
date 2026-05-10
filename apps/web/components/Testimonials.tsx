@@ -89,7 +89,7 @@ function Star() {
     <svg
       className="h-3 w-3"
       viewBox="0 0 24 24"
-      fill="#b91c1c"
+      fill="#B81336"
       aria-hidden="true"
     >
       <path d="M12 2l2.95 6.36L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l7.05-.91L12 2z" />
@@ -102,7 +102,7 @@ function QuoteMark({ className }: { className?: string }) {
     <svg
       className={className}
       viewBox="0 0 80 60"
-      fill="#b91c1c"
+      fill="#B81336"
       aria-hidden="true"
     >
       <path d="M 8 16 Q 8 8 16 8 L 30 8 L 30 28 L 22 28 Q 18 28 18 32 L 18 44 L 8 44 Z M 42 16 Q 42 8 50 8 L 64 8 L 64 28 L 56 28 Q 52 28 52 32 L 52 44 L 42 44 Z" />
@@ -199,7 +199,7 @@ export function Testimonials() {
   return (
     <section
       id="testimonials"
-      className="relative overflow-hidden bg-ink pattern-grid py-24 md:py-32"
+      className="relative overflow-hidden bg-ink py-24 md:py-32"
     >
       {/* Background splatter */}
       <BloodSplatter

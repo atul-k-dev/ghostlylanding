@@ -44,9 +44,9 @@ function BrowserShieldIcon({ className }: { className?: string }) {
       {/* Shield over window */}
       <path
         d="M60 46 L86 56 V78 C86 90 76 98 60 104 C44 98 34 90 34 78 V56 Z"
-        fill="#b91c1c"
+        fill="#B81336"
         fillOpacity="0.18"
-        stroke="#b91c1c"
+        stroke="#B81336"
         strokeWidth="2.5"
         strokeLinejoin="round"
       />
@@ -84,12 +84,12 @@ function RandomClockIcon({ className }: { className?: string }) {
       <line x1="20" y1="42" x2="24" y2="42" stroke="#e8ddc7" strokeWidth="2" strokeLinecap="round" />
       {/* Hands */}
       <line x1="40" y1="42" x2="40" y2="30" stroke="#e8ddc7" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="40" y1="42" x2="50" y2="46" stroke="#b91c1c" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="40" cy="42" r="2.5" fill="#b91c1c" />
+      <line x1="40" y1="42" x2="50" y2="46" stroke="#B81336" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="40" cy="42" r="2.5" fill="#B81336" />
       {/* Random sparkles around */}
-      <path d="M67 22 L68 26 L72 27 L68 28 L67 32 L66 28 L62 27 L66 26 Z" fill="#b91c1c" />
-      <path d="M14 16 L14.5 18 L17 18.5 L14.5 19 L14 21 L13.5 19 L11 18.5 L13.5 18 Z" fill="#b91c1c" fillOpacity="0.6" />
-      <circle cx="68" cy="60" r="1.5" fill="#b91c1c" fillOpacity="0.5" />
+      <path d="M67 22 L68 26 L72 27 L68 28 L67 32 L66 28 L62 27 L66 26 Z" fill="#B81336" />
+      <path d="M14 16 L14.5 18 L17 18.5 L14.5 19 L14 21 L13.5 19 L11 18.5 L13.5 18 Z" fill="#B81336" fillOpacity="0.6" />
+      <circle cx="68" cy="60" r="1.5" fill="#B81336" fillOpacity="0.5" />
     </svg>
   );
 }
@@ -104,15 +104,15 @@ function PauseShieldIcon({ className }: { className?: string }) {
     >
       <path
         d="M40 14 L64 24 V44 C64 56 54 66 40 70 C26 66 16 56 16 44 V24 Z"
-        fill="#b91c1c"
+        fill="#B81336"
         fillOpacity="0.12"
         stroke="#e8ddc7"
         strokeOpacity="0.45"
         strokeWidth="2"
         strokeLinejoin="round"
       />
-      <rect x="31" y="32" width="5" height="18" rx="1" fill="#b91c1c" />
-      <rect x="44" y="32" width="5" height="18" rx="1" fill="#b91c1c" />
+      <rect x="31" y="32" width="5" height="18" rx="1" fill="#B81336" />
+      <rect x="44" y="32" width="5" height="18" rx="1" fill="#B81336" />
     </svg>
   );
 }
@@ -138,13 +138,13 @@ function PowerKillIcon({ className }: { className?: string }) {
         y1="24"
         x2="40"
         y2="42"
-        stroke="#b91c1c"
+        stroke="#B81336"
         strokeWidth="3.5"
         strokeLinecap="round"
       />
       <path
         d="M28 36 A14 14 0 1 0 52 36"
-        stroke="#b91c1c"
+        stroke="#B81336"
         strokeWidth="3.5"
         strokeLinecap="round"
       />
@@ -161,10 +161,10 @@ function GrowingCapsIcon({ className }: { className?: string }) {
       aria-hidden="true"
     >
       {/* Bars */}
-      <rect x="12" y="50" width="9" height="14" rx="1.5" fill="#b91c1c" fillOpacity="0.35" />
-      <rect x="26" y="42" width="9" height="22" rx="1.5" fill="#b91c1c" fillOpacity="0.55" />
-      <rect x="40" y="32" width="9" height="32" rx="1.5" fill="#b91c1c" fillOpacity="0.75" />
-      <rect x="54" y="22" width="9" height="42" rx="1.5" fill="#b91c1c" />
+      <rect x="12" y="50" width="9" height="14" rx="1.5" fill="#B81336" fillOpacity="0.35" />
+      <rect x="26" y="42" width="9" height="22" rx="1.5" fill="#B81336" fillOpacity="0.55" />
+      <rect x="40" y="32" width="9" height="32" rx="1.5" fill="#B81336" fillOpacity="0.75" />
+      <rect x="54" y="22" width="9" height="42" rx="1.5" fill="#B81336" />
       {/* Trend arrow */}
       <path
         d="M14 52 L29 44 L43 34 L58 24"
@@ -202,15 +202,15 @@ function LogListIcon({ className }: { className?: string }) {
         strokeWidth="2"
       />
       {/* Row 1 */}
-      <circle cx="22" cy="28" r="2" fill="#b91c1c" />
+      <circle cx="22" cy="28" r="2" fill="#B81336" />
       <line x1="29" y1="28" x2="50" y2="28" stroke="#e8ddc7" strokeOpacity="0.7" strokeWidth="2" strokeLinecap="round" />
       <line x1="55" y1="28" x2="60" y2="28" stroke="#e8ddc7" strokeOpacity="0.4" strokeWidth="2" strokeLinecap="round" />
       {/* Row 2 */}
-      <circle cx="22" cy="40" r="2" fill="#b91c1c" />
+      <circle cx="22" cy="40" r="2" fill="#B81336" />
       <line x1="29" y1="40" x2="46" y2="40" stroke="#e8ddc7" strokeOpacity="0.7" strokeWidth="2" strokeLinecap="round" />
       <line x1="51" y1="40" x2="60" y2="40" stroke="#e8ddc7" strokeOpacity="0.4" strokeWidth="2" strokeLinecap="round" />
       {/* Row 3 */}
-      <circle cx="22" cy="52" r="2" fill="#b91c1c" />
+      <circle cx="22" cy="52" r="2" fill="#B81336" />
       <line x1="29" y1="52" x2="52" y2="52" stroke="#e8ddc7" strokeOpacity="0.7" strokeWidth="2" strokeLinecap="round" />
       <line x1="57" y1="52" x2="60" y2="52" stroke="#e8ddc7" strokeOpacity="0.4" strokeWidth="2" strokeLinecap="round" />
     </svg>

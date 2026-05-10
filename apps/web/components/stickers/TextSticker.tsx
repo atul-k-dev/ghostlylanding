@@ -28,10 +28,10 @@ export function TextSticker({ text, className, tilt = -6, size = "md" }: Props) 
       <span
         className={`block font-display ${SIZE[size]} uppercase tracking-wide leading-none`}
         style={{
-          color: "#b91c1c",
+          color: "#B81336",
           WebkitTextStroke: "2px #e8ddc7",
           textShadow:
-            "3px 4px 0 rgba(0,0,0,0.55), 0 0 22px rgba(185,28,28,0.25)",
+            "3px 4px 0 rgba(0,0,0,0.55), 0 0 22px rgba(184,19,54,0.25)",
         }}
       >
         {text}
