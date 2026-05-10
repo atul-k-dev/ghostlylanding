@@ -41,7 +41,7 @@ export function FAQ() {
   return (
     <section
       id="faq"
-      className="relative overflow-hidden bg-ink py-24 md:py-32"
+      className="relative overflow-hidden bg-ink pattern-dots py-24 md:py-32"
     >
       <BloodDrip
         className="pointer-events-none absolute right-[10%] top-16 h-9 w-auto opacity-60"
@@ -82,7 +82,7 @@ export function FAQ() {
         className="absolute left-[4%] top-[14%] hidden lg:block"
       />
 
-      <div className="relative z-10 mx-auto max-w-3xl px-6 md:px-10">
+      <div className="relative z-10 mx-auto max-w-4xl px-6 md:px-10">
         <div className="text-center">
           <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-cream/15 bg-cream/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.25em] text-cream/70 md:text-[11px]">
             <span className="h-1.5 w-1.5 rounded-full bg-coral" />

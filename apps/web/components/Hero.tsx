@@ -2,9 +2,8 @@ import Image from "next/image";
 import { Balloon } from "./Balloon";
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
-import { GhostMascot } from "./GhostMascot";
+import { HeroVisual } from "./HeroVisual";
 import { SocialProof } from "./SocialProof";
-import { Eyeball } from "./stickers/Eyeball";
 import { TextSticker } from "./stickers/TextSticker";
 
 export function Hero() {
@@ -53,22 +52,18 @@ export function Hero() {
       <TextSticker
         text="AUTOPILOT"
         size="md"
-        tilt={-12}
-        className="absolute left-[6%] top-[26%] hidden lg:block"
+        tilt={-10}
+        className="absolute left-[3%] bottom-[12%] hidden lg:block"
       />
       <TextSticker
-        text="BOO!"
+        text="ZZZ..."
         size="lg"
         tilt={8}
-        className="absolute right-[8%] bottom-[22%] hidden lg:block"
-      />
-      <Eyeball
-        className="pointer-events-none absolute right-[14%] top-[36%] hidden h-12 w-auto opacity-90 md:block"
-        rotate={-12}
+        className="absolute right-[6%] bottom-[8%] hidden lg:block"
       />
 
       {/* Nav */}
-      <nav className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5 md:px-10">
+      <nav className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5 md:px-10">
         <a href="#" className="flex items-center gap-3">
           <Image
             src="/logo.png"
@@ -98,59 +93,54 @@ export function Hero() {
         </div>
       </nav>
 
-      {/* Centered content */}
-      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-6 pb-10 text-center">
-        {/* Mascot with soft glow */}
-        <div className="relative mb-5 animate-float">
-          <div
-            className="pointer-events-none absolute inset-0 -z-10 rounded-full opacity-40 blur-3xl"
-            style={{
-              background:
-                "radial-gradient(circle, #b91c1c 0%, transparent 70%)",
-            }}
-            aria-hidden="true"
-          />
-          <GhostMascot className="h-20 w-auto md:h-24" />
+      {/* Two-column content */}
+      <div className="relative z-10 mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 items-center gap-10 px-6 pb-10 md:px-10 lg:grid-cols-2 lg:gap-12">
+        {/* Left — text */}
+        <div className="text-center lg:text-left">
+          {/* Eyebrow pill */}
+          <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-cream/15 bg-cream/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.25em] text-cream/70 md:text-[11px]">
+            <span className="h-1.5 w-1.5 rounded-full bg-coral" />
+            Browser extension · Twitter + LinkedIn
+          </span>
+
+          {/* Headline */}
+          <h1 className="font-display text-4xl leading-[1] tracking-tight text-cream sm:text-5xl md:text-6xl lg:text-[52px] xl:text-[64px]">
+            Grow your socials
+            <br />
+            while you <span className="text-coral">sleep.</span>
+          </h1>
+
+          {/* Sub */}
+          <p className="mx-auto mt-6 max-w-lg text-sm text-cream/70 md:text-base lg:mx-0 lg:text-lg">
+            Casper likes, comments, and follows for you — automatically, in
+            your tone, right inside your own browser.
+          </p>
+
+          {/* CTAs */}
+          <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:items-start lg:justify-start">
+            <a
+              href="#"
+              className="rounded-full bg-coral px-7 py-3 text-sm font-semibold text-cream shadow-[0_8px_30px_rgba(185,28,28,0.4)] transition hover:bg-coral-dim"
+            >
+              Get started free
+            </a>
+            <a
+              href="#features"
+              className="text-sm text-cream/70 transition hover:text-cream"
+            >
+              See how it works →
+            </a>
+          </div>
+
+          {/* Social proof */}
+          <div className="mt-8 flex justify-center lg:justify-start">
+            <SocialProof />
+          </div>
         </div>
 
-        {/* Eyebrow pill */}
-        <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-cream/15 bg-cream/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.25em] text-cream/70 md:text-[11px]">
-          <span className="h-1.5 w-1.5 rounded-full bg-coral" />
-          Browser extension · Twitter + LinkedIn
-        </span>
-
-        {/* Headline */}
-        <h1 className="font-display text-4xl leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl lg:text-7xl xl:text-[96px]">
-          Grow your socials
-          <br />
-          while you <span className="text-coral">sleep.</span>
-        </h1>
-
-        {/* Sub */}
-        <p className="mx-auto mt-7 max-w-lg text-sm text-cream/70 md:mt-9 md:text-lg">
-          The friendly little ghost that likes, comments, and follows in your
-          tone — on autopilot, in your browser.
-        </p>
-
-        {/* CTAs */}
-        <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row">
-          <a
-            href="#"
-            className="rounded-full bg-coral px-7 py-3 text-sm font-semibold text-cream shadow-[0_8px_30px_rgba(185,28,28,0.4)] transition hover:bg-coral-dim"
-          >
-            Get started free
-          </a>
-          <a
-            href="#features"
-            className="text-sm text-cream/70 transition hover:text-cream"
-          >
-            See how it works →
-          </a>
-        </div>
-
-        {/* Social proof */}
-        <div className="mt-8">
-          <SocialProof />
+        {/* Right — animated product demo */}
+        <div className="order-first flex justify-center lg:order-none lg:justify-end">
+          <HeroVisual />
         </div>
       </div>
     </section>

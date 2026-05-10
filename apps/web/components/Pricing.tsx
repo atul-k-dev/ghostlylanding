@@ -67,7 +67,7 @@ export function Pricing() {
   return (
     <section
       id="pricing"
-      className="relative overflow-hidden bg-ink-soft py-20 md:py-24"
+      className="relative overflow-hidden bg-ink pattern-spotlight py-20 md:py-24"
     >
       {/* Decoration */}
       <BloodSplatter
@@ -131,7 +131,7 @@ export function Pricing() {
         rotate={15}
       />
 
-      <div className="relative z-10 mx-auto max-w-5xl px-6 md:px-10">
+      <div className="relative z-10 mx-auto max-w-6xl px-6 md:px-10">
         {/* Header */}
         <div className="mx-auto max-w-2xl text-center">
           <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-cream/15 bg-cream/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.25em] text-cream/70 md:text-[11px]">
@@ -190,9 +190,9 @@ export function Pricing() {
         </div>
 
         {/* Cards */}
-        <div className="relative z-20 mt-10 grid grid-cols-1 gap-5 lg:grid-cols-5">
+        <div className="relative z-20 mt-10 grid grid-cols-1 gap-5 lg:grid-cols-2">
           {/* FREE */}
-          <article className="relative flex flex-col rounded-3xl border border-cream/10 bg-ink/60 p-6 lg:col-span-2">
+          <article className="relative flex flex-col rounded-3xl border border-cream/10 bg-ink-soft/60 p-6">
             <div className="flex items-center justify-between">
               <span className="font-display text-[11px] tracking-[0.35em] text-cream-dim">
                 FREE FOREVER
@@ -254,7 +254,7 @@ export function Pricing() {
           </article>
 
           {/* PRO — outer wrapper has no overflow-hidden so the badge can stick above */}
-          <div className="relative lg:col-span-3">
+          <div className="relative">
             {/* Most popular tape — lives ABOVE the card edge */}
             <span
               className="absolute -top-3 right-6 z-20 rounded-full bg-coral px-3.5 py-1 font-display text-[10px] tracking-[0.3em] text-cream shadow-[0_4px_20px_rgba(185,28,28,0.55)]"

@@ -9,7 +9,7 @@ export function FinalCTA() {
   return (
     <section
       id="final-cta"
-      className="relative overflow-hidden bg-ink-soft py-32 md:py-40"
+      className="relative overflow-hidden bg-ink pattern-spotlight-bottom py-32 md:py-40"
     >
       {/* Drip curtain at top */}
       <BloodEdge
@@ -53,13 +53,13 @@ export function FinalCTA() {
         className="absolute left-[8%] top-[28%] hidden lg:block"
       />
       <TextSticker
-        text="OK BYE!"
+        text="GO REST"
         size="lg"
         tilt={11}
         className="absolute right-[5%] bottom-[28%] hidden lg:block"
       />
 
-      <div className="relative z-10 mx-auto max-w-3xl px-6 pt-12 text-center md:px-10 md:pt-16">
+      <div className="relative z-10 mx-auto max-w-4xl px-6 pt-12 text-center md:px-10 md:pt-16">
         {/* Sleeping ghost — visual reinforcement of "while you sleep" */}
         <div className="mb-8 flex justify-center">
           <div className="relative animate-float">
@@ -85,8 +85,8 @@ export function FinalCTA() {
         </h2>
 
         <p className="mx-auto mt-6 max-w-md text-sm text-cream/75 md:text-base">
-          Casper handles your engagement loop in your tone, on your schedule.
-          You get the followers, the comments, and the sleep.
+          Casper handles your likes, comments, and follows on your schedule.
+          You get the followers — and your sleep back.
         </p>
 
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">

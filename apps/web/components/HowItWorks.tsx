@@ -316,7 +316,7 @@ export function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="relative overflow-hidden bg-ink-soft py-24 md:py-32"
+      className="relative overflow-hidden bg-ink pattern-dots py-24 md:py-32"
     >
       {/* Decorative drips */}
       <BloodDrip
@@ -350,7 +350,7 @@ export function HowItWorks() {
         rotate={18}
       />
       <TextSticker
-        text="ON IT!"
+        text="SET & FORGET"
         size="md"
         tilt={-8}
         className="absolute left-[3%] top-[36%] hidden lg:block"
@@ -359,7 +359,7 @@ export function HowItWorks() {
       {/* Top hairline */}
       <div className="absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-cream/15 to-transparent" />
 
-      <div className="relative z-10 mx-auto max-w-6xl px-6 md:px-10">
+      <div className="relative z-10 mx-auto max-w-7xl px-6 md:px-10">
         {/* Section header */}
         <div className="mx-auto max-w-2xl text-center">
           <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-cream/15 bg-cream/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.25em] text-cream/70 md:text-[11px]">
@@ -372,8 +372,8 @@ export function HowItWorks() {
             <span className="text-coral">Sleep.</span>
           </h2>
           <p className="mx-auto mt-5 max-w-lg text-sm text-cream/70 md:text-base">
-            Three steps to autopilot. No agency setup, no enterprise
-            dashboard, no cold templates staring at you.
+            Three steps to set up. After that, Casper runs itself while you
+            focus on your actual work.
           </p>
         </div>
 

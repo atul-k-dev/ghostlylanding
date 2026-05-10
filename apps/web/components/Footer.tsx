@@ -33,7 +33,7 @@ export function Footer() {
   return (
     <footer className="relative overflow-hidden border-t border-cream/10 bg-ink pt-16 md:pt-20">
       {/* Foreground content */}
-      <div className="relative z-10 mx-auto grid max-w-6xl grid-cols-2 gap-10 px-6 md:grid-cols-5 md:gap-8 md:px-10">
+      <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-2 gap-10 px-6 md:grid-cols-5 md:gap-8 md:px-10">
         {/* Brand block */}
         <div className="col-span-2">
           <a href="#" className="flex items-center gap-3">
@@ -76,7 +76,7 @@ export function Footer() {
       </div>
 
       {/* Legal row */}
-      <div className="relative z-10 mx-auto mt-14 flex max-w-6xl flex-col items-start justify-between gap-3 border-t border-cream/10 px-6 pb-2 pt-6 text-xs text-cream-dim md:flex-row md:items-center md:px-10">
+      <div className="relative z-10 mx-auto mt-14 flex max-w-7xl flex-col items-start justify-between gap-3 border-t border-cream/10 px-6 pb-2 pt-6 text-xs text-cream-dim md:flex-row md:items-center md:px-10">
         <p>© {new Date().getFullYear()} Casper AI. Made for solo creators.</p>
         <p>Browser-session only · Zero credentials collected</p>
       </div>

@@ -327,7 +327,7 @@ const FEATURES: Feature[] = [
     title: "Like the right posts.",
     highlight: "Skip the noise.",
     description:
-      "Target by hashtag, keyword, or specific creator. Casper liked the post — but only if it actually deserved it.",
+      "Target posts by hashtag, keyword, or specific creator. Casper only likes posts worth liking — and skips the spam.",
     bullets: [
       "Hashtag, keyword, and creator-list targeting",
       "Fresh-post filter — no resurfacing month-old content",
@@ -472,7 +472,7 @@ export function Features() {
   return (
     <section
       id="features"
-      className="relative overflow-hidden bg-ink py-24 md:py-32"
+      className="relative overflow-hidden bg-ink pattern-spotlight py-24 md:py-32"
     >
       {/* Decorations */}
       <BloodDrip
@@ -496,7 +496,7 @@ export function Features() {
         rotate={20}
       />
       <TextSticker
-        text="VIRAL!"
+        text="ON YOUR TONE"
         size="md"
         tilt={9}
         className="absolute right-[4%] top-[6%] hidden lg:block"
@@ -514,7 +514,7 @@ export function Features() {
         <Bat className="h-9 w-auto" flap />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-6xl px-6 md:px-10">
+      <div className="relative z-10 mx-auto max-w-7xl px-6 md:px-10">
         {/* Header */}
         <div className="mx-auto max-w-2xl text-center">
           <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-cream/15 bg-cream/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.25em] text-cream/70 md:text-[11px]">
@@ -524,11 +524,11 @@ export function Features() {
           <h2 className="font-display text-4xl leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl">
             Everything you need.
             <br />
-            None of the <span className="text-coral">bro energy.</span>
+            None of the <span className="text-coral">noise.</span>
           </h2>
           <p className="mx-auto mt-5 max-w-lg text-sm text-cream/70 md:text-base">
-            Five features that quietly handle your daily engagement loop —
-            without ever feeling like an enterprise sales tool.
+            Five simple features that handle your daily likes, comments, and
+            follows — quietly, in the background.
           </p>
         </div>
 

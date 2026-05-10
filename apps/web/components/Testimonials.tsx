@@ -1,6 +1,7 @@
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
 import { BloodSplatter } from "./BloodSplatter";
+import { GhostMascot } from "./GhostMascot";
 import { Eyeball } from "./stickers/Eyeball";
 import { TextSticker } from "./stickers/TextSticker";
 
@@ -9,17 +10,21 @@ type Testimonial = {
   name: string;
   role: string;
   avatar: string;
-  tilt: number;
+  /** Bento grid span classes for md+. */
+  span: string;
+  featured?: boolean;
 };
 
 const TESTIMONIALS: Testimonial[] = [
+  // Featured large card — top-left
   {
     quote:
-      "Cancelled my LinkedIn auto-comment SaaS the day after I tried Casper. The voice training actually reads my back catalog instead of pretending.",
+      "Cancelled my LinkedIn auto-comment SaaS the day after I tried Casper. The voice training actually reads my back catalog instead of pretending — every reply lands like I wrote it myself.",
     name: "Maya Chen",
     role: "Brand designer",
     avatar: "https://i.pravatar.cc/120?img=20",
-    tilt: -1,
+    span: "md:col-span-3 md:row-span-2",
+    featured: true,
   },
   {
     quote:
@@ -27,7 +32,7 @@ const TESTIMONIALS: Testimonial[] = [
     name: "Jordan Reyes",
     role: "Indie founder · @jrbuilds",
     avatar: "https://i.pravatar.cc/120?img=12",
-    tilt: 1,
+    span: "md:col-span-3",
   },
   {
     quote:
@@ -35,31 +40,47 @@ const TESTIMONIALS: Testimonial[] = [
     name: "Priya Sharma",
     role: "Career coach",
     avatar: "https://i.pravatar.cc/120?img=32",
-    tilt: -2,
+    span: "md:col-span-3",
   },
   {
     quote:
-      "The fact that it runs in MY browser, not their cloud, is the only reason I trusted it. Three months in, zero issues. Account intact.",
+      "Runs in MY browser, not their cloud. Three months in, zero issues. Account intact.",
     name: "Tom Whitford",
     role: "Freelance writer",
     avatar: "https://i.pravatar.cc/120?img=68",
-    tilt: 1,
+    span: "md:col-span-2",
   },
   {
     quote:
-      "Saved me about 90 minutes a day of engagement scrolling. The crazy part — comments still sound exactly like me. My audience can't tell.",
+      "Saved me 90 minutes a day. Comments still sound exactly like me — my audience can't tell.",
     name: "Sara Lindgren",
     role: "Frontend dev",
     avatar: "https://i.pravatar.cc/120?img=49",
-    tilt: -1,
+    span: "md:col-span-2",
   },
   {
     quote:
-      "Other tools wear creator clothes but they still speak SDR. Casper actually gets that I'm one person building a brand, not a sales pipeline.",
+      "Casper actually gets that I'm one person building a brand, not a sales pipeline.",
     name: "Alex Park",
     role: "Founder, Stillhouse",
     avatar: "https://i.pravatar.cc/120?img=47",
-    tilt: 2,
+    span: "md:col-span-2",
+  },
+  {
+    quote:
+      "Three weeks in and I've picked up 1,400 engaged followers — real people who reply, not bots. The AI comments don't feel scripted at all.",
+    name: "Diego Martinez",
+    role: "Newsletter writer",
+    avatar: "https://i.pravatar.cc/120?img=11",
+    span: "md:col-span-4",
+  },
+  {
+    quote:
+      "Set it up on Sunday, forgot about it, opened LinkedIn on Friday and had 200+ new profile views. Felt illegal.",
+    name: "Lena Volkov",
+    role: "SaaS founder",
+    avatar: "https://i.pravatar.cc/120?img=44",
+    span: "md:col-span-2",
   },
 ];
 
@@ -89,30 +110,73 @@ function QuoteMark({ className }: { className?: string }) {
   );
 }
 
-function TestimonialCard({ t }: { t: Testimonial }) {
+function FeaturedCard({ t }: { t: Testimonial }) {
   return (
     <article
-      className="group relative flex h-full flex-col rounded-3xl border border-cream/10 bg-ink/60 p-6 transition hover:border-coral/40 md:p-7"
-      style={{ transform: `rotate(${t.tilt}deg)` }}
+      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl border border-coral/40 bg-gradient-to-br from-coral/[0.10] via-ink-soft to-ink p-7 transition hover:border-coral/60 md:p-9 ${t.span}`}
     >
-      {/* Big translucent quote mark in corner */}
-      <QuoteMark className="absolute right-5 top-5 h-7 w-auto opacity-15" />
-
-      {/* Stars */}
-      <div className="flex gap-0.5">
-        <Star />
-        <Star />
-        <Star />
-        <Star />
-        <Star />
+      {/* Background mascot watermark */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-6 -right-6 opacity-[0.06]"
+      >
+        <GhostMascot className="h-48 w-auto md:h-56" />
       </div>
 
-      {/* Quote */}
+      {/* Big quote mark in corner */}
+      <QuoteMark className="absolute right-7 top-7 h-12 w-auto opacity-25" />
+
+      <div className="relative flex flex-1 flex-col">
+        {/* Stars */}
+        <div className="flex gap-0.5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star key={i} />
+          ))}
+        </div>
+
+        {/* Quote — bigger */}
+        <p className="mt-5 flex-1 font-display text-xl leading-snug tracking-tight text-cream md:text-2xl">
+          &ldquo;{t.quote}&rdquo;
+        </p>
+
+        {/* Author */}
+        <div className="mt-7 flex items-center gap-3.5 border-t border-cream/10 pt-5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={t.avatar}
+            alt=""
+            className="h-12 w-12 rounded-full border border-coral/40 object-cover"
+          />
+          <div className="leading-tight">
+            <div className="font-display text-base tracking-tight text-cream">
+              {t.name}
+            </div>
+            <div className="mt-0.5 text-xs text-cream/60">{t.role}</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function StandardCard({ t }: { t: Testimonial }) {
+  return (
+    <article
+      className={`group relative flex h-full flex-col rounded-3xl border border-cream/10 bg-ink/60 p-6 transition hover:border-coral/40 md:p-7 ${t.span}`}
+    >
+      {/* Translucent quote mark */}
+      <QuoteMark className="absolute right-5 top-5 h-7 w-auto opacity-15" />
+
+      <div className="flex gap-0.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star key={i} />
+        ))}
+      </div>
+
       <p className="mt-4 flex-1 text-sm leading-relaxed text-cream/85 md:text-[15px]">
         &ldquo;{t.quote}&rdquo;
       </p>
 
-      {/* Author */}
       <div className="mt-6 flex items-center gap-3 border-t border-cream/10 pt-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -135,7 +199,7 @@ export function Testimonials() {
   return (
     <section
       id="testimonials"
-      className="relative overflow-hidden bg-ink-soft py-24 md:py-32"
+      className="relative overflow-hidden bg-ink pattern-grid py-24 md:py-32"
     >
       {/* Background splatter */}
       <BloodSplatter
@@ -189,7 +253,7 @@ export function Testimonials() {
         className="absolute right-[3%] top-[34%] hidden lg:block"
       />
       <TextSticker
-        text="BIG FAN!"
+        text="REAL CREATORS"
         size="md"
         tilt={6}
         className="absolute left-[4%] bottom-[14%] hidden lg:block"
@@ -202,7 +266,7 @@ export function Testimonials() {
       {/* Giant background quote mark for atmosphere */}
       <QuoteMark className="pointer-events-none absolute right-[40%] top-[24%] hidden h-40 w-auto opacity-[0.04] md:block" />
 
-      <div className="relative z-10 mx-auto max-w-6xl px-6 md:px-10">
+      <div className="relative z-10 mx-auto max-w-7xl px-6 md:px-10">
         {/* Header */}
         <div className="mx-auto max-w-2xl text-center">
           <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-cream/15 bg-cream/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.25em] text-cream/70 md:text-[11px]">
@@ -215,16 +279,20 @@ export function Testimonials() {
             who actually <span className="text-coral">show up.</span>
           </h2>
           <p className="mx-auto mt-5 max-w-lg text-sm text-cream/70 md:text-base">
-            Solo founders, designers, coaches, writers. Real accounts, real
-            handles, real growth — without ever feeling like a sales tool.
+            Founders, designers, coaches, and writers — real people, real
+            accounts, real growth.
           </p>
         </div>
 
-        {/* Testimonial grid */}
-        <div className="mt-16 grid grid-cols-1 gap-5 md:mt-20 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
-          {TESTIMONIALS.map((t) => (
-            <TestimonialCard key={t.name} t={t} />
-          ))}
+        {/* Bento grid */}
+        <div className="mt-16 grid grid-cols-1 gap-5 md:mt-20 md:grid-cols-6 md:gap-6">
+          {TESTIMONIALS.map((t) =>
+            t.featured ? (
+              <FeaturedCard key={t.name} t={t} />
+            ) : (
+              <StandardCard key={t.name} t={t} />
+            )
+          )}
         </div>
 
         {/* Footer stat row */}
