@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Balloon } from "./Balloon";
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
@@ -68,16 +69,33 @@ export function Hero() {
 
       {/* Nav */}
       <nav className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5 md:px-10">
-        <a href="#" className="flex items-center gap-2.5">
-          <GhostMascot className="h-8 w-8" />
-          <span className="font-display text-base tracking-wider">CASPER</span>
+        <a href="#" className="flex items-center gap-3">
+          <Image
+            src="/logo.png"
+            alt="Casper AI"
+            width={44}
+            height={44}
+            className="h-11 w-11"
+            priority
+          />
+          <span className="font-display text-xl tracking-wider">
+            Casper AI
+          </span>
         </a>
-        <a
-          href="#"
-          className="text-sm text-cream/70 transition hover:text-cream"
-        >
-          Sign in
-        </a>
+        <div className="flex items-center gap-2.5">
+          <a
+            href="#"
+            className="rounded-full border border-cream/25 px-4 py-2 text-sm font-medium text-cream/85 transition hover:border-cream/60 hover:text-cream md:px-5"
+          >
+            Sign in
+          </a>
+          <a
+            href="#"
+            className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-cream shadow-[0_6px_24px_rgba(185,28,28,0.4)] transition hover:bg-coral-dim md:px-5"
+          >
+            Get started
+          </a>
+        </div>
       </nav>
 
       {/* Centered content */}

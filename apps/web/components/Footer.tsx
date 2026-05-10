@@ -1,4 +1,4 @@
-import { GhostMascot } from "./GhostMascot";
+import Image from "next/image";
 
 const COLS: { title: string; links: { label: string; href: string }[] }[] = [
   {
@@ -36,9 +36,17 @@ export function Footer() {
       <div className="relative z-10 mx-auto grid max-w-6xl grid-cols-2 gap-10 px-6 md:grid-cols-5 md:gap-8 md:px-10">
         {/* Brand block */}
         <div className="col-span-2">
-          <a href="#" className="flex items-center gap-2.5">
-            <GhostMascot className="h-9 w-9" />
-            <span className="font-display text-lg tracking-wider">CASPER</span>
+          <a href="#" className="flex items-center gap-3">
+            <Image
+              src="/logo.png"
+              alt="Casper AI"
+              width={44}
+              height={44}
+              className="h-11 w-11"
+            />
+            <span className="font-display text-xl tracking-wider">
+              Casper AI
+            </span>
           </a>
           <p className="mt-4 max-w-xs text-sm text-cream/60">
             The friendly little ghost that grows your Twitter and LinkedIn
