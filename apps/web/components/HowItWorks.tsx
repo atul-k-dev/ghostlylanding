@@ -1,7 +1,10 @@
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
 import { GhostMascot } from "./GhostMascot";
+import { GhostShy } from "./GhostShy";
 import { GhostSleeping } from "./GhostSleeping";
+import { GhostThinking } from "./GhostThinking";
+import { GhostThumbsUp } from "./GhostThumbsUp";
 import { GhostWaving } from "./GhostWaving";
 import { Handprint } from "./stickers/Handprint";
 import { TextSticker } from "./stickers/TextSticker";
@@ -131,7 +134,7 @@ function Step2Mock() {
 
       {/* Floating ghost mascot */}
       <div className="absolute -bottom-4 -left-6 animate-float">
-        <GhostMascot className="h-20 w-auto" />
+        <GhostShy className="h-20 w-auto" />
       </div>
     </div>
   );
@@ -316,7 +319,7 @@ export function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="relative overflow-hidden bg-ink py-24 md:py-32"
+      className="relative overflow-hidden bg-grad-b py-24 md:py-32"
     >
       {/* Decorative drips */}
       <BloodDrip
@@ -342,6 +345,20 @@ export function HowItWorks() {
         style={{ animationDelay: "0.8s" }}
       >
         <Bat className="h-11 w-auto" flap />
+      </div>
+
+      {/* Decorative floating ghosts */}
+      <div
+        className="pointer-events-none absolute left-[8%] top-[14%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "0.5s" }}
+      >
+        <GhostThinking className="h-12 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute right-[12%] bottom-[8%] hidden opacity-30 animate-float md:block"
+        style={{ animationDelay: "1.8s" }}
+      >
+        <GhostThumbsUp className="h-11 w-auto" />
       </div>
 
       {/* Stickers */}

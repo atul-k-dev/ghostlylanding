@@ -4,7 +4,9 @@ import { useState } from "react";
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
 import { BloodSplatter } from "./BloodSplatter";
-import { GhostMascot } from "./GhostMascot";
+import { GhostExcited } from "./GhostExcited";
+import { GhostHeartEyes } from "./GhostHeartEyes";
+import { GhostThumbsUp } from "./GhostThumbsUp";
 import { Eyeball } from "./stickers/Eyeball";
 import { TextSticker } from "./stickers/TextSticker";
 
@@ -67,7 +69,7 @@ export function Pricing() {
   return (
     <section
       id="pricing"
-      className="relative overflow-hidden bg-ink py-20 md:py-24"
+      className="relative overflow-hidden bg-grad-a py-20 md:py-24"
     >
       {/* Decoration */}
       <BloodSplatter
@@ -130,6 +132,20 @@ export function Pricing() {
         className="pointer-events-none absolute right-[10%] bottom-[6%] hidden h-9 w-auto opacity-80 md:block"
         rotate={15}
       />
+
+      {/* Decorative floating ghosts */}
+      <div
+        className="pointer-events-none absolute left-[10%] top-[26%] hidden opacity-30 animate-float md:block"
+        style={{ animationDelay: "0.4s" }}
+      >
+        <GhostExcited className="h-12 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute right-[14%] bottom-[28%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "1.9s" }}
+      >
+        <GhostThumbsUp className="h-11 w-auto" />
+      </div>
 
       <div className="relative z-10 mx-auto max-w-6xl px-6 md:px-10">
         {/* Header */}
@@ -266,7 +282,7 @@ export function Pricing() {
             <article className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-coral/40 bg-gradient-to-br from-coral/[0.10] via-ink-soft to-ink p-6">
               {/* Bg ghost — clipped by the article's overflow-hidden */}
               <div className="pointer-events-none absolute -bottom-8 -right-6 opacity-[0.10]">
-                <GhostMascot className="h-40 w-auto md:h-48" />
+                <GhostHeartEyes className="h-40 w-auto md:h-48" />
               </div>
 
               <div className="relative">

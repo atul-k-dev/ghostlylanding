@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Bowlby_One_SC, Inter } from "next/font/google";
+import { SmoothScroll } from "@/components/SmoothScroll";
 import "./globals.css";
 
 const display = Bowlby_One_SC({
@@ -28,7 +29,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
-      <body className="relative">{children}</body>
+      <body className="relative">
+        <SmoothScroll />
+        {children}
+      </body>
     </html>
   );
 }

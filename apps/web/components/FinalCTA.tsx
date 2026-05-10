@@ -1,7 +1,9 @@
 import { Bat } from "./Bat";
 import { BloodEdge } from "./BloodEdge";
 import { BloodSplatter } from "./BloodSplatter";
+import { GhostHeartEyes } from "./GhostHeartEyes";
 import { GhostSleeping } from "./GhostSleeping";
+import { GhostWaving } from "./GhostWaving";
 import { CuteSkull } from "./stickers/CuteSkull";
 import { TextSticker } from "./stickers/TextSticker";
 
@@ -9,7 +11,7 @@ export function FinalCTA() {
   return (
     <section
       id="final-cta"
-      className="relative overflow-hidden bg-ink py-32 md:py-40"
+      className="relative overflow-hidden bg-grad-a py-32 md:py-40"
     >
       {/* Drip curtain at top */}
       <BloodEdge
@@ -58,6 +60,20 @@ export function FinalCTA() {
         tilt={11}
         className="absolute right-[5%] bottom-[28%] hidden lg:block"
       />
+
+      {/* Decorative floating ghosts */}
+      <div
+        className="pointer-events-none absolute left-[14%] top-[22%] hidden opacity-30 animate-float md:block"
+        style={{ animationDelay: "0.5s" }}
+      >
+        <GhostWaving className="h-12 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute right-[18%] top-[40%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "2s" }}
+      >
+        <GhostHeartEyes className="h-11 w-auto" />
+      </div>
 
       <div className="relative z-10 mx-auto max-w-4xl px-6 pt-12 text-center md:px-10 md:pt-16">
         {/* Sleeping ghost — visual reinforcement of "while you sleep" */}

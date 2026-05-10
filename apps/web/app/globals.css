@@ -89,11 +89,26 @@
 .hv-typing-3     { animation: hv-typing 1.4s ease-in-out infinite; animation-delay: 0.4s; }
 
 html, body {
-  background: var(--color-ink);
+  background: #0e0e0e;
   color: var(--color-cream);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+/* Lenis smooth scroll — opt out of native scroll-behavior */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: clip;
 }
 
 /* Subtle paper grain across the whole page */
@@ -110,6 +125,51 @@ body::before {
 ::selection {
   background: var(--color-coral);
   color: var(--color-ink);
+}
+
+/* ------------------------------------------------------------------
+   Section gradient backgrounds — alternating so the bottom of one
+   section's gradient matches the top of the next, producing a seamless
+   1-2-2-1-1-2-2-1 boundary pattern.
+   ------------------------------------------------------------------ */
+/* Pure-black base with tiny coral accents at section edges. Most of
+   each section reads as solid #0e0e0e — only the very top/bottom edge
+   carries a soft red glow that fades out within ~25% of the height. */
+.bg-grad-a {
+  background:
+    radial-gradient(
+      ellipse 50% 22% at 50% 0%,
+      rgba(184, 19, 54, 0.06),
+      transparent 70%
+    ),
+    #0e0e0e;
+}
+.bg-grad-b {
+  background:
+    radial-gradient(
+      ellipse 50% 22% at 50% 100%,
+      rgba(184, 19, 54, 0.06),
+      transparent 70%
+    ),
+    #0e0e0e;
+}
+
+/* Hero — small coral glow tucked in the top-left, dot pattern on
+   solid black everywhere else. */
+.bg-hero {
+  background:
+    radial-gradient(
+      ellipse 35% 30% at 18% 8%,
+      rgba(184, 19, 54, 0.10),
+      transparent 65%
+    ),
+    radial-gradient(
+      circle,
+      rgba(232, 221, 199, 0.045) 1px,
+      transparent 1.4px
+    )
+      0 0 / 28px 28px,
+    #0e0e0e;
 }
 
 /* ------------------------------------------------------------------

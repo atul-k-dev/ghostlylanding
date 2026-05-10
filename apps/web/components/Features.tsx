@@ -1,7 +1,10 @@
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
+import { GhostHeartEyes } from "./GhostHeartEyes";
 import { GhostMascot } from "./GhostMascot";
+import { GhostPeeking } from "./GhostPeeking";
 import { GhostSleeping } from "./GhostSleeping";
+import { GhostStarEyes } from "./GhostStarEyes";
 import { ClawScratch } from "./stickers/ClawScratch";
 import { Eyeball } from "./stickers/Eyeball";
 import { TextSticker } from "./stickers/TextSticker";
@@ -472,7 +475,7 @@ export function Features() {
   return (
     <section
       id="features"
-      className="relative overflow-hidden bg-ink py-24 md:py-32"
+      className="relative overflow-hidden bg-grad-a py-24 md:py-32"
     >
       {/* Decorations */}
       <BloodDrip
@@ -501,6 +504,26 @@ export function Features() {
         tilt={9}
         className="absolute right-[4%] top-[6%] hidden lg:block"
       />
+
+      {/* Decorative floating ghosts */}
+      <div
+        className="pointer-events-none absolute left-[6%] top-[8%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "0.4s" }}
+      >
+        <GhostHeartEyes className="h-12 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute right-[6%] top-[42%] hidden opacity-30 animate-float md:block"
+        style={{ animationDelay: "1.6s" }}
+      >
+        <GhostPeeking className="h-11 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute left-[10%] bottom-[14%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "2.7s" }}
+      >
+        <GhostStarEyes className="h-10 w-auto" />
+      </div>
       <div
         className="pointer-events-none absolute left-[10%] top-[20%] text-cream/30 animate-fly"
         style={{ animationDelay: "0.6s" }}

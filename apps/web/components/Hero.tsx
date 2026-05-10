@@ -2,13 +2,23 @@ import Image from "next/image";
 import { Balloon } from "./Balloon";
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
+import { GhostHeartEyes } from "./GhostHeartEyes";
+import { GhostThumbsUp } from "./GhostThumbsUp";
+import { GhostWinking } from "./GhostWinking";
 import { HeroVisual } from "./HeroVisual";
 import { SocialProof } from "./SocialProof";
 import { TextSticker } from "./stickers/TextSticker";
 
+const NAV_LINKS = [
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Features", href: "#features" },
+  { label: "Pricing", href: "#pricing" },
+  { label: "FAQ", href: "#faq" },
+];
+
 export function Hero() {
   return (
-    <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-ink pattern-dots">
+    <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-hero">
       {/* Decorative balloons */}
       <div
         className="pointer-events-none absolute left-[6%] top-[26%] hidden opacity-50 animate-drift lg:block"
@@ -48,6 +58,26 @@ export function Hero() {
         rotate={-160}
       />
 
+      {/* Decorative floating ghosts */}
+      <div
+        className="pointer-events-none absolute left-[5%] top-[18%] hidden opacity-30 animate-float md:block"
+        style={{ animationDelay: "0.3s" }}
+      >
+        <GhostHeartEyes className="h-12 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute right-[28%] top-[8%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "1.2s" }}
+      >
+        <GhostWinking className="h-10 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute left-[40%] bottom-[6%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "2.4s" }}
+      >
+        <GhostThumbsUp className="h-10 w-auto" />
+      </div>
+
       {/* Stickers */}
       <TextSticker
         text="AUTOPILOT"
@@ -63,7 +93,7 @@ export function Hero() {
       />
 
       {/* Nav */}
-      <nav className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5 md:px-10">
+      <nav className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 py-5 md:px-10">
         <a href="#" className="flex items-center gap-3">
           <Image
             src="/logo.png"
@@ -77,6 +107,20 @@ export function Hero() {
             Casper AI
           </span>
         </a>
+
+        {/* Center links — desktop only */}
+        <div className="hidden items-center gap-7 lg:flex">
+          {NAV_LINKS.map((l) => (
+            <a
+              key={l.href}
+              href={l.href}
+              className="text-sm font-medium text-cream/70 transition hover:text-cream"
+            >
+              {l.label}
+            </a>
+          ))}
+        </div>
+
         <div className="flex items-center gap-2.5">
           <a
             href="#"

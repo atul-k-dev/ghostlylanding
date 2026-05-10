@@ -31,7 +31,7 @@ const COLS: { title: string; links: { label: string; href: string }[] }[] = [
 
 export function Footer() {
   return (
-    <footer className="relative overflow-hidden border-t border-cream/10 bg-ink pt-16 md:pt-20">
+    <footer className="relative overflow-hidden bg-ink pt-16 md:pt-20">
       {/* Foreground content */}
       <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-2 gap-10 px-6 md:grid-cols-5 md:gap-8 md:px-10">
         {/* Brand block */}

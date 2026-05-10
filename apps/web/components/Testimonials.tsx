@@ -1,7 +1,9 @@
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
 import { BloodSplatter } from "./BloodSplatter";
-import { GhostMascot } from "./GhostMascot";
+import { GhostHeartEyes } from "./GhostHeartEyes";
+import { GhostStarEyes } from "./GhostStarEyes";
+import { GhostThumbsUp } from "./GhostThumbsUp";
 import { Eyeball } from "./stickers/Eyeball";
 import { TextSticker } from "./stickers/TextSticker";
 
@@ -120,7 +122,7 @@ function FeaturedCard({ t }: { t: Testimonial }) {
         aria-hidden="true"
         className="pointer-events-none absolute -bottom-6 -right-6 opacity-[0.06]"
       >
-        <GhostMascot className="h-48 w-auto md:h-56" />
+        <GhostStarEyes className="h-48 w-auto md:h-56" />
       </div>
 
       {/* Big quote mark in corner */}
@@ -199,7 +201,7 @@ export function Testimonials() {
   return (
     <section
       id="testimonials"
-      className="relative overflow-hidden bg-ink py-24 md:py-32"
+      className="relative overflow-hidden bg-grad-b py-24 md:py-32"
     >
       {/* Background splatter */}
       <BloodSplatter
@@ -262,6 +264,20 @@ export function Testimonials() {
         className="pointer-events-none absolute right-[5%] bottom-[28%] hidden h-10 w-auto opacity-80 md:block"
         rotate={-12}
       />
+
+      {/* Decorative floating ghosts */}
+      <div
+        className="pointer-events-none absolute right-[12%] top-[16%] hidden opacity-30 animate-float md:block"
+        style={{ animationDelay: "0.6s" }}
+      >
+        <GhostHeartEyes className="h-12 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute left-[10%] bottom-[20%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "2.1s" }}
+      >
+        <GhostThumbsUp className="h-11 w-auto" />
+      </div>
 
       {/* Giant background quote mark for atmosphere */}
       <QuoteMark className="pointer-events-none absolute right-[40%] top-[24%] hidden h-40 w-auto opacity-[0.04] md:block" />

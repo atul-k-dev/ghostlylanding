@@ -1,5 +1,8 @@
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
+import { GhostPeeking } from "./GhostPeeking";
+import { GhostThinking } from "./GhostThinking";
+import { GhostWinking } from "./GhostWinking";
 import { ClawScratch } from "./stickers/ClawScratch";
 import { Handprint } from "./stickers/Handprint";
 import { TextSticker } from "./stickers/TextSticker";
@@ -41,7 +44,7 @@ export function FAQ() {
   return (
     <section
       id="faq"
-      className="relative overflow-hidden bg-ink py-24 md:py-32"
+      className="relative overflow-hidden bg-grad-b py-24 md:py-32"
     >
       <BloodDrip
         className="pointer-events-none absolute right-[10%] top-16 h-9 w-auto opacity-60"
@@ -81,6 +84,26 @@ export function FAQ() {
         tilt={-7}
         className="absolute left-[4%] top-[14%] hidden lg:block"
       />
+
+      {/* Decorative floating ghosts */}
+      <div
+        className="pointer-events-none absolute right-[6%] top-[26%] hidden opacity-30 animate-float md:block"
+        style={{ animationDelay: "0.4s" }}
+      >
+        <GhostThinking className="h-14 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute left-[8%] bottom-[28%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "1.5s" }}
+      >
+        <GhostPeeking className="h-12 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute right-[10%] bottom-[10%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "2.6s" }}
+      >
+        <GhostWinking className="h-10 w-auto" />
+      </div>
 
       <div className="relative z-10 mx-auto max-w-4xl px-6 md:px-10">
         <div className="text-center">

@@ -2,7 +2,10 @@ import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
 import { BloodEdge } from "./BloodEdge";
 import { BloodSplatter } from "./BloodSplatter";
+import { GhostExcited } from "./GhostExcited";
 import { GhostMascot } from "./GhostMascot";
+import { GhostPeeking } from "./GhostPeeking";
+import { GhostThumbsUp } from "./GhostThumbsUp";
 import { ClawScratch } from "./stickers/ClawScratch";
 import { CuteSkull } from "./stickers/CuteSkull";
 import { Handprint } from "./stickers/Handprint";
@@ -353,7 +356,7 @@ export function Safety() {
   return (
     <section
       id="safety"
-      className="relative overflow-hidden bg-ink py-32 md:py-40"
+      className="relative overflow-hidden bg-grad-a py-32 md:py-40"
     >
       {/* Drip curtain at the top — bleeding into this section */}
       <BloodEdge className="absolute left-0 right-0 top-0 h-24 opacity-90 md:h-28" />
@@ -428,6 +431,20 @@ export function Safety() {
         className="absolute right-[24%] bottom-[8%] hidden lg:block"
       />
 
+      {/* Decorative floating ghosts */}
+      <div
+        className="pointer-events-none absolute right-[14%] top-[42%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "0.6s" }}
+      >
+        <GhostPeeking className="h-12 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute left-[16%] bottom-[24%] hidden opacity-30 animate-float md:block"
+        style={{ animationDelay: "2s" }}
+      >
+        <GhostThumbsUp className="h-11 w-auto" />
+      </div>
+
       <div className="relative z-10 mx-auto max-w-7xl px-6 pt-12 md:px-10 md:pt-16">
         {/* Header */}
         <div className="mx-auto max-w-2xl text-center">
@@ -455,7 +472,7 @@ export function Safety() {
 
         {/* Footer reassurance with mascot */}
         <div className="mt-16 flex flex-col items-center justify-center gap-4 rounded-3xl border border-cream/10 bg-ink-soft/60 p-8 text-center md:mt-20 md:flex-row md:gap-6 md:text-left">
-          <GhostMascot className="h-20 w-auto md:h-24" />
+          <GhostExcited className="h-24 w-auto md:h-28" />
           <div className="max-w-xl">
             <h3 className="font-display text-xl leading-tight tracking-tight text-cream md:text-2xl">
               Zero bans is the goal. Always.

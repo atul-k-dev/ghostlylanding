@@ -1,7 +1,9 @@
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
 import { BloodSplatter } from "./BloodSplatter";
-import { GhostMascot } from "./GhostMascot";
+import { GhostShy } from "./GhostShy";
+import { GhostThumbsUp } from "./GhostThumbsUp";
+import { GhostWinking } from "./GhostWinking";
 import { Eyeball } from "./stickers/Eyeball";
 import { TextSticker } from "./stickers/TextSticker";
 
@@ -64,7 +66,7 @@ export function WhyCasper() {
   return (
     <section
       id="why-casper"
-      className="relative overflow-hidden bg-ink py-24 md:py-32"
+      className="relative overflow-hidden bg-grad-b py-24 md:py-32"
     >
       {/* Background splatter */}
       <BloodSplatter
@@ -111,6 +113,20 @@ export function WhyCasper() {
         className="pointer-events-none absolute left-[8%] bottom-[10%] hidden h-12 w-auto opacity-80 md:block"
         rotate={-15}
       />
+
+      {/* Decorative floating ghosts */}
+      <div
+        className="pointer-events-none absolute right-[10%] top-[16%] hidden opacity-25 animate-float md:block"
+        style={{ animationDelay: "0.5s" }}
+      >
+        <GhostShy className="h-12 w-auto" />
+      </div>
+      <div
+        className="pointer-events-none absolute left-[14%] bottom-[18%] hidden opacity-30 animate-float md:block"
+        style={{ animationDelay: "1.7s" }}
+      >
+        <GhostThumbsUp className="h-11 w-auto" />
+      </div>
 
       <div className="relative z-10 mx-auto max-w-6xl px-6 md:px-10">
         {/* Header */}
@@ -169,7 +185,7 @@ export function WhyCasper() {
           <article className="relative flex flex-col overflow-hidden rounded-3xl border border-coral/40 bg-gradient-to-br from-coral/[0.10] via-ink-soft to-ink p-6 md:p-8">
             {/* Background mascot */}
             <div className="pointer-events-none absolute -bottom-6 -right-4 opacity-[0.08]">
-              <GhostMascot className="h-44 w-auto md:h-52" />
+              <GhostWinking className="h-44 w-auto md:h-52" />
             </div>
 
             {/* Header */}
