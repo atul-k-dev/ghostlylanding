@@ -2,9 +2,7 @@ import Image from "next/image";
 import { Balloon } from "./Balloon";
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
-import { GhostHeartEyes } from "./GhostHeartEyes";
 import { GhostThumbsUp } from "./GhostThumbsUp";
-import { GhostWinking } from "./GhostWinking";
 import { HeroVisual } from "./HeroVisual";
 import { SocialProof } from "./SocialProof";
 import { ClawScratch } from "./stickers/ClawScratch";
@@ -59,18 +57,6 @@ export function Hero() {
       />
 
       {/* Decorative floating ghosts */}
-      <div
-        className="pointer-events-none absolute left-[5%] top-[18%] hidden opacity-30 animate-float md:block"
-        style={{ animationDelay: "0.3s" }}
-      >
-        <GhostHeartEyes className="h-12 w-auto" />
-      </div>
-      <div
-        className="pointer-events-none absolute right-[28%] top-[8%] hidden opacity-25 animate-float md:block"
-        style={{ animationDelay: "1.2s" }}
-      >
-        <GhostWinking className="h-10 w-auto" />
-      </div>
       <div
         className="pointer-events-none absolute left-[40%] bottom-[6%] hidden opacity-25 animate-float md:block"
         style={{ animationDelay: "2.4s" }}
