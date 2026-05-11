@@ -26,7 +26,7 @@ export function TextSticker({ text, className, tilt = -6, size = "md" }: Props) 
       aria-hidden="true"
     >
       <span
-        className={`block font-display ${SIZE[size]} uppercase tracking-wide leading-none`}
+        className={`block font-sans font-black ${SIZE[size]} uppercase tracking-wide leading-none`}
         style={{
           color: "#B81336",
           WebkitTextStroke: "2px #e8ddc7",

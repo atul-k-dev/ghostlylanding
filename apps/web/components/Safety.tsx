@@ -436,14 +436,14 @@ function PillarCard({ pillar }: { pillar: Pillar }) {
         </div>
 
         <div className="relative flex flex-1 flex-col">
-          <span className="mb-5 inline-flex w-fit items-center gap-2 rounded-full bg-coral/15 px-3 py-1 font-display text-[11px] tracking-[0.2em] text-coral">
+          <span className="mb-5 inline-flex w-fit items-center gap-2 rounded-full bg-coral/15 px-3 py-1 font-sans font-black text-[11px] tracking-[0.2em] text-coral">
             <span className="h-1.5 w-1.5 rounded-full bg-coral" />
             {metric.toUpperCase()}
           </span>
 
           <Icon className={`${iconSize} w-auto text-cream`} />
 
-          <h3 className="mt-6 font-display text-2xl leading-tight tracking-tight text-cream md:text-3xl">
+          <h3 className="mt-6 font-sans font-black text-2xl leading-tight tracking-tight text-cream md:text-3xl">
             {title}
           </h3>
           <p className="mt-4 max-w-md text-sm text-cream/75 md:text-[15px]">
@@ -464,13 +464,13 @@ function PillarCard({ pillar }: { pillar: Pillar }) {
       className={`group relative flex flex-col rounded-3xl border border-cream/10 bg-ink-soft/80 p-6 backdrop-blur-sm transition hover:border-coral/40 hover:bg-ink-soft md:p-7 ${className}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-coral/10 px-2.5 py-0.5 font-display text-[10px] tracking-[0.18em] text-coral">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-coral/10 px-2.5 py-0.5 font-sans font-black text-[10px] tracking-[0.18em] text-coral">
           {metric.toUpperCase()}
         </span>
         <Icon className={`${iconSize} w-auto text-cream`} />
       </div>
 
-      <h3 className="mt-4 font-display text-lg leading-tight tracking-tight text-cream md:text-xl">
+      <h3 className="mt-4 font-sans font-black text-lg leading-tight tracking-tight text-cream md:text-xl">
         {title}
       </h3>
       <p className="mt-2.5 text-sm text-cream/70 md:text-[14px]">{body}</p>
@@ -585,7 +585,7 @@ export function Safety() {
             <span className="h-1.5 w-1.5 rounded-full bg-coral" />
             Safety promise
           </span>
-          <h2 className="font-display text-3xl leading-[1] tracking-tight text-cream sm:text-4xl md:text-5xl">
+          <h2 className="font-sans font-black text-3xl leading-[1] tracking-tight text-cream sm:text-4xl md:text-5xl">
             Your account is yours.
             <br />
             <span className="text-coral">Forever.</span>
@@ -607,7 +607,7 @@ export function Safety() {
         <div className="mt-16 flex flex-col items-center justify-center gap-4 rounded-3xl border border-cream/10 bg-ink-soft/60 p-8 text-center md:mt-20 md:flex-row md:gap-6 md:text-left">
           <GhostExcited className="h-24 w-auto md:h-28" />
           <div className="max-w-xl">
-            <h3 className="font-display text-xl leading-tight tracking-tight text-cream md:text-2xl">
+            <h3 className="font-sans font-black text-xl leading-tight tracking-tight text-cream md:text-2xl">
               Zero bans is the goal. Always.
             </h3>
             <p className="mt-2 text-sm text-cream/70">

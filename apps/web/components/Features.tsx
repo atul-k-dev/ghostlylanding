@@ -276,7 +276,7 @@ function SafetyEngineArt() {
 
       {/* "0 BANS" stamp */}
       <div
-        className="absolute bottom-8 right-4 rounded-full border-2 border-coral bg-coral/10 px-4 py-2 font-display text-xs tracking-[0.2em] text-coral shadow-[0_0_30px_rgba(184,19,54,0.4)]"
+        className="absolute bottom-8 right-4 rounded-full border-2 border-coral bg-coral/10 px-4 py-2 font-sans font-black text-xs tracking-[0.2em] text-coral shadow-[0_0_30px_rgba(184,19,54,0.4)]"
         style={{ transform: "rotate(8deg)" }}
       >
         0 BANS
@@ -416,16 +416,16 @@ function FeatureRow({
       {/* Text */}
       <div className={reverse ? "md:order-2" : ""}>
         <div className="flex items-center gap-3">
-          <span className="font-display text-xs tracking-[0.35em] text-coral">
+          <span className="font-sans font-black text-xs tracking-[0.35em] text-coral">
             {index}
           </span>
           <span className="h-px flex-1 max-w-[60px] bg-coral/30" />
-          <span className="font-display text-[11px] tracking-[0.3em] text-cream/70">
+          <span className="font-sans font-black text-[11px] tracking-[0.3em] text-cream/70">
             {label.toUpperCase()}
           </span>
         </div>
 
-        <h3 className="mt-5 font-display text-3xl leading-[1] tracking-tight text-cream sm:text-4xl md:text-5xl">
+        <h3 className="mt-5 font-sans font-black text-3xl leading-[1] tracking-tight text-cream sm:text-4xl md:text-5xl">
           {title}
           <br />
           <span className="text-coral">{highlight}</span>
@@ -544,7 +544,7 @@ export function Features() {
             <span className="h-1.5 w-1.5 rounded-full bg-coral" />
             Features
           </span>
-          <h2 className="font-display text-4xl leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl">
+          <h2 className="font-sans font-black text-4xl leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl">
             Everything you need.
             <br />
             None of the <span className="text-coral">noise.</span>

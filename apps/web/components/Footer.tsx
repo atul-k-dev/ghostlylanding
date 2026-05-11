@@ -44,7 +44,7 @@ export function Footer() {
               height={44}
               className="h-11 w-11"
             />
-            <span className="font-display text-xl tracking-wider">
+            <span className="font-sans font-black text-xl tracking-wider">
               Casper AI
             </span>
           </a>
@@ -56,7 +56,7 @@ export function Footer() {
 
         {COLS.map((col) => (
           <div key={col.title}>
-            <h4 className="font-display text-[11px] tracking-[0.3em] text-coral">
+            <h4 className="font-sans font-black text-[11px] tracking-[0.3em] text-coral">
               {col.title.toUpperCase()}
             </h4>
             <ul className="mt-4 space-y-2.5">
@@ -87,10 +87,10 @@ export function Footer() {
         className="pointer-events-none relative -mt-2 flex select-none justify-center overflow-hidden"
       >
         <span
-          className="block translate-y-[18%] whitespace-nowrap font-display leading-none tracking-tighter text-cream/[0.045]"
-          style={{ fontSize: "clamp(110px, 22vw, 380px)" }}
+          className="block translate-y-[18%] whitespace-nowrap font-sans font-bold leading-none tracking-tight text-cream/[0.045]"
+          style={{ fontSize: "clamp(92px, 18vw, 310px)" }}
         >
-          CASPER
+          CASPER AI
         </span>
       </div>
     </footer>

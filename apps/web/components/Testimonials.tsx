@@ -137,7 +137,7 @@ function FeaturedCard({ t }: { t: Testimonial }) {
         </div>
 
         {/* Quote — bigger */}
-        <p className="mt-5 flex-1 font-display text-xl leading-snug tracking-tight text-cream md:text-2xl">
+        <p className="mt-5 flex-1 font-sans font-black text-xl leading-snug tracking-tight text-cream md:text-2xl">
           &ldquo;{t.quote}&rdquo;
         </p>
 
@@ -150,7 +150,7 @@ function FeaturedCard({ t }: { t: Testimonial }) {
             className="h-12 w-12 rounded-full border border-coral/40 object-cover"
           />
           <div className="leading-tight">
-            <div className="font-display text-base tracking-tight text-cream">
+            <div className="font-sans font-black text-base tracking-tight text-cream">
               {t.name}
             </div>
             <div className="mt-0.5 text-xs text-cream/60">{t.role}</div>
@@ -187,7 +187,7 @@ function StandardCard({ t }: { t: Testimonial }) {
           className="h-10 w-10 rounded-full border border-cream/20 object-cover"
         />
         <div className="leading-tight">
-          <div className="font-display text-sm tracking-tight text-cream">
+          <div className="font-sans font-black text-sm tracking-tight text-cream">
             {t.name}
           </div>
           <div className="mt-0.5 text-[11px] text-cream/55">{t.role}</div>
@@ -289,7 +289,7 @@ export function Testimonials() {
             <span className="h-1.5 w-1.5 rounded-full bg-coral" />
             Testimonials
           </span>
-          <h2 className="font-display text-4xl leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl">
+          <h2 className="font-sans font-black text-4xl leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl">
             Loved by creators
             <br />
             who actually <span className="text-coral">show up.</span>
@@ -314,17 +314,17 @@ export function Testimonials() {
         {/* Footer stat row */}
         <div className="mt-14 flex flex-col items-center justify-center gap-3 text-sm text-cream/60 md:mt-16 md:flex-row md:gap-6">
           <span className="flex items-center gap-2">
-            <span className="font-display text-2xl text-cream">1,000+</span>{" "}
+            <span className="font-sans font-black text-2xl text-cream">1,000+</span>{" "}
             creators
           </span>
           <span className="hidden h-1 w-1 rounded-full bg-cream/30 md:block" />
           <span className="flex items-center gap-2">
-            <span className="font-display text-2xl text-cream">4.9</span>{" "}
+            <span className="font-sans font-black text-2xl text-cream">4.9</span>{" "}
             average rating
           </span>
           <span className="hidden h-1 w-1 rounded-full bg-cream/30 md:block" />
           <span className="flex items-center gap-2">
-            <span className="font-display text-2xl text-coral">0</span> account
+            <span className="font-sans font-black text-2xl text-coral">0</span> account
             bans
           </span>
         </div>

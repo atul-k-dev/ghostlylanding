@@ -154,7 +154,7 @@ export function Pricing() {
             <span className="h-1.5 w-1.5 rounded-full bg-coral" />
             Pricing
           </span>
-          <h2 className="font-display text-3xl leading-[0.95] tracking-tight text-cream sm:text-4xl md:text-5xl">
+          <h2 className="font-sans font-black text-3xl leading-[0.95] tracking-tight text-cream sm:text-4xl md:text-5xl">
             Free forever.
             <br />
             Or pro for a <span className="text-coral">coffee a week.</span>
@@ -210,7 +210,7 @@ export function Pricing() {
           {/* FREE */}
           <article className="relative flex flex-col rounded-3xl border border-cream/10 bg-ink-soft/60 p-6">
             <div className="flex items-center justify-between">
-              <span className="font-display text-[11px] tracking-[0.35em] text-cream-dim">
+              <span className="font-sans font-black text-[11px] tracking-[0.35em] text-cream-dim">
                 FREE FOREVER
               </span>
               <span className="rounded-full border border-cream/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-cream/60">
@@ -218,7 +218,7 @@ export function Pricing() {
               </span>
             </div>
             <div className="mt-4 flex items-baseline gap-2">
-              <span className="font-display text-4xl text-cream md:text-5xl">
+              <span className="font-sans font-black text-4xl text-cream md:text-5xl">
                 $0
               </span>
               <span className="text-sm text-cream-dim">forever</span>
@@ -273,7 +273,7 @@ export function Pricing() {
           <div className="relative">
             {/* Most popular tape — lives ABOVE the card edge */}
             <span
-              className="absolute -top-3 right-6 z-20 rounded-full bg-coral px-3.5 py-1 font-display text-[10px] tracking-[0.3em] text-cream shadow-[0_4px_20px_rgba(184,19,54,0.55)]"
+              className="absolute -top-3 right-6 z-20 rounded-full bg-coral px-3.5 py-1 font-sans font-black text-[10px] tracking-[0.3em] text-cream shadow-[0_4px_20px_rgba(184,19,54,0.55)]"
               style={{ transform: "rotate(3deg)" }}
             >
               MOST POPULAR
@@ -287,7 +287,7 @@ export function Pricing() {
 
               <div className="relative">
               <div className="flex items-center justify-between">
-                <span className="font-display text-[11px] tracking-[0.35em] text-coral">
+                <span className="font-sans font-black text-[11px] tracking-[0.35em] text-coral">
                   CASPER PRO
                 </span>
                 <span className="rounded-full bg-coral/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-coral">
@@ -296,7 +296,7 @@ export function Pricing() {
               </div>
 
               <div className="mt-4 flex items-baseline gap-2">
-                <span className="font-display text-4xl text-cream md:text-5xl">
+                <span className="font-sans font-black text-4xl text-cream md:text-5xl">
                   {current.price}
                 </span>
                 <span className="text-sm text-cream-dim">{current.per}</span>

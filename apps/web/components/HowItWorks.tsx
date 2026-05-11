@@ -157,7 +157,7 @@ function Step3Mock() {
               Last night
             </div>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="font-display text-3xl text-cream">47</span>
+              <span className="font-sans font-black text-3xl text-cream">47</span>
               <span className="text-xs text-cream-dim">actions</span>
             </div>
           </div>
@@ -262,16 +262,16 @@ function StepRow({ step, reverse }: { step: Step; reverse: boolean }) {
       {/* Text */}
       <div className={reverse ? "md:order-2" : ""}>
         <div className="flex items-center gap-3">
-          <span className="font-display text-xs tracking-[0.35em] text-coral">
+          <span className="font-sans font-black text-xs tracking-[0.35em] text-coral">
             {index}
           </span>
           <span className="h-px w-12 bg-coral/30" />
-          <span className="font-display text-[11px] tracking-[0.3em] text-cream/70">
+          <span className="font-sans font-black text-[11px] tracking-[0.3em] text-cream/70">
             {label.toUpperCase()}
           </span>
         </div>
 
-        <h3 className="mt-5 font-display text-3xl leading-[1] tracking-tight text-cream sm:text-4xl md:text-5xl">
+        <h3 className="mt-5 font-sans font-black text-3xl leading-[1] tracking-tight text-cream sm:text-4xl md:text-5xl">
           {title}
           <br />
           <span className="text-coral">{highlight}</span>
@@ -383,7 +383,7 @@ export function HowItWorks() {
             <span className="h-1.5 w-1.5 rounded-full bg-coral" />
             How it works
           </span>
-          <h2 className="font-display text-4xl leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl">
+          <h2 className="font-sans text-4xl font-black leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl">
             Connect. Train.
             <br />
             <span className="text-coral">Sleep.</span>

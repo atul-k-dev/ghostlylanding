@@ -85,7 +85,7 @@ export function Hero() {
             className="h-11 w-11"
             priority
           />
-          <span className="font-display text-xl tracking-wider">
+          <span className="font-sans font-black text-xl tracking-wider">
             Casper AI
           </span>
         </a>
@@ -130,7 +130,7 @@ export function Hero() {
           </span>
 
           {/* Headline */}
-          <h1 className="font-display text-4xl leading-[1] tracking-tight text-cream sm:text-5xl md:text-6xl lg:text-[52px] xl:text-[64px]">
+          <h1 className="font-sans font-black text-4xl leading-[1] tracking-tight text-cream sm:text-5xl md:text-6xl lg:text-[52px] xl:text-[64px]">
             Grow your socials
             <br />
             while you <span className="text-coral">sleep.</span>

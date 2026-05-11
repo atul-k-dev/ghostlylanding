@@ -135,7 +135,7 @@ export function WhyCasper() {
             <span className="h-1.5 w-1.5 rounded-full bg-coral" />
             Why Casper
           </span>
-          <h2 className="font-display text-3xl leading-[1] tracking-tight text-cream sm:text-4xl md:text-5xl">
+          <h2 className="font-sans font-black text-3xl leading-[1] tracking-tight text-cream sm:text-4xl md:text-5xl">
             Built for one creator.
             <br />
             Not a <span className="text-coral">sales floor.</span>
@@ -156,10 +156,10 @@ export function WhyCasper() {
                 <CrossIcon className="h-4 w-4" />
               </span>
               <div>
-                <div className="font-display text-[11px] tracking-[0.3em] text-cream/55">
+                <div className="font-sans font-black text-[11px] tracking-[0.3em] text-cream/55">
                   OTHER TOOLS
                 </div>
-                <div className="font-display text-lg leading-tight text-cream md:text-xl">
+                <div className="font-sans font-black text-lg leading-tight text-cream md:text-xl">
                   Cold sales-team feel
                 </div>
               </div>
@@ -194,10 +194,10 @@ export function WhyCasper() {
                 <CheckIcon className="h-4 w-4" />
               </span>
               <div>
-                <div className="font-display text-[11px] tracking-[0.3em] text-coral">
+                <div className="font-sans font-black text-[11px] tracking-[0.3em] text-coral">
                   CASPER
                 </div>
-                <div className="font-display text-lg leading-tight text-cream md:text-xl">
+                <div className="font-sans font-black text-lg leading-tight text-cream md:text-xl">
                   Friendly tool for solo creators
                 </div>
               </div>

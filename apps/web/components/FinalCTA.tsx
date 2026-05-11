@@ -96,7 +96,7 @@ export function FinalCTA() {
           One last thing
         </span>
 
-        <h2 className="font-display text-4xl leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl">
+        <h2 className="font-sans font-black text-4xl leading-[0.95] tracking-tight text-cream sm:text-5xl md:text-6xl">
           Get your <span className="text-coral">nights</span> back.
         </h2>
 

@@ -111,7 +111,7 @@ export function FAQ() {
             <span className="h-1.5 w-1.5 rounded-full bg-coral" />
             FAQ
           </span>
-          <h2 className="font-display text-3xl leading-[1] tracking-tight text-cream sm:text-4xl md:text-5xl">
+          <h2 className="font-sans font-black text-3xl leading-[1] tracking-tight text-cream sm:text-4xl md:text-5xl">
             Questions creators
             <br />
             actually <span className="text-coral">ask.</span>
@@ -125,7 +125,7 @@ export function FAQ() {
               className="group px-6 py-5 transition md:px-8 md:py-6"
             >
               <summary className="flex cursor-pointer list-none items-start justify-between gap-6 text-left">
-                <span className="font-display text-base leading-snug tracking-tight text-cream md:text-lg">
+                <span className="font-sans font-black text-base leading-snug tracking-tight text-cream md:text-lg">
                   {item.q}
                 </span>
                 <span className="mt-1 flex h-6 w-6 flex-none items-center justify-center rounded-full border border-cream/20 text-coral transition group-open:rotate-45 group-open:bg-coral group-open:text-cream">

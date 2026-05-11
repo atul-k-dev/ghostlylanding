@@ -227,7 +227,7 @@ function LikeCard({
                 style={{ animationDelay: animDelay } as React.CSSProperties}
               />
               <span
-                className="hv-plus-one absolute -right-5 -top-1 font-display text-[9px] tracking-wider text-coral"
+                className="hv-plus-one absolute -right-5 -top-1 font-sans font-black text-[9px] tracking-wider text-coral"
                 style={{ animationDelay: animDelay } as React.CSSProperties}
               >
                 +1
@@ -501,19 +501,19 @@ export function HeroVisual() {
         </div>
         <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
           <div className="rounded-md bg-ink/60 py-1.5">
-            <div className="font-display text-[11px] text-cream">12</div>
+            <div className="font-sans font-black text-[11px] text-cream">12</div>
             <div className="text-[8px] uppercase tracking-wider text-cream/45">
               Likes
             </div>
           </div>
           <div className="rounded-md bg-ink/60 py-1.5">
-            <div className="font-display text-[11px] text-cream">4</div>
+            <div className="font-sans font-black text-[11px] text-cream">4</div>
             <div className="text-[8px] uppercase tracking-wider text-cream/45">
               Replies
             </div>
           </div>
           <div className="rounded-md bg-ink/60 py-1.5">
-            <div className="font-display text-[11px] text-cream">3</div>
+            <div className="font-sans font-black text-[11px] text-cream">3</div>
             <div className="text-[8px] uppercase tracking-wider text-cream/45">
               Follows
             </div>
