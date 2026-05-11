@@ -4,6 +4,8 @@ type Props = {
   color?: string;
   /** flip the curtain so drips hang upward (use at bottom of section) */
   flip?: boolean;
+  /** mirror the curtain horizontally so heavy drips sit on the opposite side */
+  flipX?: boolean;
 };
 
 /** Procedurally-generated drip-curtain path. ~29 drips of varied widths and depths. */
@@ -57,13 +59,22 @@ const PATH = (() => {
   return parts;
 })();
 
-export function BloodEdge({ className, color = "#B81336", flip = false }: Props) {
+export function BloodEdge({
+  className,
+  color = "#B81336",
+  flip = false,
+  flipX = false,
+}: Props) {
+  const sx = flipX ? -1 : 1;
+  const sy = flip ? -1 : 1;
+  const transform =
+    sx === 1 && sy === 1 ? undefined : `scale(${sx}, ${sy})`;
   return (
     <svg
       viewBox="0 0 1200 130"
       preserveAspectRatio="none"
       className={className}
-      style={flip ? { transform: "scaleY(-1)" } : undefined}
+      style={transform ? { transform } : undefined}
       aria-hidden="true"
     >
       <path d={PATH} fill={color} />

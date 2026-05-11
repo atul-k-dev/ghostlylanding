@@ -13,9 +13,9 @@ export function FinalCTA() {
       id="final-cta"
       className="relative overflow-hidden bg-grad-a py-32 md:py-40"
     >
-      {/* Drip curtain at top */}
+      {/* Drip curtain at top — right 60% */}
       <BloodEdge
-        className="absolute left-0 right-0 top-0 h-24 opacity-90 md:h-28"
+        className="absolute left-[40%] right-0 top-0 h-24 opacity-90 md:h-28"
         color="#B81336"
       />
 
