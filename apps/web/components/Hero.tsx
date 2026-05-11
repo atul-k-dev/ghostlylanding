@@ -8,7 +8,6 @@ import { GhostWinking } from "./GhostWinking";
 import { HeroVisual } from "./HeroVisual";
 import { SocialProof } from "./SocialProof";
 import { ClawScratch } from "./stickers/ClawScratch";
-import { TextSticker } from "./stickers/TextSticker";
 
 const NAV_LINKS = [
   { label: "How it works", href: "#how-it-works" },
@@ -81,24 +80,12 @@ export function Hero() {
 
       {/* Stickers */}
       <ClawScratch
-        className="pointer-events-none absolute -left-4 top-[8%] hidden h-24 w-auto opacity-60 lg:block"
+        className="pointer-events-none absolute -left-4 bottom-[6%] hidden h-24 w-auto opacity-60 lg:block"
         rotate={-12}
       />
       <ClawScratch
-        className="pointer-events-none absolute -right-6 bottom-[6%] hidden h-24 w-auto opacity-50 lg:block"
+        className="pointer-events-none absolute -right-6 top-[8%] hidden h-24 w-auto opacity-50 lg:block"
         rotate={172}
-      />
-      <TextSticker
-        text="AUTOPILOT"
-        size="md"
-        tilt={-10}
-        className="absolute left-[3%] bottom-[12%] hidden lg:block"
-      />
-      <TextSticker
-        text="ZZZ..."
-        size="lg"
-        tilt={8}
-        className="absolute right-[6%] bottom-[8%] hidden lg:block"
       />
 
       {/* Nav */}
