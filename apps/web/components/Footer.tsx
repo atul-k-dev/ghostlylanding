@@ -44,8 +44,8 @@ export function Footer() {
               height={44}
               className="h-11 w-11"
             />
-            <span className="font-sans font-black text-xl tracking-wider">
-              Casper AI
+            <span className="font-sans text-2xl font-black tracking-tight text-cream">
+              Casper <span className="text-coral">AI</span>
             </span>
           </a>
           <p className="mt-4 max-w-xs text-sm text-cream/60">

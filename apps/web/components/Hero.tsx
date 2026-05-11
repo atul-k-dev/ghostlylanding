@@ -85,8 +85,8 @@ export function Hero() {
             className="h-11 w-11"
             priority
           />
-          <span className="font-sans font-black text-xl tracking-wider">
-            Casper AI
+          <span className="font-sans text-2xl font-black tracking-tight text-cream">
+            Casper <span className="text-coral">AI</span>
           </span>
         </a>
 
@@ -143,7 +143,7 @@ export function Hero() {
           </p>
 
           {/* CTAs */}
-          <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:items-start lg:justify-start">
+          <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
             <a
               href="#"
               className="rounded-full bg-coral px-7 py-3 text-sm font-semibold text-cream shadow-[0_8px_30px_rgba(184,19,54,0.4)] transition hover:bg-coral-dim"
