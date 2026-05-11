@@ -80,11 +80,11 @@ export function Hero() {
 
       {/* Stickers */}
       <ClawScratch
-        className="pointer-events-none absolute -left-4 bottom-[6%] hidden h-24 w-auto opacity-60 lg:block"
+        className="pointer-events-none absolute -left-4 bottom-[18%] hidden h-24 w-auto opacity-60 lg:block"
         rotate={-12}
       />
       <ClawScratch
-        className="pointer-events-none absolute -right-6 top-[8%] hidden h-24 w-auto opacity-50 lg:block"
+        className="pointer-events-none absolute -right-6 top-[22%] hidden h-24 w-auto opacity-50 lg:block"
         rotate={172}
       />
 
