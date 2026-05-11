@@ -258,7 +258,7 @@ export function Testimonials() {
         text="REAL CREATORS"
         size="md"
         tilt={6}
-        className="absolute left-[4%] bottom-[14%] hidden lg:block"
+        className="absolute left-[4%] bottom-[10%] hidden lg:block"
       />
       <Eyeball
         className="pointer-events-none absolute right-[5%] bottom-[28%] hidden h-10 w-auto opacity-80 md:block"
@@ -307,7 +307,7 @@ export function Testimonials() {
               <FeaturedCard key={t.name} t={t} />
             ) : (
               <StandardCard key={t.name} t={t} />
-            )
+            ),
           )}
         </div>
 
@@ -324,8 +324,8 @@ export function Testimonials() {
           </span>
           <span className="hidden h-1 w-1 rounded-full bg-cream/30 md:block" />
           <span className="flex items-center gap-2">
-            <span className="font-display text-2xl text-coral">0</span>{" "}
-            account bans
+            <span className="font-display text-2xl text-coral">0</span> account
+            bans
           </span>
         </div>
       </div>
