@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ActionLogModel } from '../models/action-log.model.js';
+import type { Types } from 'mongoose';
 
 export const actionsRouter = Router();
 
@@ -44,5 +45,40 @@ actionsRouter.post(
     }));
     const inserted = await ActionLogModel.insertMany(docs, { ordered: false });
     res.json(ok({ inserted: inserted.length }));
+  }),
+);
+
+const listSchema = z.object({
+  limit: z.coerce.number().int().positive().max(200).default(50),
+});
+
+actionsRouter.get(
+  '/log',
+  requireAuth,
+  validate(listSchema, 'query'),
+  asyncHandler(async (req, res) => {
+    if (!req.auth) {
+      res.status(401).json(err('unauthorized', 'No auth context'));
+      return;
+    }
+    const { limit } = req.query as unknown as z.infer<typeof listSchema>;
+    const entries = await ActionLogModel.find({ userId: req.auth.sub })
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .lean();
+    res.json(
+      ok({
+        entries: entries.map((e) => ({
+          id: (e._id as Types.ObjectId).toString(),
+          platform: e.platform,
+          actionType: e.actionType,
+          targetUrl: e.targetUrl,
+          targetHandle: e.targetHandle ?? null,
+          success: e.success,
+          errorMessage: e.errorMessage ?? null,
+          timestamp: (e.timestamp as Date).toISOString(),
+        })),
+      }),
+    );
   }),
 );

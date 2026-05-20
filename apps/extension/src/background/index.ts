@@ -11,7 +11,14 @@ import type {
 } from '@casper/shared';
 import { ACTION_TYPES, PLATFORMS, TONE_PRESETS } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
-import { getAuth, setAuth, type StoredAuth } from '../lib/storage.js';
+import {
+  getAuth,
+  setAuth,
+  setAuthNonce,
+  consumeAuthNonce,
+  appendDiagnostic,
+  type StoredAuth,
+} from '../lib/storage.js';
 import { installScheduler, handleTick, SCHEDULER_ALARM } from '../scheduler/scheduler.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog } from '../scheduler/action-log.js';
@@ -57,6 +64,8 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   LIST_DRAFTS: handleListDrafts as AsyncHandler<unknown, unknown>,
   APPROVE_DRAFT: handleApproveDraft as AsyncHandler<unknown, unknown>,
   REJECT_DRAFT: handleRejectDraft as AsyncHandler<unknown, unknown>,
+  LIST_ACTION_LOG: handleListActionLog as AsyncHandler<unknown, unknown>,
+  DELETE_ACCOUNT: handleDeleteAccount as AsyncHandler<unknown, unknown>,
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -89,25 +98,52 @@ async function handleGetAuth(): Promise<{
   };
 }
 
+const generateNonce = (): string => {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+};
+
 async function handleRequestMagicLink(payload: unknown) {
   const { email } = (payload ?? {}) as { email?: string };
   if (!email || typeof email !== 'string') {
     return { type: 'MAGIC_LINK_SENT', payload: { sent: false, error: 'invalid_email' } };
   }
+  const nonce = generateNonce();
+  await setAuthNonce(nonce);
   const resp = await apiFetch<{ sent: boolean; via: string; devVerifyUrl?: string }>(
     '/api/auth/request-magic-link',
-    { method: 'POST', body: { email }, auth: false },
+    { method: 'POST', body: { email, nonce }, auth: false },
   );
   if (!resp.ok) {
+    if (resp.error.code === 'rate_limited') {
+      await appendDiagnostic({
+        kind: 'rate_limited',
+        context: 'request-magic-link',
+        detail: resp.error.message,
+      });
+    }
     return { type: 'MAGIC_LINK_SENT', payload: { sent: false, error: resp.error.message } };
   }
   return { type: 'MAGIC_LINK_SENT', payload: resp.data };
 }
 
 async function handleAuthFromWeb(payload: unknown) {
-  const { token, user } = (payload ?? {}) as { token?: unknown; user?: unknown };
+  const { token, user, nonce } = (payload ?? {}) as {
+    token?: unknown;
+    user?: unknown;
+    nonce?: unknown;
+  };
   if (typeof token !== 'string' || typeof user !== 'object' || user === null) {
     return { ok: false, error: 'invalid_payload' };
+  }
+  if (typeof nonce !== 'string' || !(await consumeAuthNonce(nonce))) {
+    await appendDiagnostic({
+      kind: 'auth_failure',
+      context: 'auth_handoff',
+      detail: 'nonce mismatch or expired',
+    });
+    return { ok: false, error: 'invalid_or_expired_nonce' };
   }
   const stored: StoredAuth = {
     token,
@@ -254,6 +290,26 @@ async function handleScanTargetNow(payload: unknown) {
   }
   const task = await enqueue(platform, 'scan-profile-likes', { handle });
   return { ok: true, data: { taskId: task.id } };
+}
+
+async function handleListActionLog(payload: unknown) {
+  const { limit = 50 } = (payload ?? {}) as { limit?: number };
+  return await apiFetch(`/api/actions/log?limit=${limit}`);
+}
+
+async function handleDeleteAccount() {
+  // Flush any buffered logs first so we don't lose history on the server
+  try {
+    await flushActionLog();
+  } catch {
+    /* best-effort */
+  }
+  const resp = await apiFetch('/api/account', { method: 'DELETE' });
+  if (resp.ok) {
+    // Wipe ALL local Casper state.
+    await chrome.storage.local.clear();
+  }
+  return resp;
 }
 
 async function handleScanFollowersNow(payload: unknown) {

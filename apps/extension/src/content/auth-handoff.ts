@@ -21,11 +21,20 @@ window.addEventListener('message', (event: MessageEvent) => {
   const data = event.data as { type?: unknown; payload?: unknown } | null;
   if (!data || typeof data !== 'object') return;
   if (data.type !== WEB_AUTH_MESSAGE_TYPE) return;
-  const payload = data.payload as { token?: unknown; user?: unknown };
-  if (typeof payload?.token !== 'string' || typeof payload?.user !== 'object') return;
+  const payload = data.payload as { token?: unknown; user?: unknown; nonce?: unknown };
+  if (
+    typeof payload?.token !== 'string' ||
+    typeof payload?.user !== 'object' ||
+    typeof payload?.nonce !== 'string'
+  ) {
+    return;
+  }
 
   chrome.runtime.sendMessage(
-    { type: 'AUTH_FROM_WEB', payload: { token: payload.token, user: payload.user } },
+    {
+      type: 'AUTH_FROM_WEB',
+      payload: { token: payload.token, user: payload.user, nonce: payload.nonce },
+    },
     () => {
       if (chrome.runtime.lastError) {
         console.error('[casper] auth handoff failed:', chrome.runtime.lastError.message);

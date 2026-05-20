@@ -22,6 +22,7 @@ import {
   getTargetState,
   setTargetState,
   getSettings,
+  appendDiagnostic,
 } from '../lib/storage.js';
 import {
   buildProfileUrl as twitterProfileUrl,
@@ -89,6 +90,13 @@ const executeLike = async (task: QueuedTask): Promise<ExecutorResult> => {
     if (success && postId) {
       await markLiked(task.platform, postId);
     }
+    if (!success && error) {
+      await appendDiagnostic({
+        kind: 'selector_miss',
+        context: `${task.platform}:like`,
+        detail: error,
+      });
+    }
     return {
       success,
       ...(error ? { errorMessage: error } : {}),
@@ -136,6 +144,13 @@ const executeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
     };
   }
 
+  if (resp.payload.posts.length === 0) {
+    await appendDiagnostic({
+      kind: 'selector_miss',
+      context: `${task.platform}:scan-profile-likes`,
+      detail: `0 posts found on @${handle}`,
+    });
+  }
   const fresh = resp.payload.posts.filter((p) => isFresh(p.publishedAt));
   let enqueued = 0;
   for (const post of fresh) {
@@ -217,6 +232,13 @@ const executeComment = async (task: QueuedTask): Promise<ExecutorResult> => {
   const { posted, error } = resp.payload;
   if (posted && postId) await markCommented(task.platform, postId);
   if (draftId) await markDraft(draftId, posted ? 'posted' : 'failed');
+  if (!posted && error) {
+    await appendDiagnostic({
+      kind: 'selector_miss',
+      context: `${task.platform}:comment`,
+      detail: error,
+    });
+  }
 
   return {
     success: posted,
@@ -279,6 +301,13 @@ const executeFollowScan = async (task: QueuedTask): Promise<ExecutorResult> => {
     };
   }
 
+  if (resp.payload.followers.length === 0) {
+    await appendDiagnostic({
+      kind: 'selector_miss',
+      context: `${task.platform}:scan-profile-followers`,
+      detail: `0 candidates on @${handle}`,
+    });
+  }
   const settings = await getSettings();
   let enqueued = 0;
   for (const candidate of resp.payload.followers) {
@@ -365,6 +394,13 @@ const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
   const { followed, alreadyFollowing, error } = resp.payload;
   const success = followed || alreadyFollowing;
   if (success) await markFollowed(task.platform, handle);
+  if (!success && error) {
+    await appendDiagnostic({
+      kind: 'selector_miss',
+      context: `${task.platform}:follow`,
+      detail: error,
+    });
+  }
 
   return {
     success,

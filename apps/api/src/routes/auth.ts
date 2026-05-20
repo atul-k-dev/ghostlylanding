@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ok, err, type AuthResponse } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { validate } from '../middleware/validate.js';
+import { rateLimit } from '../middleware/rate-limit.js';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { generateMagicLink, consumeMagicLink } from '../auth/magic-link.js';
@@ -14,14 +15,17 @@ export const authRouter = Router();
 
 const requestSchema = z.object({
   email: z.string().email().max(254),
+  /** Optional nonce supplied by the extension to defend against drive-by handoff. */
+  nonce: z.string().min(16).max(128).optional(),
 });
 
 authRouter.post(
   '/request-magic-link',
+  rateLimit({ windowMs: 60_000, max: 5 }),
   validate(requestSchema),
   asyncHandler(async (req, res) => {
-    const { email } = req.body as z.infer<typeof requestSchema>;
-    const { verifyUrl } = await generateMagicLink(email);
+    const { email, nonce } = req.body as z.infer<typeof requestSchema>;
+    const { verifyUrl } = await generateMagicLink(email, nonce);
     const result = await sendMagicLinkEmail({
       to: email,
       verifyUrl,
@@ -60,7 +64,11 @@ authRouter.get(
 
     const jwt = signJwt({ sub: user._id.toString(), email: user.email });
     const dto = toUserDTO(user.toObject() as Parameters<typeof toUserDTO>[0]);
-    const payload: AuthResponse = { token: jwt, user: dto };
+    const payload: AuthResponse & { nonce?: string | null } = {
+      token: jwt,
+      user: dto,
+      nonce: consumed.nonce,
+    };
     res.json(ok(payload));
   }),
 );

@@ -10,9 +10,27 @@ import type {
 } from '@casper/shared';
 import { PLATFORMS, TONE_PRESETS } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
-import { getSettings, setSettings, STORAGE_KEYS } from '../../lib/storage.js';
+import {
+  getSettings,
+  setSettings,
+  STORAGE_KEYS,
+  getDiagnostics,
+  clearDiagnostics,
+  type DiagnosticEntry,
+} from '../../lib/storage.js';
 
-type Tab = 'dashboard' | 'queue' | 'settings';
+type Tab = 'dashboard' | 'queue' | 'activity' | 'settings';
+
+interface ActionLogEntry {
+  id: string;
+  platform: Platform;
+  actionType: 'like' | 'comment' | 'follow';
+  targetUrl: string;
+  targetHandle: string | null;
+  success: boolean;
+  errorMessage: string | null;
+  timestamp: string;
+}
 
 interface Props {
   user: User;
@@ -61,11 +79,13 @@ export const Dashboard = ({ user, onLogout }: Props) => {
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {tab === 'dashboard' && <DashboardTab settings={settings} />}
         {tab === 'queue' && <QueueTab />}
+        {tab === 'activity' && <ActivityTab />}
         {tab === 'settings' && settings && (
           <SettingsTab
             settings={settings}
             onChange={updateSettings}
             onLogout={logout}
+            onAccountDeleted={onLogout}
             userEmail={user.email}
           />
         )}
@@ -114,8 +134,9 @@ const Header = ({
 
 const Tabs = ({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) => {
   const items: { id: Tab; label: string }[] = [
-    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'dashboard', label: 'Home' },
     { id: 'queue', label: 'Queue' },
+    { id: 'activity', label: 'Activity' },
     { id: 'settings', label: 'Settings' },
   ];
   return (
@@ -125,7 +146,7 @@ const Tabs = ({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) => {
           key={item.id}
           type="button"
           onClick={() => onChange(item.id)}
-          className={`flex-1 px-3 py-2 text-xs font-medium transition ${
+          className={`flex-1 px-2 py-2 text-xs font-medium transition ${
             tab === item.id
               ? 'border-b-2 border-casper-violet text-casper-violet'
               : 'text-casper-ink/50 hover:text-casper-ink'
@@ -228,6 +249,8 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
 
   const isPaused = settings?.isPaused ?? false;
 
+  const hasTargets = (settings?.targetCreators.length ?? 0) > 0;
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-casper-violet/20 bg-casper-violet/5 p-3 text-xs">
@@ -242,11 +265,18 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
               : 'Engine warming up…'}
         </p>
       </div>
+      {!hasTargets && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs">
+          <p className="font-medium text-amber-700">Add your first creator to begin 👋</p>
+          <p className="text-amber-700/80">
+            Open <strong>Settings</strong> and add a Twitter or LinkedIn handle. Casper visits
+            their profile, likes recent posts, and finds new accounts to follow — all on the
+            schedule you set.
+          </p>
+        </div>
+      )}
       <PlatformCounters platform="twitter" counter={counters?.twitter ?? null} />
       <PlatformCounters platform="linkedin" counter={counters?.linkedin ?? null} />
-      <p className="text-[10px] text-casper-ink/40">
-        Real platform actions land in M4. Until then, seed stub tasks from Settings ↘
-      </p>
     </div>
   );
 };
@@ -410,14 +440,19 @@ const SettingsTab = ({
   settings,
   onChange,
   onLogout,
+  onAccountDeleted,
   userEmail,
 }: {
   settings: ExtensionSettings;
   onChange: (s: ExtensionSettings) => void;
   onLogout: () => void;
+  onAccountDeleted: () => void;
   userEmail: string;
 }) => {
   const [seedStatus, setSeedStatus] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const setStart = (h: number) =>
     onChange({ ...settings, activeHours: { ...settings.activeHours, startHour: h } });
@@ -439,6 +474,25 @@ const SettingsTab = ({
       setSeedStatus(`Enqueued ${r.data.enqueued} stub tasks`);
     } catch (err) {
       setSeedStatus(err instanceof Error ? err.message : 'failed');
+    }
+  };
+
+  const doDelete = async () => {
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const r = await sendToBackground<
+        { ok: true; data: unknown } | { ok: false; error: { message: string } }
+      >({ type: 'DELETE_ACCOUNT', payload: {} });
+      if (!r.ok) {
+        setDeleteError(r.error.message);
+        setDeleteBusy(false);
+        return;
+      }
+      onAccountDeleted();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'failed');
+      setDeleteBusy(false);
     }
   };
 
@@ -496,6 +550,8 @@ const SettingsTab = ({
 
       <WhitelistSection settings={settings} onChange={onChange} />
 
+      <DiagnosticsSection />
+
       <Section title="Dev tools" subtitle="Useful while testing the engine.">
         <button
           type="button"
@@ -507,6 +563,48 @@ const SettingsTab = ({
         {seedStatus && <p className="mt-2 text-[10px] text-casper-ink/50">{seedStatus}</p>}
       </Section>
 
+      <Section
+        title="Danger zone"
+        subtitle="Deleting your account wipes everything: profile, action logs, drafts."
+      >
+        {confirmDelete ? (
+          <div className="space-y-2">
+            <p className="text-[11px] text-rose-700">
+              This permanently deletes your account and all data. Type-safe — no undo.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={doDelete}
+                disabled={deleteBusy}
+                className="flex-1 rounded-xl bg-rose-600 px-3 py-2 text-[11px] font-medium text-white transition hover:bg-rose-700 disabled:opacity-50"
+              >
+                {deleteBusy ? 'Deleting…' : 'Yes, delete forever'}
+              </button>
+              <button
+                type="button"
+                disabled={deleteBusy}
+                onClick={() => setConfirmDelete(false)}
+                className="rounded-xl border border-casper-ink/10 px-3 py-2 text-[11px] text-casper-ink/70 transition hover:bg-white disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+            {deleteError && (
+              <p className="text-[10px] text-rose-600">✗ {deleteError}</p>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="w-full rounded-xl border border-rose-200 px-3 py-2 text-[11px] text-rose-600 transition hover:bg-rose-50"
+          >
+            Delete my account
+          </button>
+        )}
+      </Section>
+
       <button
         type="button"
         onClick={onLogout}
@@ -515,6 +613,165 @@ const SettingsTab = ({
         Sign out
       </button>
     </div>
+  );
+};
+
+const ActivityTab = () => {
+  const [entries, setEntries] = useState<ActionLogEntry[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = async () => {
+    try {
+      const resp = await sendToBackground<
+        | { ok: true; data: { entries: ActionLogEntry[] } }
+        | { ok: false; error: { message: string } }
+      >({ type: 'LIST_ACTION_LOG', payload: { limit: 50 } });
+      if (resp.ok) {
+        setEntries(resp.data.entries);
+        setError(null);
+      } else {
+        setError(resp.error.message);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed');
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+    const id = setInterval(refresh, 10_000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (entries === null) {
+    return <p className="py-4 text-center text-xs text-casper-ink/40">Loading…</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {error && (
+        <div className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</div>
+      )}
+      {entries.length === 0 ? (
+        <div className="flex h-[280px] flex-col items-center justify-center text-center text-xs text-casper-ink/50">
+          <div className="mb-2 text-3xl" aria-hidden>
+            🌱
+          </div>
+          <p>No activity yet.</p>
+          <p className="text-[10px] text-casper-ink/40">
+            Once Casper acts on your behalf, you'll see it here.
+          </p>
+        </div>
+      ) : (
+        entries.map((e) => (
+          <a
+            key={e.id}
+            href={e.targetUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-start gap-2 rounded-xl bg-white p-2.5 text-[11px] shadow-sm transition hover:bg-casper-cloud"
+          >
+            <span
+              className={`mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-[10px] ${
+                e.success ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'
+              }`}
+              aria-hidden
+            >
+              {e.success ? '✓' : '✗'}
+            </span>
+            <span className="flex-1">
+              <span className="font-medium text-casper-ink capitalize">{e.actionType}</span>{' '}
+              <span className="text-casper-ink/40">on {e.platform}</span>
+              {e.targetHandle && (
+                <span className="text-casper-ink/60"> · @{e.targetHandle.replace(/^@/, '')}</span>
+              )}
+              <span className="block text-[10px] text-casper-ink/40">
+                {formatRelative(e.timestamp)}
+                {e.errorMessage ? ` · ${e.errorMessage}` : ''}
+              </span>
+            </span>
+          </a>
+        ))
+      )}
+    </div>
+  );
+};
+
+const formatRelative = (iso: string): string => {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return iso;
+  const diff = Date.now() - t;
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
+};
+
+const DiagnosticsSection = () => {
+  const [diags, setDiags] = useState<DiagnosticEntry[] | null>(null);
+  const [open, setOpen] = useState(false);
+
+  const refresh = async () => {
+    setDiags(await getDiagnostics());
+  };
+
+  useEffect(() => {
+    void refresh();
+    const listener = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: chrome.storage.AreaName,
+    ) => {
+      if (area === 'local' && STORAGE_KEYS.diagnostics in changes) {
+        void refresh();
+      }
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, []);
+
+  const count = diags?.length ?? 0;
+
+  return (
+    <Section
+      title="Diagnostics"
+      subtitle={count > 0 ? `${count} recent issue${count === 1 ? '' : 's'}` : 'No issues recorded.'}
+    >
+      {count > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="text-[11px] text-casper-violet hover:underline"
+          >
+            {open ? 'Hide' : 'Show'} latest
+          </button>
+          {open && (
+            <ul className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+              {diags!.slice(0, 20).map((d, i) => (
+                <li
+                  key={`${d.at}-${i}`}
+                  className="rounded-md bg-casper-cloud px-2 py-1 text-[10px] text-casper-ink/70"
+                >
+                  <span className="text-casper-ink/40">{formatRelative(d.at)}</span>{' '}
+                  <span className="font-medium">{d.kind}</span>{' '}
+                  <span>{d.context}</span>
+                  {d.detail && <span className="text-casper-ink/50"> — {d.detail}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            onClick={async () => {
+              await clearDiagnostics();
+            }}
+            className="mt-2 text-[10px] text-casper-ink/40 hover:text-rose-500"
+          >
+            Clear log
+          </button>
+        </>
+      )}
+    </Section>
   );
 };
 

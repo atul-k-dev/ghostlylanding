@@ -9,12 +9,18 @@ export const hashToken = (raw: string): string =>
 
 export const generateMagicLink = async (
   email: string,
+  nonce?: string,
 ): Promise<{ rawToken: string; verifyUrl: string; expiresAt: Date }> => {
   const rawToken = randomBytes(TOKEN_BYTES).toString('base64url');
   const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + config.magicLinkTtlMinutes * 60 * 1000);
 
-  await MagicLinkModel.create({ email: email.toLowerCase(), tokenHash, expiresAt });
+  await MagicLinkModel.create({
+    email: email.toLowerCase(),
+    tokenHash,
+    expiresAt,
+    nonce: nonce ?? null,
+  });
 
   const verifyUrl = `${config.webBaseUrl}/auth/verify?token=${encodeURIComponent(rawToken)}`;
   return { rawToken, verifyUrl, expiresAt };
@@ -22,7 +28,7 @@ export const generateMagicLink = async (
 
 export const consumeMagicLink = async (
   rawToken: string,
-): Promise<{ email: string } | null> => {
+): Promise<{ email: string; nonce: string | null } | null> => {
   const tokenHash = hashToken(rawToken);
   const doc = await MagicLinkModel.findOne({ tokenHash });
   if (!doc) return null;
@@ -32,5 +38,5 @@ export const consumeMagicLink = async (
   doc.usedAt = new Date();
   await doc.save();
 
-  return { email: doc.email };
+  return { email: doc.email, nonce: doc.nonce ?? null };
 };

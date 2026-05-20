@@ -17,6 +17,8 @@ export const STORAGE_KEYS = {
   likedPosts: 'casper.likedPosts',
   commentedPosts: 'casper.commentedPosts',
   followedHandles: 'casper.followedHandles',
+  authNonce: 'casper.authNonce',
+  diagnostics: 'casper.diagnostics',
 } as const;
 
 export interface StoredAuth {
@@ -229,4 +231,65 @@ export const isAlreadyFollowed = async (
 ): Promise<boolean> => {
   const map = await getFollowedHandles();
   return handleKey(platform, handle) in map;
+};
+
+// -- auth nonce (single-use, short TTL) -------------------------------------
+export interface AuthNonceRecord {
+  nonce: string;
+  createdAt: number;
+}
+
+const AUTH_NONCE_TTL_MS = 20 * 60 * 1000;
+
+export const setAuthNonce = async (nonce: string): Promise<void> => {
+  const record: AuthNonceRecord = { nonce, createdAt: Date.now() };
+  await chrome.storage.local.set({ [STORAGE_KEYS.authNonce]: record });
+};
+
+export const consumeAuthNonce = async (incoming: string): Promise<boolean> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.authNonce);
+  const rec = got[STORAGE_KEYS.authNonce] as AuthNonceRecord | undefined;
+  if (!rec) return false;
+  if (Date.now() - rec.createdAt > AUTH_NONCE_TTL_MS) {
+    await chrome.storage.local.remove(STORAGE_KEYS.authNonce);
+    return false;
+  }
+  const match = rec.nonce === incoming;
+  if (match) {
+    await chrome.storage.local.remove(STORAGE_KEYS.authNonce);
+  }
+  return match;
+};
+
+// -- diagnostics ring buffer (selector misses, network errors) -------------
+export type DiagnosticKind =
+  | 'selector_miss'
+  | 'tab_load_timeout'
+  | 'network_error'
+  | 'auth_failure'
+  | 'rate_limited';
+
+export interface DiagnosticEntry {
+  at: string; // ISO timestamp
+  kind: DiagnosticKind;
+  context: string; // human label
+  detail?: string;
+}
+
+const DIAG_MAX = 100;
+
+export const getDiagnostics = async (): Promise<DiagnosticEntry[]> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.diagnostics);
+  return (got[STORAGE_KEYS.diagnostics] as DiagnosticEntry[] | undefined) ?? [];
+};
+
+export const appendDiagnostic = async (entry: Omit<DiagnosticEntry, 'at'>): Promise<void> => {
+  const list = await getDiagnostics();
+  list.unshift({ ...entry, at: new Date().toISOString() });
+  if (list.length > DIAG_MAX) list.length = DIAG_MAX;
+  await chrome.storage.local.set({ [STORAGE_KEYS.diagnostics]: list });
+};
+
+export const clearDiagnostics = async (): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.diagnostics]: [] });
 };
