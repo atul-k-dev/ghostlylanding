@@ -3,7 +3,7 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function BillingSuccessPage() {
+export default function ReturnSuccessPage() {
   return (
     <main className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-3xl bg-white/5 backdrop-blur p-8 border border-white/10 text-center">
@@ -16,7 +16,7 @@ export default function BillingSuccessPage() {
           Casper extension — it updates automatically.
         </p>
         <p className="text-[10px] text-white/40 mt-6">
-          Need a receipt or want to change billing? Open the extension → Settings → Plan → Manage.
+          Need a receipt or want to change your subscription? Open the extension → Settings → Plan → Manage.
         </p>
       </div>
     </main>

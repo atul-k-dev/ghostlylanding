@@ -58,8 +58,8 @@ billingRouter.post(
       mode: 'subscription',
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${config.webBaseUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${config.webBaseUrl}/billing/cancel`,
+      success_url: `${config.webBaseUrl}/r/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${config.webBaseUrl}/r/cancel`,
       allow_promotion_codes: true,
       client_reference_id: user._id.toString(),
       subscription_data: {
@@ -96,7 +96,7 @@ billingRouter.post(
     const stripe = getStripe();
     const session = await stripe.billingPortal.sessions.create({
       customer: user.stripeCustomerId,
-      return_url: `${config.webBaseUrl}/billing/success`,
+      return_url: `${config.webBaseUrl}/r/success`,
     });
     res.json(ok({ url: session.url }));
   }),

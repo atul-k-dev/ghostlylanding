@@ -1,9 +1,9 @@
 export const metadata = {
-  title: 'Checkout canceled · Casper AI',
+  title: 'Returned to Casper · Casper AI',
   robots: { index: false, follow: false },
 };
 
-export default function BillingCancelPage() {
+export default function ReturnCancelPage() {
   return (
     <main className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-3xl bg-white/5 backdrop-blur p-8 border border-white/10 text-center">
