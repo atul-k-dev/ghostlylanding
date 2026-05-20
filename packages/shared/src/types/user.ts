@@ -21,12 +21,14 @@ export interface User {
   subscriptionStatus?: SubscriptionStatus | null;
   subscriptionPlan?: SubscriptionPlan;
   currentPeriodEnd?: string | null;
+  /** Lifetime successful-action count — once it hits FREE_TIER.lifetimeActions, free users must upgrade. */
+  lifetimeActionCount?: number;
   preferences: UserPreferences;
 }
 
-/** Free tier limits per CONTEXT.md §8. */
+/** Free tier limits per locked spec: 30 lifetime actions total, 1 platform, no AI comments. */
 export const FREE_TIER = {
-  actionsPerDay: 25,
+  lifetimeActions: 30,
   maxPlatforms: 1,
   aiCommentsEnabled: false,
 } as const;

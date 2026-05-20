@@ -4,6 +4,8 @@ import {
   setActionLogBuffer,
   getSchedulerState,
   setSchedulerState,
+  getAuth,
+  setAuth,
 } from '../lib/storage.js';
 import { apiFetch } from '../lib/api.js';
 
@@ -32,10 +34,10 @@ export const flushActionLog = async (): Promise<{ sent: number; kept: number }> 
   const buf = await getActionLogBuffer();
   if (buf.length === 0) return { sent: 0, kept: 0 };
 
-  const resp = await apiFetch<{ inserted: number }>('/api/actions/log', {
-    method: 'POST',
-    body: { entries: buf },
-  });
+  const resp = await apiFetch<{ inserted: number; lifetimeActionCount?: number }>(
+    '/api/actions/log',
+    { method: 'POST', body: { entries: buf } },
+  );
 
   if (!resp.ok) {
     // Keep buffer for next attempt. Don't infinitely grow — trim oldest if it's huge.
@@ -50,5 +52,17 @@ export const flushActionLog = async (): Promise<{ sent: number; kept: number }> 
   await setActionLogBuffer([]);
   const state = await getSchedulerState();
   await setSchedulerState({ ...state, lastFlushAt: Date.now() });
+
+  // Sync the server-authoritative lifetime counter back into local auth so the
+  // free-tier gate sees the latest value on the very next scheduler tick.
+  if (typeof resp.data.lifetimeActionCount === 'number') {
+    const auth = await getAuth();
+    if (auth) {
+      await setAuth({
+        ...auth,
+        user: { ...auth.user, lifetimeActionCount: resp.data.lifetimeActionCount },
+      });
+    }
+  }
   return { sent: buf.length, kept: 0 };
 };

@@ -43,6 +43,8 @@ const userSchema = new Schema(
       default: 'free',
     },
     currentPeriodEnd: { type: Date, default: null },
+    /** Server-authoritative count of successful actions for free-tier enforcement. */
+    lifetimeActionCount: { type: Number, default: 0 },
     preferences: { type: preferencesSchema, default: () => ({}) },
   },
   { timestamps: true },
@@ -66,6 +68,7 @@ export const toUserDTO = (
     subscriptionStatus: doc.subscriptionStatus ?? null,
     subscriptionPlan: (doc.subscriptionPlan ?? 'free') as UserDTO['subscriptionPlan'],
     currentPeriodEnd: doc.currentPeriodEnd ? doc.currentPeriodEnd.toISOString() : null,
+    lifetimeActionCount: doc.lifetimeActionCount ?? 0,
     preferences: {
       enabledPlatforms: prefs.enabledPlatforms,
       tone: prefs.tone,

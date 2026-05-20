@@ -9,7 +9,7 @@ import type {
   TonePreset,
   User,
 } from '@casper/shared';
-import { PLATFORMS, TONE_PRESETS, isPro } from '@casper/shared';
+import { PLATFORMS, TONE_PRESETS, FREE_TIER, isPro } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import {
   getSettings,
@@ -780,11 +780,18 @@ const PlanSection = () => {
     pro && user?.currentPeriodEnd
       ? `Renews ${new Date(user.currentPeriodEnd).toLocaleDateString()}`
       : null;
+  const lifetimeUsed = user?.lifetimeActionCount ?? 0;
+  const lifetimeCap = FREE_TIER.lifetimeActions;
+  const exhausted = !pro && lifetimeUsed >= lifetimeCap;
 
   return (
     <Section
       title="Plan"
-      subtitle={pro ? 'Casper Pro · all features unlocked' : 'Free · likes + follows on 1 platform'}
+      subtitle={
+        pro
+          ? 'Casper Pro · all features unlocked'
+          : `Free · ${lifetimeCap} lifetime actions, 1 platform, no AI comments`
+      }
     >
       <div className="flex items-center justify-between mb-3">
         <div>
@@ -806,6 +813,30 @@ const PlanSection = () => {
           {pro ? 'Active' : status === 'past_due' ? 'Past due' : 'Free'}
         </span>
       </div>
+
+      {!pro && (
+        <div className="mb-3">
+          <div className="flex justify-between text-[10px] text-casper-ink/50 mb-1">
+            <span>Free actions used</span>
+            <span>
+              {Math.min(lifetimeUsed, lifetimeCap)} / {lifetimeCap}
+            </span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-casper-ink/10">
+            <div
+              className={`h-full rounded-full ${exhausted ? 'bg-rose-500' : 'bg-casper-violet'}`}
+              style={{
+                width: `${Math.min(100, (lifetimeUsed / lifetimeCap) * 100)}%`,
+              }}
+            />
+          </div>
+          {exhausted && (
+            <p className="mt-2 text-[10px] text-rose-600">
+              You've used all {lifetimeCap} free actions. Upgrade to keep going.
+            </p>
+          )}
+        </div>
+      )}
 
       {pro ? (
         <button

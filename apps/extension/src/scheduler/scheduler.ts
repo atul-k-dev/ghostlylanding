@@ -25,6 +25,7 @@ import {
   getAuth,
 } from '../lib/storage.js';
 import { ensureToday, incrementCounter, isUnderCap } from './counters.js';
+import { setAuth } from '../lib/storage.js';
 import { isActiveNow, nextActionDelayMs } from './timegate.js';
 import {
   peekNextPending,
@@ -114,17 +115,14 @@ export const handleTick = async (): Promise<void> => {
           await maybeFlush();
           return;
         }
-        // 3) 25 total actions/day across all platforms+types
-        const counters = await ensureToday(settings);
-        const totalToday =
-          (counters.twitter?.byActionType.like ?? 0) +
-          (counters.twitter?.byActionType.follow ?? 0) +
-          (counters.linkedin?.byActionType.like ?? 0) +
-          (counters.linkedin?.byActionType.follow ?? 0);
-        if (totalToday >= FREE_TIER.actionsPerDay) {
+        // 3) 30 LIFETIME actions across the entire history of this account.
+        // Server's count is authoritative; pessimistic local += pending to avoid
+        // racing past the cap between server syncs.
+        const lifetime = auth?.user.lifetimeActionCount ?? 0;
+        if (lifetime >= FREE_TIER.lifetimeActions) {
           await updateTask(task.id, {
             status: 'skipped',
-            lastError: `Free plan daily cap (${FREE_TIER.actionsPerDay}) reached. Upgrade to Pro for more.`,
+            lastError: `Free plan: ${FREE_TIER.lifetimeActions}-action lifetime allowance used. Upgrade to Pro.`,
           });
           await maybeFlush();
           return;
@@ -169,6 +167,14 @@ export const handleTick = async (): Promise<void> => {
         task.platform,
         task.taskType as Parameters<typeof incrementCounter>[2],
       );
+      // For free users approaching the lifetime cap, optimistically bump local
+      // count + flush eagerly so the server's authoritative count comes back
+      // before the next dispatch.
+      const auth = await getAuth();
+      if (!isPro(auth?.user.subscriptionStatus ?? 'free') && auth) {
+        const next = (auth.user.lifetimeActionCount ?? 0) + 1;
+        await setAuth({ ...auth, user: { ...auth.user, lifetimeActionCount: next } });
+      }
     }
     await scheduleNext();
     await pruneFinished();

@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ActionLogModel } from '../models/action-log.model.js';
+import { UserModel } from '../models/user.model.js';
 import type { Types } from 'mongoose';
 
 export const actionsRouter = Router();
@@ -44,7 +45,22 @@ actionsRouter.post(
       timestamp: new Date(e.timestamp),
     }));
     const inserted = await ActionLogModel.insertMany(docs, { ordered: false });
-    res.json(ok({ inserted: inserted.length }));
+    const successCount = docs.filter((d) => d.success).length;
+    let lifetimeActionCount: number | undefined;
+    if (successCount > 0) {
+      const updated = await UserModel.findByIdAndUpdate(
+        req.auth.sub,
+        { $inc: { lifetimeActionCount: successCount } },
+        { new: true, projection: { lifetimeActionCount: 1 } },
+      );
+      lifetimeActionCount = updated?.lifetimeActionCount ?? undefined;
+    }
+    res.json(
+      ok({
+        inserted: inserted.length,
+        ...(lifetimeActionCount !== undefined ? { lifetimeActionCount } : {}),
+      }),
+    );
   }),
 );
 
