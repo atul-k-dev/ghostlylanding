@@ -6,6 +6,8 @@
  */
 import { localDate, localHour, isWithinActiveHours, nextActionDelayMs } from '../src/scheduler/timegate.js';
 import { ageMultiplier, dailyVarianceFactor, computeDailyCaps } from '../src/scheduler/quotas.js';
+import { isFresh } from '../src/platforms/common/freshness.js';
+import { extractPostId } from '../src/platforms/common/dedupe.js';
 
 const fails: string[] = [];
 const assert = (cond: boolean, label: string) => {
@@ -71,6 +73,39 @@ const mature = computeDailyCaps(base, 24, 1.0);
 assert(mature.likesPerDay === 80, `mature likes: ${mature.likesPerDay}`);
 const tiny = computeDailyCaps({ likesPerDay: 1, commentsPerDay: 1, followsPerDay: 1 }, 0, 0.85);
 assert(tiny.likesPerDay >= 1, `floor cap at 1, got ${tiny.likesPerDay}`);
+
+// --- freshness --------------------------------------------------------------
+const nowIso = new Date().toISOString();
+const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
+const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString();
+assert(isFresh(nowIso), 'isFresh(now) = true');
+assert(isFresh(oneHourAgo), 'isFresh(1h ago) = true');
+assert(!isFresh(threeDaysAgo), 'isFresh(3d ago) = false (default 48h window)');
+assert(!isFresh(null), 'isFresh(null) = false');
+assert(!isFresh('not-a-date'), 'isFresh(bad string) = false');
+
+// --- dedupe post id extraction ---------------------------------------------
+assert(
+  extractPostId('twitter', 'https://x.com/elonmusk/status/1234567890') === '1234567890',
+  'twitter status id from x.com',
+);
+assert(
+  extractPostId('twitter', 'https://twitter.com/elonmusk/status/9999/photo/1') === '9999',
+  'twitter id ignores trailing /photo/1',
+);
+assert(
+  extractPostId(
+    'linkedin',
+    'https://www.linkedin.com/feed/update/urn:li:activity:7012345678901234567/',
+  ) === '7012345678901234567',
+  'linkedin activity urn',
+);
+assert(
+  extractPostId('linkedin', 'https://www.linkedin.com/posts/foo_bar-activity-7012345-AaBb/') ===
+    '7012345',
+  'linkedin id from /posts/<slug>',
+);
+assert(extractPostId('twitter', 'https://x.com/home') === null, 'twitter non-status returns null');
 
 // ---------------------------------------------------------------------------
 if (fails.length) {

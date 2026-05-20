@@ -1,20 +1,23 @@
-import type { ActionType, Platform } from '@casper/shared';
+import type { Platform } from '@casper/shared';
 import { getQueue, setQueue } from '../lib/storage.js';
-import type { QueuedTask } from './types.js';
+import type { QueuedTask, SchedulerTaskType, TaskKind } from './types.js';
 
 const uid = (): string =>
-  // Service workers don't always have crypto.randomUUID — fall back if missing.
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `t_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
+const kindOf = (type: SchedulerTaskType): TaskKind =>
+  type === 'scan-profile-likes' ? 'scan' : 'action';
+
 export const enqueue = async (
   platform: Platform,
-  taskType: ActionType,
+  taskType: SchedulerTaskType,
   payload: Record<string, unknown> = {},
 ): Promise<QueuedTask> => {
   const task: QueuedTask = {
     id: uid(),
+    kind: kindOf(taskType),
     platform,
     taskType,
     payload,
@@ -33,6 +36,11 @@ export const peekNextPending = async (): Promise<QueuedTask | null> => {
   return queue.find((t) => t.status === 'pending') ?? null;
 };
 
+export const hasRunningTask = async (): Promise<boolean> => {
+  const queue = await getQueue();
+  return queue.some((t) => t.status === 'running');
+};
+
 export const updateTask = async (
   id: string,
   patch: Partial<QueuedTask>,
@@ -46,7 +54,7 @@ export const updateTask = async (
   await setQueue(queue);
 };
 
-export const pruneFinished = async (keepRecent = 20): Promise<void> => {
+export const pruneFinished = async (keepRecent = 25): Promise<void> => {
   const queue = await getQueue();
   const finished = queue.filter(
     (t) => t.status === 'completed' || t.status === 'failed' || t.status === 'skipped',
@@ -72,4 +80,19 @@ export const stats = async (): Promise<{
     completed: queue.filter((t) => t.status === 'completed').length,
     failed: queue.filter((t) => t.status === 'failed').length,
   };
+};
+
+/** Repair the queue on startup — any tasks left in 'running' before SW eviction
+ *  should be reset to 'pending' so the next tick can resume them. */
+export const reviveRunningTasks = async (): Promise<number> => {
+  const queue = await getQueue();
+  let touched = 0;
+  for (const t of queue) {
+    if (t.status === 'running') {
+      t.status = 'pending';
+      touched++;
+    }
+  }
+  if (touched > 0) await setQueue(queue);
+  return touched;
 };

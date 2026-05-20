@@ -4,8 +4,10 @@ import type {
   DailyCounter,
   ExtensionSettings,
   Platform,
+  TargetCreator,
   User,
 } from '@casper/shared';
+import { PLATFORMS } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import { getSettings, setSettings, STORAGE_KEYS } from '../../lib/storage.js';
 
@@ -356,7 +358,9 @@ const SettingsTab = ({
         </div>
       </Section>
 
-      <Section title="Dev tools" subtitle="Will be hidden when real platform engines land.">
+      <TargetsSection settings={settings} onChange={onChange} />
+
+      <Section title="Dev tools" subtitle="Useful while testing the engine.">
         <button
           type="button"
           onClick={seed}
@@ -393,3 +397,131 @@ const Section = ({
     {children}
   </div>
 );
+
+const TargetsSection = ({
+  settings,
+  onChange,
+}: {
+  settings: ExtensionSettings;
+  onChange: (s: ExtensionSettings) => void;
+}) => {
+  const [platform, setPlatform] = useState<Platform>('twitter');
+  const [handle, setHandle] = useState('');
+  const [scanStatus, setScanStatus] = useState<string | null>(null);
+
+  const add = () => {
+    const clean = handle.trim().replace(/^@/, '');
+    if (!clean) return;
+    if (
+      settings.targetCreators.some(
+        (t) => t.platform === platform && t.handle.toLowerCase() === clean.toLowerCase(),
+      )
+    ) {
+      setHandle('');
+      return;
+    }
+    const next: TargetCreator = {
+      platform,
+      handle: clean,
+      addedAt: new Date().toISOString(),
+    };
+    onChange({ ...settings, targetCreators: [...settings.targetCreators, next] });
+    setHandle('');
+  };
+
+  const remove = (target: TargetCreator) => {
+    onChange({
+      ...settings,
+      targetCreators: settings.targetCreators.filter(
+        (t) => !(t.platform === target.platform && t.handle === target.handle),
+      ),
+    });
+  };
+
+  const scanNow = async (target: TargetCreator) => {
+    setScanStatus(`Scanning ${target.handle}…`);
+    try {
+      await sendToBackground({
+        type: 'SCAN_TARGET_NOW',
+        payload: { platform: target.platform, handle: target.handle },
+      });
+      setScanStatus(`Queued scan for ${target.handle}`);
+    } catch (err) {
+      setScanStatus(err instanceof Error ? err.message : 'failed');
+    }
+  };
+
+  return (
+    <Section
+      title="Target creators"
+      subtitle="Casper visits these profiles, finds fresh posts, and likes them."
+    >
+      <div className="flex gap-2">
+        <select
+          value={platform}
+          onChange={(e) => setPlatform(e.target.value as Platform)}
+          className="rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-xs"
+        >
+          {PLATFORMS.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={handle}
+          onChange={(e) => setHandle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') add();
+          }}
+          placeholder="@handle"
+          className="flex-1 rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!handle.trim()}
+          className="rounded-lg bg-casper-violet px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+        >
+          Add
+        </button>
+      </div>
+      {settings.targetCreators.length === 0 ? (
+        <p className="mt-3 text-[10px] text-casper-ink/40">No targets yet. Add a handle above.</p>
+      ) : (
+        <ul className="mt-3 space-y-1">
+          {settings.targetCreators.map((t) => (
+            <li
+              key={`${t.platform}:${t.handle}`}
+              className="flex items-center justify-between rounded-lg bg-casper-cloud px-2 py-1.5 text-xs"
+            >
+              <span>
+                <span className="text-casper-ink/40">{t.platform[0]?.toUpperCase()}</span>{' '}
+                <span>@{t.handle}</span>
+              </span>
+              <span className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => scanNow(t)}
+                  className="rounded px-2 py-0.5 text-[10px] text-casper-violet hover:bg-casper-violet/10"
+                >
+                  Scan now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(t)}
+                  aria-label="Remove"
+                  className="rounded px-2 py-0.5 text-[10px] text-rose-500 hover:bg-rose-50"
+                >
+                  ×
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {scanStatus && <p className="mt-2 text-[10px] text-casper-ink/50">{scanStatus}</p>}
+    </Section>
+  );
+};

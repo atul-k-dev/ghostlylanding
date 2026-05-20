@@ -1,29 +1,53 @@
 /**
  * The Casper scheduler.
  *
- * One alarm fires every ~30s. On each tick we ask, in order:
- *   1. Is the engine paused?           — yes → skip
- *   2. Are we inside active hours?     — no  → skip (we'll try next tick)
- *   3. Has the random delay elapsed?   — no  → skip
- *   4. Is there a pending task?        — no  → maybe flush logs and exit
- *   5. Is the daily cap exhausted?     — yes → mark skipped, continue
- *   6. Execute. Increment counter, log action.
- *   7. Set nextEligibleAt = now + jitter(8–45s).
- *   8. Flush action buffer if due.
+ * Alarm-driven (chrome.alarms — survives service-worker eviction). On each
+ * tick we walk an ordered safety gate:
  *
- * Everything is event-driven on chrome.alarms — survives service worker eviction.
+ *   1. Engine paused?                        → skip
+ *   2. Inside active hours (user tz)?        → skip
+ *   3. Has a task already 'running'?         → skip (single in-flight at a time)
+ *   4. Random-delay cooldown elapsed?        → skip
+ *   5. Any pending task?                     → maybe refill scans, exit
+ *   6. Daily cap exhausted (action kind only)? → mark task skipped, exit
+ *   7. Execute. Log + increment counter on success.
+ *   8. Set nextEligibleAt += jitter(8–45s).
+ *   9. Flush action-log buffer if due.
+ *
+ * Scans go through 2–4 but not 6 — they're internal and feed real actions.
  */
-import { getSettings, getSchedulerState, setSchedulerState } from '../lib/storage.js';
+import type { ExtensionSettings } from '@casper/shared';
+import {
+  getSettings,
+  getSchedulerState,
+  setSchedulerState,
+} from '../lib/storage.js';
 import { ensureToday, incrementCounter, isUnderCap } from './counters.js';
 import { isActiveNow, nextActionDelayMs } from './timegate.js';
-import { peekNextPending, updateTask, pruneFinished } from './queue.js';
+import {
+  peekNextPending,
+  updateTask,
+  pruneFinished,
+  hasRunningTask,
+  reviveRunningTasks,
+  enqueue,
+  stats as queueStats,
+} from './queue.js';
 import { executeTask } from './executor.js';
 import { appendActionLog, flushActionLog, shouldFlush } from './action-log.js';
+import { getTargetState } from '../lib/storage.js';
 
 export const SCHEDULER_ALARM = 'casper.scheduler.tick';
 const TICK_PERIOD_MINUTES = 0.5; // 30 seconds
 
+/** Auto-rescan a target if it hasn't been scanned in this long. */
+const RESCAN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+/** Don't auto-refill if there are already this many pending tasks. */
+const REFILL_PENDING_THRESHOLD = 5;
+
 export const installScheduler = async (): Promise<void> => {
+  // Repair any 'running' tasks left over from a dropped service worker
+  await reviveRunningTasks();
   const existing = await chrome.alarms.get(SCHEDULER_ALARM);
   if (!existing) {
     await chrome.alarms.create(SCHEDULER_ALARM, {
@@ -43,11 +67,20 @@ export const handleTick = async (): Promise<void> => {
       return;
     }
 
+    if (await hasRunningTask()) {
+      // Don't dispatch a second task while one is in flight.
+      await maybeFlush();
+      return;
+    }
+
     const state = await getSchedulerState();
     if (Date.now() < state.nextEligibleAt) {
       await maybeFlush();
       return;
     }
+
+    // Top-up scans if the pipeline is light.
+    await maybeRefillScans(settings);
 
     const task = await peekNextPending();
     if (!task) {
@@ -55,20 +88,23 @@ export const handleTick = async (): Promise<void> => {
       return;
     }
 
-    const counters = await ensureToday(settings);
-    if (!isUnderCap(counters, task.platform, task.taskType)) {
-      await updateTask(task.id, {
-        status: 'skipped',
-        lastError: `daily cap reached for ${task.platform}/${task.taskType}`,
-      });
-      await maybeFlush();
-      return;
+    if (task.kind === 'action') {
+      const counters = await ensureToday(settings);
+      if (!isUnderCap(counters, task.platform, task.taskType as Parameters<typeof isUnderCap>[2])) {
+        await updateTask(task.id, {
+          status: 'skipped',
+          lastError: `daily cap reached for ${task.platform}/${task.taskType}`,
+        });
+        await maybeFlush();
+        return;
+      }
     }
 
     await updateTask(task.id, { status: 'running', attempts: task.attempts + 1 });
-    let logEntry;
+
+    let result;
     try {
-      logEntry = await executeTask(task);
+      result = await executeTask(task);
     } catch (err) {
       await updateTask(task.id, {
         status: 'failed',
@@ -79,12 +115,18 @@ export const handleTick = async (): Promise<void> => {
     }
 
     await updateTask(task.id, {
-      status: logEntry.success ? 'completed' : 'failed',
-      ...(logEntry.errorMessage ? { lastError: logEntry.errorMessage } : {}),
+      status: result.success ? 'completed' : 'failed',
+      ...(result.errorMessage ? { lastError: result.errorMessage } : {}),
     });
-    await appendActionLog(logEntry);
-    if (logEntry.success) {
-      await incrementCounter(settings, task.platform, task.taskType);
+    if (result.logEntry) {
+      await appendActionLog(result.logEntry);
+    }
+    if (result.success && task.kind === 'action') {
+      await incrementCounter(
+        settings,
+        task.platform,
+        task.taskType as Parameters<typeof incrementCounter>[2],
+      );
     }
     await scheduleNext();
     await pruneFinished();
@@ -92,6 +134,24 @@ export const handleTick = async (): Promise<void> => {
   } catch (err) {
     console.error('[casper] scheduler tick error', err);
   }
+};
+
+const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
+  if (settings.targetCreators.length === 0) return;
+  const s = await queueStats();
+  if (s.pending + s.running >= REFILL_PENDING_THRESHOLD) return;
+  const targetState = await getTargetState();
+  const now = Date.now();
+  for (const target of settings.targetCreators) {
+    const key = `${target.platform}:${target.handle.replace(/^@/, '')}`;
+    const last = targetState[key]?.lastScannedAt ?? 0;
+    if (now - last >= RESCAN_INTERVAL_MS) {
+      await enqueue(target.platform, 'scan-profile-likes', { handle: target.handle });
+      // Mark optimistically so we don't double-enqueue on the next tick.
+      targetState[key] = { lastScannedAt: now };
+    }
+  }
+  await import('../lib/storage.js').then(({ setTargetState }) => setTargetState(targetState));
 };
 
 const scheduleNext = async (): Promise<void> => {

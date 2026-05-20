@@ -10,7 +10,7 @@ import { installScheduler, handleTick, SCHEDULER_ALARM } from '../scheduler/sche
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog } from '../scheduler/action-log.js';
 import { ensureToday } from '../scheduler/counters.js';
-import { getSettings } from '../lib/storage.js';
+import { getSettings, getTargetState, setTargetState } from '../lib/storage.js';
 
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('[casper] installed', details.reason);
@@ -45,6 +45,7 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   FLUSH_ACTION_BUFFER: handleFlush as AsyncHandler<unknown, unknown>,
   GET_QUEUE_STATS: handleQueueStats as AsyncHandler<unknown, unknown>,
   ENSURE_COUNTERS: handleEnsureCounters as AsyncHandler<unknown, unknown>,
+  SCAN_TARGET_NOW: handleScanTargetNow as AsyncHandler<unknown, unknown>,
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -156,6 +157,20 @@ async function handleEnsureCounters() {
   const settings = await getSettings();
   const counters = await ensureToday(settings);
   return { ok: true, data: counters };
+}
+
+async function handleScanTargetNow(payload: unknown) {
+  const { platform, handle } = (payload ?? {}) as { platform?: Platform; handle?: string };
+  if (!platform || !PLATFORMS.includes(platform) || !handle || typeof handle !== 'string') {
+    return { ok: false, error: 'invalid_payload' };
+  }
+  // Force-rescan by resetting the lastScannedAt so the scheduler refill picks it up
+  const state = await getTargetState();
+  const key = `${platform}:${handle.replace(/^@/, '')}`;
+  delete state[key];
+  await setTargetState(state);
+  const task = await enqueue(platform, 'scan-profile-likes', { handle });
+  return { ok: true, data: { taskId: task.id } };
 }
 
 export {};

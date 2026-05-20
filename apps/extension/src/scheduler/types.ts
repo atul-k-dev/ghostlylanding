@@ -1,11 +1,17 @@
 import type { ActionType, Platform } from '@casper/shared';
 
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+export type TaskKind = 'action' | 'scan';
+
+/** Non-action tasks (internal scanning steps that feed real actions). */
+export type ScanTaskType = 'scan-profile-likes';
+export type SchedulerTaskType = ActionType | ScanTaskType;
 
 export interface QueuedTask {
   id: string;
+  kind: TaskKind;
   platform: Platform;
-  taskType: ActionType;
+  taskType: SchedulerTaskType;
   payload: Record<string, unknown>;
   enqueuedAt: string;
   attempts: number;
@@ -14,8 +20,23 @@ export interface QueuedTask {
 }
 
 export interface SchedulerState {
-  /** ms epoch — earliest time scheduler is allowed to run the next task */
+  /** ms epoch — earliest time scheduler may run the next task */
   nextEligibleAt: number;
   /** ms epoch — last time we flushed the local action-log buffer */
   lastFlushAt: number;
+}
+
+/** Per-target persisted state — tracks the last successful scan. */
+export interface TargetState {
+  lastScannedAt: number; // ms epoch
+}
+
+export type TargetStateMap = Record<string, TargetState>; // key = `${platform}:${handle}`
+
+/** Result returned by executor functions. */
+export interface ExecutorResult {
+  success: boolean;
+  errorMessage?: string;
+  /** Only present for kind='action' tasks; scans don't write to the action log. */
+  logEntry?: import('@casper/shared').ActionLogInput;
 }

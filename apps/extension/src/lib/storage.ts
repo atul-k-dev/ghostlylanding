@@ -4,7 +4,7 @@ import type {
   CountersState,
   ActionLogInput,
 } from '@casper/shared';
-import type { QueuedTask, SchedulerState } from '../scheduler/types.js';
+import type { QueuedTask, SchedulerState, TargetStateMap } from '../scheduler/types.js';
 
 export const STORAGE_KEYS = {
   auth: 'casper.auth',
@@ -13,6 +13,8 @@ export const STORAGE_KEYS = {
   queue: 'casper.queue',
   schedulerState: 'casper.schedulerState',
   actionLogBuffer: 'casper.actionLogBuffer',
+  targetState: 'casper.targetState',
+  likedPosts: 'casper.likedPosts',
 } as const;
 
 export interface StoredAuth {
@@ -116,4 +118,49 @@ export const getActionLogBuffer = async (): Promise<ActionLogInput[]> => {
 
 export const setActionLogBuffer = async (buffer: ActionLogInput[]): Promise<void> => {
   await chrome.storage.local.set({ [STORAGE_KEYS.actionLogBuffer]: buffer });
+};
+
+// -- target state -----------------------------------------------------------
+export const getTargetState = async (): Promise<TargetStateMap> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.targetState);
+  return (got[STORAGE_KEYS.targetState] as TargetStateMap | undefined) ?? {};
+};
+
+export const setTargetState = async (state: TargetStateMap): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.targetState]: state });
+};
+
+// -- liked posts dedupe (LRU-capped) ---------------------------------------
+const LIKED_POSTS_MAX = 2000;
+
+export interface LikedPostsMap {
+  /** key = `${platform}:${postId}` → ms epoch */
+  [key: string]: number;
+}
+
+export const getLikedPosts = async (): Promise<LikedPostsMap> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.likedPosts);
+  return (got[STORAGE_KEYS.likedPosts] as LikedPostsMap | undefined) ?? {};
+};
+
+export const setLikedPosts = async (map: LikedPostsMap): Promise<void> => {
+  const keys = Object.keys(map);
+  if (keys.length > LIKED_POSTS_MAX) {
+    // Drop the oldest entries
+    const sorted = keys.sort((a, b) => (map[a] ?? 0) - (map[b] ?? 0));
+    const toDrop = sorted.slice(0, keys.length - LIKED_POSTS_MAX);
+    for (const k of toDrop) delete map[k];
+  }
+  await chrome.storage.local.set({ [STORAGE_KEYS.likedPosts]: map });
+};
+
+export const markLiked = async (platform: string, postId: string): Promise<void> => {
+  const map = await getLikedPosts();
+  map[`${platform}:${postId}`] = Date.now();
+  await setLikedPosts(map);
+};
+
+export const isAlreadyLiked = async (platform: string, postId: string): Promise<boolean> => {
+  const map = await getLikedPosts();
+  return `${platform}:${postId}` in map;
 };
