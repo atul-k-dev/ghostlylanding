@@ -21,15 +21,16 @@ export type GetAuthResponse = MessageEnvelope<
   { authenticated: boolean; user: User | null }
 >;
 
-export type RequestMagicLinkMessage = MessageEnvelope<'REQUEST_MAGIC_LINK', { email: string }>;
-export type RequestMagicLinkResponse = MessageEnvelope<
-  'MAGIC_LINK_SENT',
-  { sent: boolean; via: 'resend' | 'console'; devVerifyUrl?: string }
+export type RequestCodeMessage = MessageEnvelope<'REQUEST_CODE', { email: string }>;
+export type RequestCodeResponse = MessageEnvelope<
+  'CODE_SENT',
+  { sent: boolean; via: 'resend' | 'console'; ttlMinutes: number; devCode?: string }
 >;
 
-export type AuthFromWebMessage = MessageEnvelope<
-  'AUTH_FROM_WEB',
-  { token: string; user: User }
+export type VerifyCodeMessage = MessageEnvelope<'VERIFY_CODE', { email: string; code: string }>;
+export type VerifyCodeResponse = MessageEnvelope<
+  'CODE_VERIFIED',
+  { ok: boolean; error?: string }
 >;
 
 export type LogoutMessage = MessageEnvelope<'LOGOUT', Record<string, never>>;
@@ -42,20 +43,14 @@ export type EnqueueStubTasksMessage = MessageEnvelope<
 >;
 export type FlushBufferMessage = MessageEnvelope<'FLUSH_ACTION_BUFFER', Record<string, never>>;
 
-// -- web → content handoff ----------------------------------------------------
-export const WEB_AUTH_MESSAGE_TYPE = 'CASPER_AUTH_HANDOFF' as const;
-export interface WebAuthHandoff {
-  type: typeof WEB_AUTH_MESSAGE_TYPE;
-  payload: { token: string; user: User };
-}
-
 export type CasperMessage =
   | PingMessage
   | PongMessage
   | GetAuthMessage
   | GetAuthResponse
-  | RequestMagicLinkMessage
-  | RequestMagicLinkResponse
-  | AuthFromWebMessage
+  | RequestCodeMessage
+  | RequestCodeResponse
+  | VerifyCodeMessage
+  | VerifyCodeResponse
   | LogoutMessage
   | LogoutResponse;

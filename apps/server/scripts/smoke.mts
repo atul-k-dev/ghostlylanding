@@ -1,10 +1,10 @@
 /* eslint-disable no-console */
 /**
- * End-to-end M1 smoke test.
- * Requires apps/api/.env populated with MONGODB_URI and JWT_SECRET.
- * Resend can stay unset — magic link is exposed inline in dev mode.
+ * End-to-end auth smoke test.
+ * Requires apps/server/.env populated with MONGODB_URI and JWT_SECRET.
+ * Resend can stay unset — sign-in code is exposed inline in dev mode.
  *
- * Run with: pnpm --filter @casper/api smoke
+ * Run with: pnpm --filter @casper/server smoke
  */
 import 'dotenv/config';
 
@@ -54,41 +54,40 @@ const run = async (): Promise<void> => {
   );
   console.log('✓  health:', health);
 
-  // 2. Request magic link (dev-mode returns verifyUrl inline)
-  const linkResp = must(
-    await call<{ sent: boolean; via: string; devVerifyUrl?: string }>(
+  // 2. Request sign-in code (dev-mode returns the code inline)
+  const codeResp = must(
+    await call<{ sent: boolean; via: string; devCode?: string }>(
       'POST',
-      '/api/auth/request-magic-link',
+      '/api/auth/request-code',
       { body: { email: TEST_EMAIL } },
     ),
-    'POST /api/auth/request-magic-link',
+    'POST /api/auth/request-code',
   );
-  console.log('✓  magic link:', linkResp);
-  if (!linkResp.devVerifyUrl) {
-    throw new Error('No devVerifyUrl returned — smoke test needs RESEND unset and NODE_ENV != production');
+  console.log('✓  code sent:', codeResp);
+  if (!codeResp.devCode) {
+    throw new Error('No devCode returned — needs RESEND unset and NODE_ENV != production');
   }
 
-  // 3. Verify magic link
-  const url = new URL(linkResp.devVerifyUrl);
-  const token = url.searchParams.get('token');
-  if (!token) throw new Error('Magic link missing ?token');
+  // 3. Verify code
   const verifyResp = must(
     await call<{ token: string; user: { id: string; email: string } }>(
-      'GET',
-      `/api/auth/verify?token=${encodeURIComponent(token)}`,
+      'POST',
+      '/api/auth/verify-code',
+      { body: { email: TEST_EMAIL, code: codeResp.devCode } },
     ),
-    'GET /api/auth/verify',
+    'POST /api/auth/verify-code',
   );
   console.log('✓  verified, jwt issued for', verifyResp.user.email);
   const jwt = verifyResp.token;
 
-  // 4. Re-using the same magic link should fail
+  // 4. Re-using the same code should fail
   const reuse = await call<unknown>(
-    'GET',
-    `/api/auth/verify?token=${encodeURIComponent(token)}`,
+    'POST',
+    '/api/auth/verify-code',
+    { body: { email: TEST_EMAIL, code: codeResp.devCode } },
   );
-  if (reuse.ok) throw new Error('expected magic link reuse to fail');
-  console.log('✓  magic link single-use enforced');
+  if (reuse.ok) throw new Error('expected code reuse to fail');
+  console.log('✓  code single-use enforced');
 
   // 5. GET /me
   const me = must(

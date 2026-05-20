@@ -28,7 +28,13 @@ export const config = {
   openaiApiKey: optional('OPENAI_API_KEY'),
   resendApiKey: optional('RESEND_API_KEY'),
   resendFromEmail: optional('RESEND_FROM_EMAIL'),
-  webBaseUrl: required('WEB_BASE_URL', 'http://localhost:3000'),
+  // Landing page base URL — used for the magic-link verify redirect.
+  landingBaseUrl: required(
+    'LANDING_BASE_URL',
+    process.env.WEB_BASE_URL ?? 'http://localhost:3000',
+  ),
+  // Server's own public base URL — Stripe redirects to /r/* here.
+  serverBaseUrl: required('SERVER_BASE_URL', `http://localhost:${process.env.PORT ?? '4000'}`),
   stripeSecretKey: optional('STRIPE_SECRET_KEY'),
   stripeWebhookSecret: optional('STRIPE_WEBHOOK_SECRET'),
   stripePrices: {

@@ -5,7 +5,7 @@ import { logger } from './logger.js';
 
 const main = async (): Promise<void> => {
   if (!config.jwtSecret) {
-    logger.error('JWT_SECRET is not set — refusing to start. Set one in apps/api/.env');
+    logger.error('JWT_SECRET is not set — refusing to start. Set one in apps/server/.env');
     process.exit(1);
   }
 

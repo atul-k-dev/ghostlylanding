@@ -14,8 +14,6 @@ import { apiFetch, API_BASE } from '../lib/api.js';
 import {
   getAuth,
   setAuth,
-  setAuthNonce,
-  consumeAuthNonce,
   appendDiagnostic,
   type StoredAuth,
 } from '../lib/storage.js';
@@ -50,8 +48,8 @@ interface AsyncHandler<Req, Resp> {
 
 const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   GET_AUTH: handleGetAuth as AsyncHandler<unknown, unknown>,
-  REQUEST_MAGIC_LINK: handleRequestMagicLink as AsyncHandler<unknown, unknown>,
-  AUTH_FROM_WEB: handleAuthFromWeb as AsyncHandler<unknown, unknown>,
+  REQUEST_CODE: handleRequestCode as AsyncHandler<unknown, unknown>,
+  VERIFY_CODE: handleVerifyCode as AsyncHandler<unknown, unknown>,
   LOGOUT: handleLogout as AsyncHandler<unknown, unknown>,
   PING: handlePing as AsyncHandler<unknown, unknown>,
   DEV_ENQUEUE_STUB_TASKS: handleEnqueueStub as AsyncHandler<unknown, unknown>,
@@ -101,61 +99,57 @@ async function handleGetAuth(): Promise<{
   };
 }
 
-const generateNonce = (): string => {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-};
-
-async function handleRequestMagicLink(payload: unknown) {
+async function handleRequestCode(payload: unknown) {
   const { email } = (payload ?? {}) as { email?: string };
   if (!email || typeof email !== 'string') {
-    return { type: 'MAGIC_LINK_SENT', payload: { sent: false, error: 'invalid_email' } };
+    return { type: 'CODE_SENT', payload: { sent: false, error: 'invalid_email' } };
   }
-  const nonce = generateNonce();
-  await setAuthNonce(nonce);
-  const resp = await apiFetch<{ sent: boolean; via: string; devVerifyUrl?: string }>(
-    '/api/auth/request-magic-link',
-    { method: 'POST', body: { email, nonce }, auth: false },
-  );
+  const resp = await apiFetch<{
+    sent: boolean;
+    via: string;
+    ttlMinutes: number;
+    devCode?: string;
+  }>('/api/auth/request-code', { method: 'POST', body: { email }, auth: false });
   if (!resp.ok) {
     if (resp.error.code === 'rate_limited') {
       await appendDiagnostic({
         kind: 'rate_limited',
-        context: 'request-magic-link',
+        context: 'request-code',
         detail: resp.error.message,
       });
     }
-    return { type: 'MAGIC_LINK_SENT', payload: { sent: false, error: resp.error.message } };
+    return { type: 'CODE_SENT', payload: { sent: false, error: resp.error.message } };
   }
-  return { type: 'MAGIC_LINK_SENT', payload: resp.data };
+  return { type: 'CODE_SENT', payload: resp.data };
 }
 
-async function handleAuthFromWeb(payload: unknown) {
-  const { token, user, nonce } = (payload ?? {}) as {
-    token?: unknown;
-    user?: unknown;
-    nonce?: unknown;
-  };
-  if (typeof token !== 'string' || typeof user !== 'object' || user === null) {
-    return { ok: false, error: 'invalid_payload' };
+async function handleVerifyCode(payload: unknown) {
+  const { email, code } = (payload ?? {}) as { email?: unknown; code?: unknown };
+  if (typeof email !== 'string' || typeof code !== 'string') {
+    return { type: 'CODE_VERIFIED', payload: { ok: false, error: 'invalid_payload' } };
   }
-  if (typeof nonce !== 'string' || !(await consumeAuthNonce(nonce))) {
-    await appendDiagnostic({
-      kind: 'auth_failure',
-      context: 'auth_handoff',
-      detail: 'nonce mismatch or expired',
-    });
-    return { ok: false, error: 'invalid_or_expired_nonce' };
+  const resp = await apiFetch<{ token: string; user: User }>(
+    '/api/auth/verify-code',
+    { method: 'POST', body: { email, code }, auth: false },
+  );
+  if (!resp.ok) {
+    if (resp.error.code === 'invalid' || resp.error.code === 'expired' || resp.error.code === 'locked') {
+      await appendDiagnostic({
+        kind: 'auth_failure',
+        context: 'verify-code',
+        detail: resp.error.message,
+      });
+    }
+    return { type: 'CODE_VERIFIED', payload: { ok: false, error: resp.error.message } };
   }
   const stored: StoredAuth = {
-    token,
-    user: user as User,
+    token: resp.data.token,
+    user: resp.data.user,
     savedAt: new Date().toISOString(),
   };
   await setAuth(stored);
   console.log('[casper] auth stored for', stored.user.email);
-  return { ok: true };
+  return { type: 'CODE_VERIFIED', payload: { ok: true } };
 }
 
 async function handleLogout() {

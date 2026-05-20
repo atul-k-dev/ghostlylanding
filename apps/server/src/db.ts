@@ -5,7 +5,7 @@ import { logger } from './logger.js';
 export const connectDb = async (): Promise<void> => {
   if (!config.mongoUri) {
     logger.error(
-      'MONGODB_URI is not set — refusing to start. Drop your Atlas URI into apps/api/.env',
+      'MONGODB_URI is not set — refusing to start. Drop your Atlas URI into apps/server/.env',
     );
     process.exit(1);
   }

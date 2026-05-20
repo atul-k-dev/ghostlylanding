@@ -13,6 +13,7 @@ import { actionsRouter } from './routes/actions.js';
 import { commentsRouter } from './routes/comments.js';
 import { billingRouter } from './routes/billing.js';
 import { billingWebhookRouter } from './routes/billing-webhook.js';
+import { returnPagesRouter } from './routes/return-pages.js';
 
 export const createApp = (): Express => {
   const app = express();
@@ -46,6 +47,9 @@ export const createApp = (): Express => {
   app.use('/api/actions', actionsRouter);
   app.use('/api/comments', commentsRouter);
   app.use('/api/billing', billingRouter);
+
+  // Stripe checkout redirect targets — minimal HTML, no nav/marketing.
+  app.use('/r', returnPagesRouter);
 
   app.use((req: Request, res: Response) => {
     res.status(404).json(err('not_found', `Route not found: ${req.method} ${req.path}`));

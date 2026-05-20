@@ -61,8 +61,8 @@ If unsure which model to use for a new feature, ask. Default = `gpt-4o-mini`. Do
 
 - **Monorepo, pnpm workspaces.**
 - `apps/extension` — MV3 Chrome extension. React + Tailwind + TypeScript.
-- `apps/api` — Express + WebSocket gateway. TypeScript. Mongoose for MongoDB.
-- `apps/web` — Next.js landing page + auth pages + billing portal.
+- `apps/server` — Express + WebSocket gateway. TypeScript. Mongoose for MongoDB.
+- `apps/landing-page` — Next.js marketing site only. Single CTA: Add to Chrome. Zero auth, zero billing.
 - `apps/admin` — internal-only admin panel (Phase 4).
 - `packages/shared` — shared types (User, Subscription, ActionLog, CommentDraft, NicheTemplate, etc.).
 
@@ -71,7 +71,7 @@ If unsure which model to use for a new feature, ask. Default = `gpt-4o-mini`. Do
 - TypeScript everywhere. No plain JS files.
 - Strict mode on. No `any` without a justifying comment.
 - Tailwind utility-first; no custom CSS files unless absolutely necessary.
-- MongoDB via Mongoose. Schemas live in `apps/api/src/models/`.
+- MongoDB via Mongoose. Schemas live in `apps/server/src/models/`.
 - Auth: email + magic link via Resend. JWT for session.
 - Billing: Stripe.
 - Email: Resend (transactional + waitlist + post-action summaries).
@@ -182,7 +182,7 @@ Don't bother with Stripe, voice training, burst mode, daily summary emails, admi
 - **Folder naming:** `kebab-case` for folders, `PascalCase` for React components, `camelCase` for everything else.
 - **Env vars** — use `.env.example` in every app folder; never commit real keys; use `dotenv` server-side.
 - **No `console.log` in committed code** — use a logger (pino) on the backend.
-- **Mongoose schemas** live in `apps/api/src/models/`. Shared types live in `packages/shared/`.
+- **Mongoose schemas** live in `apps/server/src/models/`. Shared types live in `packages/shared/`.
 - **API responses** — always `{ ok: boolean, data?, error? }` shape.
 - **Extension messaging** — always `{ type: string, payload: any, id?: string }`. Type-narrow on `type`.
 - **Errors** — never swallow. Either bubble up or log+rethrow with context.
