@@ -7,7 +7,7 @@
  *                                   enqueues `like` tasks for non-duplicates
  *   - 'comment', 'follow' → stub for now (M5/M6)
  */
-import type { ActionLogInput, Platform } from '@casper/shared';
+import type { Platform } from '@casper/shared';
 import type { ExecutorResult, QueuedTask } from './types.js';
 import { driveTab } from '../platforms/common/tab-driver.js';
 import { isFresh } from '../platforms/common/freshness.js';
@@ -17,33 +17,32 @@ import {
   markLiked,
   isAlreadyCommented,
   markCommented,
+  isAlreadyFollowed,
+  markFollowed,
   getTargetState,
   setTargetState,
+  getSettings,
 } from '../lib/storage.js';
-import { buildProfileUrl as twitterProfileUrl } from '../platforms/twitter/selectors.js';
-import { buildProfileFeedUrl as linkedinProfileUrl } from '../platforms/linkedin/selectors.js';
+import {
+  buildProfileUrl as twitterProfileUrl,
+  buildFollowersUrl as twitterFollowersUrl,
+} from '../platforms/twitter/selectors.js';
+import {
+  buildProfileFeedUrl as linkedinProfileUrl,
+  buildFollowersUrl as linkedinFollowersUrl,
+  buildProfileFromHandle as linkedinProfileFromHandle,
+} from '../platforms/linkedin/selectors.js';
 import { enqueue } from './queue.js';
-import { randomInt } from './timegate.js';
 import { apiFetch } from '../lib/api.js';
 
 const profileUrlFor = (platform: Platform, handle: string): string =>
   platform === 'twitter' ? twitterProfileUrl(handle) : linkedinProfileUrl(handle);
 
-const stubAction = async (task: QueuedTask): Promise<ExecutorResult> => {
-  await new Promise((r) => setTimeout(r, randomInt(800, 2_000)));
-  const success = Math.random() > 0.1;
-  const logEntry: ActionLogInput = {
-    platform: task.platform,
-    actionType: task.taskType as ActionLogInput['actionType'],
-    targetUrl:
-      (task.payload.targetUrl as string | undefined) ??
-      `https://${task.platform === 'twitter' ? 'x.com' : 'linkedin.com'}/example/${task.id}`,
-    success,
-    ...(success ? {} : { errorMessage: 'stub: simulated failure' }),
-    timestamp: new Date().toISOString(),
-  };
-  return { success, logEntry };
-};
+const followersUrlFor = (platform: Platform, handle: string): string =>
+  platform === 'twitter' ? twitterFollowersUrl(handle) : linkedinFollowersUrl(handle);
+
+const candidateProfileUrl = (platform: Platform, handle: string): string =>
+  platform === 'twitter' ? twitterProfileUrl(handle) : linkedinProfileFromHandle(handle);
 
 const executeLike = async (task: QueuedTask): Promise<ExecutorResult> => {
   const postUrl = task.payload.postUrl as string | undefined;
@@ -241,7 +240,150 @@ const markDraft = async (id: string, state: 'posted' | 'failed'): Promise<void> 
   }
 };
 
-const stubFollow = stubAction;
+const inWhitelist = (
+  whitelist: { platform: Platform; handle: string }[],
+  platform: Platform,
+  handle: string,
+): boolean => {
+  const target = handle.replace(/^@/, '').toLowerCase();
+  return whitelist.some(
+    (w) => w.platform === platform && w.handle.replace(/^@/, '').toLowerCase() === target,
+  );
+};
+
+const executeFollowScan = async (task: QueuedTask): Promise<ExecutorResult> => {
+  const handle = task.payload.handle as string | undefined;
+  if (!handle) return { success: false, errorMessage: 'missing handle' };
+
+  const url = followersUrlFor(task.platform, handle);
+
+  let resp;
+  try {
+    resp = await driveTab(
+      url,
+      { type: 'SCAN_FOLLOWERS', payload: { handle, max: 20 } },
+      { settleMs: 3_500 },
+    );
+  } catch (err) {
+    return {
+      success: false,
+      errorMessage: err instanceof Error ? err.message : 'tab driver failed',
+    };
+  }
+
+  if (resp.type !== 'FOLLOWERS_RESULT') {
+    return {
+      success: false,
+      errorMessage:
+        resp.type === 'ERROR' ? resp.payload.message : 'unexpected followers response',
+    };
+  }
+
+  const settings = await getSettings();
+  let enqueued = 0;
+  for (const candidate of resp.payload.followers) {
+    if (inWhitelist(settings.whitelist, task.platform, candidate.handle)) continue;
+    if (await isAlreadyFollowed(task.platform, candidate.handle)) continue;
+    await enqueue(task.platform, 'follow', {
+      handle: candidate.handle,
+      profileUrl: candidate.profileUrl,
+      sourceHandle: handle,
+    });
+    enqueued++;
+  }
+
+  const state = await getTargetState();
+  const key = `${task.platform}:${handle.replace(/^@/, '')}`;
+  state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastFollowScanAt: Date.now() };
+  await setTargetState(state);
+
+  return {
+    success: true,
+    errorMessage:
+      enqueued === 0
+        ? `follow scan ok: 0 candidates (saw ${resp.payload.followers.length})`
+        : undefined,
+  };
+};
+
+const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
+  const handle = task.payload.handle as string | undefined;
+  const profileUrl =
+    (task.payload.profileUrl as string | undefined) ??
+    (handle ? candidateProfileUrl(task.platform, handle) : undefined);
+  if (!handle || !profileUrl) {
+    return { success: false, errorMessage: 'missing handle/profileUrl' };
+  }
+
+  if (await isAlreadyFollowed(task.platform, handle)) {
+    return {
+      success: true,
+      logEntry: {
+        platform: task.platform,
+        actionType: 'follow',
+        targetUrl: profileUrl,
+        targetHandle: handle,
+        success: true,
+        errorMessage: 'already_followed',
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  let resp;
+  try {
+    resp = await driveTab(
+      profileUrl,
+      { type: 'FOLLOW_HANDLE', payload: { handle } },
+      { settleMs: 3_000 },
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'tab driver failed';
+    return {
+      success: false,
+      errorMessage: msg,
+      logEntry: {
+        platform: task.platform,
+        actionType: 'follow',
+        targetUrl: profileUrl,
+        targetHandle: handle,
+        success: false,
+        errorMessage: msg,
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  if (resp.type !== 'FOLLOW_RESULT') {
+    return {
+      success: false,
+      errorMessage:
+        resp.type === 'ERROR' ? resp.payload.message : 'unexpected follow response',
+    };
+  }
+
+  const { followed, alreadyFollowing, error } = resp.payload;
+  const success = followed || alreadyFollowing;
+  if (success) await markFollowed(task.platform, handle);
+
+  return {
+    success,
+    ...(error ? { errorMessage: error } : {}),
+    logEntry: {
+      platform: task.platform,
+      actionType: 'follow',
+      targetUrl: profileUrl,
+      targetHandle: handle,
+      success,
+      ...(error
+        ? { errorMessage: error }
+        : alreadyFollowing
+          ? { errorMessage: 'already_followed' }
+          : {}),
+      timestamp: new Date().toISOString(),
+    },
+  };
+};
 
 export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => {
   switch (task.taskType) {
@@ -249,9 +391,11 @@ export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => 
       return executeLike(task);
     case 'scan-profile-likes':
       return executeScan(task);
+    case 'scan-profile-followers':
+      return executeFollowScan(task);
     case 'comment':
       return executeComment(task);
     case 'follow':
-      return stubFollow(task);
+      return executeFollow(task);
   }
 };

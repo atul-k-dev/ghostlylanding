@@ -52,6 +52,7 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   GET_QUEUE_STATS: handleQueueStats as AsyncHandler<unknown, unknown>,
   ENSURE_COUNTERS: handleEnsureCounters as AsyncHandler<unknown, unknown>,
   SCAN_TARGET_NOW: handleScanTargetNow as AsyncHandler<unknown, unknown>,
+  SCAN_FOLLOWERS_NOW: handleScanFollowersNow as AsyncHandler<unknown, unknown>,
   DRAFT_COMMENT: handleDraftComment as AsyncHandler<unknown, unknown>,
   LIST_DRAFTS: handleListDrafts as AsyncHandler<unknown, unknown>,
   APPROVE_DRAFT: handleApproveDraft as AsyncHandler<unknown, unknown>,
@@ -243,12 +244,32 @@ async function handleScanTargetNow(payload: unknown) {
   if (!platform || !PLATFORMS.includes(platform) || !handle || typeof handle !== 'string') {
     return { ok: false, error: 'invalid_payload' };
   }
-  // Force-rescan by resetting the lastScannedAt so the scheduler refill picks it up
   const state = await getTargetState();
   const key = `${platform}:${handle.replace(/^@/, '')}`;
-  delete state[key];
-  await setTargetState(state);
+  const existing = state[key];
+  if (existing) {
+    existing.lastScannedAt = 0;
+    state[key] = existing;
+    await setTargetState(state);
+  }
   const task = await enqueue(platform, 'scan-profile-likes', { handle });
+  return { ok: true, data: { taskId: task.id } };
+}
+
+async function handleScanFollowersNow(payload: unknown) {
+  const { platform, handle } = (payload ?? {}) as { platform?: Platform; handle?: string };
+  if (!platform || !PLATFORMS.includes(platform) || !handle || typeof handle !== 'string') {
+    return { ok: false, error: 'invalid_payload' };
+  }
+  const state = await getTargetState();
+  const key = `${platform}:${handle.replace(/^@/, '')}`;
+  const existing = state[key];
+  if (existing) {
+    existing.lastFollowScanAt = 0;
+    state[key] = existing;
+    await setTargetState(state);
+  }
+  const task = await enqueue(platform, 'scan-profile-followers', { handle });
   return { ok: true, data: { taskId: task.id } };
 }
 

@@ -4,7 +4,7 @@ export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipp
 export type TaskKind = 'action' | 'scan';
 
 /** Non-action tasks (internal scanning steps that feed real actions). */
-export type ScanTaskType = 'scan-profile-likes';
+export type ScanTaskType = 'scan-profile-likes' | 'scan-profile-followers';
 export type SchedulerTaskType = ActionType | ScanTaskType;
 
 export interface QueuedTask {
@@ -26,9 +26,10 @@ export interface SchedulerState {
   lastFlushAt: number;
 }
 
-/** Per-target persisted state — tracks the last successful scan. */
+/** Per-target persisted state — tracks the last successful scan(s). */
 export interface TargetState {
-  lastScannedAt: number; // ms epoch
+  lastScannedAt: number; // last likes-scan
+  lastFollowScanAt?: number; // last followers-scan
 }
 
 export type TargetStateMap = Record<string, TargetState>; // key = `${platform}:${handle}`

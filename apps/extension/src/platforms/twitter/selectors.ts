@@ -26,9 +26,27 @@ export const TWITTER_SELECTORS = {
   replyButton: 'button[data-testid="tweetButton"], button[data-testid="tweetButtonInline"]',
   /** Action bar row inside an article (reply / retweet / like / share group). */
   actionBarRow: 'div[role="group"]',
+  /** Cells on the followers list — each contains a UserCell. */
+  userCell: '[data-testid="UserCell"]',
+  /** Profile link inside a UserCell. */
+  userCellLink: '[data-testid="UserCell"] a[role="link"][href^="/"]',
+  /** Follow button (when not following). data-testid examples include
+   *  "<handle>-follow" and just "follow". Use suffix match. */
+  followButton: 'button[data-testid$="-follow"], button[data-testid="follow"]',
+  /** Unfollow button — appears when already following. */
+  unfollowButton: 'button[data-testid$="-unfollow"], button[data-testid="unfollow"]',
+  /** Fallback for older variants via aria-label. */
+  followButtonAria: 'button[aria-label^="Follow @" i]',
 } as const;
 
 export const buildProfileUrl = (handle: string): string => {
   const clean = handle.replace(/^@/, '').trim();
   return `https://x.com/${encodeURIComponent(clean)}`;
+};
+
+export const buildFollowersUrl = (handle: string): string => {
+  const clean = handle.replace(/^@/, '').trim();
+  // /verified_followers is more curated, but not every profile has it.
+  // /followers always exists on a public profile.
+  return `https://x.com/${encodeURIComponent(clean)}/followers`;
 };

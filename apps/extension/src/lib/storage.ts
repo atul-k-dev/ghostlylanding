@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   targetState: 'casper.targetState',
   likedPosts: 'casper.likedPosts',
   commentedPosts: 'casper.commentedPosts',
+  followedHandles: 'casper.followedHandles',
 } as const;
 
 export interface StoredAuth {
@@ -195,4 +196,37 @@ export const isAlreadyCommented = async (
 ): Promise<boolean> => {
   const map = await getCommentedPosts();
   return `${platform}:${postId}` in map;
+};
+
+// -- followed handles dedupe (same LRU shape as liked) ----------------------
+export const getFollowedHandles = async (): Promise<LikedPostsMap> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.followedHandles);
+  return (got[STORAGE_KEYS.followedHandles] as LikedPostsMap | undefined) ?? {};
+};
+
+export const setFollowedHandles = async (map: LikedPostsMap): Promise<void> => {
+  const keys = Object.keys(map);
+  if (keys.length > LIKED_POSTS_MAX) {
+    const sorted = keys.sort((a, b) => (map[a] ?? 0) - (map[b] ?? 0));
+    const toDrop = sorted.slice(0, keys.length - LIKED_POSTS_MAX);
+    for (const k of toDrop) delete map[k];
+  }
+  await chrome.storage.local.set({ [STORAGE_KEYS.followedHandles]: map });
+};
+
+const handleKey = (platform: string, handle: string): string =>
+  `${platform}:${handle.replace(/^@/, '').toLowerCase()}`;
+
+export const markFollowed = async (platform: string, handle: string): Promise<void> => {
+  const map = await getFollowedHandles();
+  map[handleKey(platform, handle)] = Date.now();
+  await setFollowedHandles(map);
+};
+
+export const isAlreadyFollowed = async (
+  platform: string,
+  handle: string,
+): Promise<boolean> => {
+  const map = await getFollowedHandles();
+  return handleKey(platform, handle) in map;
 };

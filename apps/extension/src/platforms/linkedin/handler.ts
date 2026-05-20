@@ -4,6 +4,7 @@ import type {
 } from '../common/content-messages.js';
 import { scanProfile, likeCurrentPost } from './dom.js';
 import { extractPostText, submitComment } from './comment.js';
+import { scanFollowers, followCurrentProfile } from './follow.js';
 import { installDraftButtonInjector } from '../common/draft-button.js';
 import { LINKEDIN_SELECTORS } from './selectors.js';
 
@@ -30,6 +31,21 @@ export const installLinkedInHandler = (): void => {
         if (req.type === 'SUBMIT_COMMENT') {
           const result = await submitComment(req.payload.commentText);
           const resp: ContentResponse = { type: 'COMMENT_RESULT', payload: result };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'SCAN_FOLLOWERS') {
+          const followers = await scanFollowers(req.payload.max ?? 15);
+          const resp: ContentResponse = {
+            type: 'FOLLOWERS_RESULT',
+            payload: { followers },
+          };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'FOLLOW_HANDLE') {
+          const result = await followCurrentProfile();
+          const resp: ContentResponse = { type: 'FOLLOW_RESULT', payload: result };
           sendResponse(resp);
           return;
         }

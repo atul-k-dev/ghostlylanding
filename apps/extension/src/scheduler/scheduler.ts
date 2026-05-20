@@ -142,16 +142,26 @@ const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
   if (s.pending + s.running >= REFILL_PENDING_THRESHOLD) return;
   const targetState = await getTargetState();
   const now = Date.now();
+  let mutated = false;
   for (const target of settings.targetCreators) {
     const key = `${target.platform}:${target.handle.replace(/^@/, '')}`;
-    const last = targetState[key]?.lastScannedAt ?? 0;
-    if (now - last >= RESCAN_INTERVAL_MS) {
+    const existing = targetState[key] ?? { lastScannedAt: 0 };
+    if (now - existing.lastScannedAt >= RESCAN_INTERVAL_MS) {
       await enqueue(target.platform, 'scan-profile-likes', { handle: target.handle });
-      // Mark optimistically so we don't double-enqueue on the next tick.
-      targetState[key] = { lastScannedAt: now };
+      existing.lastScannedAt = now;
+      mutated = true;
     }
+    if (now - (existing.lastFollowScanAt ?? 0) >= RESCAN_INTERVAL_MS) {
+      await enqueue(target.platform, 'scan-profile-followers', { handle: target.handle });
+      existing.lastFollowScanAt = now;
+      mutated = true;
+    }
+    targetState[key] = existing;
   }
-  await import('../lib/storage.js').then(({ setTargetState }) => setTargetState(targetState));
+  if (mutated) {
+    const { setTargetState } = await import('../lib/storage.js');
+    await setTargetState(targetState);
+  }
 };
 
 const scheduleNext = async (): Promise<void> => {

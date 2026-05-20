@@ -494,6 +494,8 @@ const SettingsTab = ({
 
       <TargetsSection settings={settings} onChange={onChange} />
 
+      <WhitelistSection settings={settings} onChange={onChange} />
+
       <Section title="Dev tools" subtitle="Useful while testing the engine.">
         <button
           type="button"
@@ -531,6 +533,108 @@ const Section = ({
     {children}
   </div>
 );
+
+const WhitelistSection = ({
+  settings,
+  onChange,
+}: {
+  settings: ExtensionSettings;
+  onChange: (s: ExtensionSettings) => void;
+}) => {
+  const [platform, setPlatform] = useState<Platform>('twitter');
+  const [handle, setHandle] = useState('');
+
+  const add = () => {
+    const clean = handle.trim().replace(/^@/, '');
+    if (!clean) return;
+    if (
+      settings.whitelist.some(
+        (w) => w.platform === platform && w.handle.toLowerCase() === clean.toLowerCase(),
+      )
+    ) {
+      setHandle('');
+      return;
+    }
+    onChange({
+      ...settings,
+      whitelist: [...settings.whitelist, { platform, handle: clean }],
+    });
+    setHandle('');
+  };
+
+  const remove = (entry: { platform: Platform; handle: string }) => {
+    onChange({
+      ...settings,
+      whitelist: settings.whitelist.filter(
+        (w) => !(w.platform === entry.platform && w.handle === entry.handle),
+      ),
+    });
+  };
+
+  return (
+    <Section
+      title="Whitelist"
+      subtitle="Casper will never follow accounts on this list."
+    >
+      <div className="flex gap-2">
+        <select
+          value={platform}
+          onChange={(e) => setPlatform(e.target.value as Platform)}
+          className="rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-xs"
+        >
+          {PLATFORMS.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={handle}
+          onChange={(e) => setHandle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') add();
+          }}
+          placeholder="@handle"
+          className="flex-1 rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!handle.trim()}
+          className="rounded-lg bg-casper-ink/10 px-3 py-1.5 text-xs font-medium text-casper-ink transition hover:bg-casper-ink/20 disabled:opacity-40"
+        >
+          Add
+        </button>
+      </div>
+      {settings.whitelist.length === 0 ? (
+        <p className="mt-3 text-[10px] text-casper-ink/40">No whitelisted handles.</p>
+      ) : (
+        <ul className="mt-3 space-y-1">
+          {settings.whitelist.map((w) => (
+            <li
+              key={`${w.platform}:${w.handle}`}
+              className="flex items-center justify-between rounded-lg bg-casper-cloud px-2 py-1.5 text-xs"
+            >
+              <span>
+                <span className="text-casper-ink/40">{w.platform[0]?.toUpperCase()}</span>{' '}
+                <span>@{w.handle}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => remove(w)}
+                aria-label="Remove"
+                className="rounded px-2 py-0.5 text-[10px] text-rose-500 hover:bg-rose-50"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+};
 
 const TargetsSection = ({
   settings,
@@ -580,6 +684,19 @@ const TargetsSection = ({
         payload: { platform: target.platform, handle: target.handle },
       });
       setScanStatus(`Queued scan for ${target.handle}`);
+    } catch (err) {
+      setScanStatus(err instanceof Error ? err.message : 'failed');
+    }
+  };
+
+  const scanFollowersNow = async (target: TargetCreator) => {
+    setScanStatus(`Scanning followers of ${target.handle}…`);
+    try {
+      await sendToBackground({
+        type: 'SCAN_FOLLOWERS_NOW',
+        payload: { platform: target.platform, handle: target.handle },
+      });
+      setScanStatus(`Queued follow scan for ${target.handle}`);
     } catch (err) {
       setScanStatus(err instanceof Error ? err.message : 'failed');
     }
@@ -639,8 +756,17 @@ const TargetsSection = ({
                   type="button"
                   onClick={() => scanNow(t)}
                   className="rounded px-2 py-0.5 text-[10px] text-casper-violet hover:bg-casper-violet/10"
+                  title="Scan recent posts and like them"
                 >
-                  Scan now
+                  Posts
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scanFollowersNow(t)}
+                  className="rounded px-2 py-0.5 text-[10px] text-casper-violet hover:bg-casper-violet/10"
+                  title="Scan followers and follow them"
+                >
+                  Followers
                 </button>
                 <button
                   type="button"
