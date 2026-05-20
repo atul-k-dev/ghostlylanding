@@ -9,6 +9,7 @@ import { GhostHeartEyes } from "./GhostHeartEyes";
 import { GhostThumbsUp } from "./GhostThumbsUp";
 import { Eyeball } from "./stickers/Eyeball";
 import { TextSticker } from "./stickers/TextSticker";
+import { INSTALL_URL } from "@/lib/install";
 
 type Cycle = "monthly" | "quarterly" | "yearly";
 
@@ -45,7 +46,7 @@ const PRICING: Record<
 };
 
 const FREE_FEATURES = [
-  "25 actions per day",
+  "30 lifetime actions to try Casper",
   "1 platform (Twitter or LinkedIn)",
   "Auto-likes + auto-follows",
   "Basic scheduling",
@@ -258,13 +259,15 @@ export function Pricing() {
 
             <div className="mt-auto pt-6">
               <a
-                href="#"
+                href={INSTALL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="block rounded-full border border-cream/25 px-6 py-3 text-center text-sm font-semibold text-cream transition hover:border-coral hover:text-coral"
               >
-                Get started free
+                Install Casper · free
               </a>
               <p className="mt-2 text-center text-[11px] text-cream-dim">
-                No upgrade prompts. Promise.
+                Sign in inside the extension after install.
               </p>
             </div>
           </article>
@@ -350,13 +353,15 @@ export function Pricing() {
               </ul>
 
               <a
-                href="#"
+                href={INSTALL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="mt-7 block rounded-full bg-coral px-6 py-3 text-center text-sm font-semibold text-cream shadow-[0_8px_30px_rgba(184,19,54,0.4)] transition hover:bg-coral-dim"
               >
-                Start 7-day free trial
+                Install Casper · upgrade inside
               </a>
               <p className="mt-2 text-center text-[11px] text-cream-dim">
-                No card needed for trial · Cancel before day 7 = $0
+                Pick Monthly · Quarterly · Yearly from the extension popup.
               </p>
               </div>
             </article>

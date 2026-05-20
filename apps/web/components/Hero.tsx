@@ -6,6 +6,7 @@ import { GhostThumbsUp } from "./GhostThumbsUp";
 import { HeroVisual } from "./HeroVisual";
 import { SocialProof } from "./SocialProof";
 import { ClawScratch } from "./stickers/ClawScratch";
+import { INSTALL_URL } from "@/lib/install";
 
 const NAV_LINKS = [
   { label: "How it works", href: "#how-it-works" },
@@ -105,16 +106,12 @@ export function Hero() {
 
         <div className="flex items-center gap-2.5">
           <a
-            href="#"
-            className="rounded-full border border-cream/25 px-4 py-2 text-sm font-medium text-cream/85 transition hover:border-cream/60 hover:text-cream md:px-5"
-          >
-            Sign in
-          </a>
-          <a
-            href="#"
+            href={INSTALL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-cream shadow-[0_6px_24px_rgba(184,19,54,0.4)] transition hover:bg-coral-dim md:px-5"
           >
-            Get started
+            Add to Chrome
           </a>
         </div>
       </nav>
@@ -145,10 +142,12 @@ export function Hero() {
           {/* CTAs */}
           <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
             <a
-              href="#"
+              href={INSTALL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
               className="rounded-full bg-coral px-7 py-3 text-sm font-semibold text-cream shadow-[0_8px_30px_rgba(184,19,54,0.4)] transition hover:bg-coral-dim"
             >
-              Get started free
+              Add to Chrome — free
             </a>
             <a
               href="#features"

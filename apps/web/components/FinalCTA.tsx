@@ -6,6 +6,7 @@ import { GhostSleeping } from "./GhostSleeping";
 import { GhostWaving } from "./GhostWaving";
 import { CuteSkull } from "./stickers/CuteSkull";
 import { TextSticker } from "./stickers/TextSticker";
+import { INSTALL_URL } from "@/lib/install";
 
 export function FinalCTA() {
   return (
@@ -107,10 +108,12 @@ export function FinalCTA() {
 
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a
-            href="#"
+            href={INSTALL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="rounded-full bg-coral px-8 py-3.5 text-sm font-semibold text-cream shadow-[0_10px_40px_rgba(184,19,54,0.45)] transition hover:bg-coral-dim"
           >
-            Get started free
+            Add to Chrome — free
           </a>
           <a
             href="#pricing"
@@ -121,7 +124,7 @@ export function FinalCTA() {
         </div>
 
         <p className="mt-6 text-[11px] text-cream-dim">
-          No card needed · Cancel any time · Browser-session only
+          30 free actions · Upgrade inside the extension · Browser-session only
         </p>
       </div>
     </section>
