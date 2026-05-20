@@ -23,3 +23,8 @@ export interface UserPreferences {
     linkedin: number | null;
   };
 }
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
