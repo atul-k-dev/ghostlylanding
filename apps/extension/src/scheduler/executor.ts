@@ -12,11 +12,19 @@ import type { ExecutorResult, QueuedTask } from './types.js';
 import { driveTab } from '../platforms/common/tab-driver.js';
 import { isFresh } from '../platforms/common/freshness.js';
 import { extractPostId } from '../platforms/common/dedupe.js';
-import { isAlreadyLiked, markLiked, getTargetState, setTargetState } from '../lib/storage.js';
+import {
+  isAlreadyLiked,
+  markLiked,
+  isAlreadyCommented,
+  markCommented,
+  getTargetState,
+  setTargetState,
+} from '../lib/storage.js';
 import { buildProfileUrl as twitterProfileUrl } from '../platforms/twitter/selectors.js';
 import { buildProfileFeedUrl as linkedinProfileUrl } from '../platforms/linkedin/selectors.js';
 import { enqueue } from './queue.js';
 import { randomInt } from './timegate.js';
+import { apiFetch } from '../lib/api.js';
 
 const profileUrlFor = (platform: Platform, handle: string): string =>
   platform === 'twitter' ? twitterProfileUrl(handle) : linkedinProfileUrl(handle);
@@ -155,6 +163,86 @@ const executeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
   };
 };
 
+const executeComment = async (task: QueuedTask): Promise<ExecutorResult> => {
+  const postUrl = task.payload.postUrl as string | undefined;
+  const commentText = task.payload.commentText as string | undefined;
+  const draftId = task.payload.draftId as string | undefined;
+  const postId = (task.payload.postId as string | undefined) ?? extractPostId(task.platform, postUrl ?? '');
+  if (!postUrl || !commentText) {
+    return { success: false, errorMessage: 'missing postUrl or commentText' };
+  }
+  if (postId && (await isAlreadyCommented(task.platform, postId))) {
+    return {
+      success: true,
+      logEntry: {
+        platform: task.platform,
+        actionType: 'comment',
+        targetUrl: postUrl,
+        success: true,
+        errorMessage: 'already_commented',
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  let resp;
+  try {
+    resp = await driveTab(
+      postUrl,
+      { type: 'SUBMIT_COMMENT', payload: { postUrl, commentText } },
+      { settleMs: 3_500 },
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'tab driver failed';
+    if (draftId) await markDraft(draftId, 'failed');
+    return {
+      success: false,
+      errorMessage: msg,
+      logEntry: {
+        platform: task.platform,
+        actionType: 'comment',
+        targetUrl: postUrl,
+        success: false,
+        errorMessage: msg,
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  if (resp.type !== 'COMMENT_RESULT') {
+    const msg = resp.type === 'ERROR' ? resp.payload.message : 'unexpected content response';
+    if (draftId) await markDraft(draftId, 'failed');
+    return { success: false, errorMessage: msg };
+  }
+
+  const { posted, error } = resp.payload;
+  if (posted && postId) await markCommented(task.platform, postId);
+  if (draftId) await markDraft(draftId, posted ? 'posted' : 'failed');
+
+  return {
+    success: posted,
+    ...(error ? { errorMessage: error } : {}),
+    logEntry: {
+      platform: task.platform,
+      actionType: 'comment',
+      targetUrl: postUrl,
+      success: posted,
+      ...(error ? { errorMessage: error } : {}),
+      timestamp: new Date().toISOString(),
+    },
+  };
+};
+
+const markDraft = async (id: string, state: 'posted' | 'failed'): Promise<void> => {
+  try {
+    await apiFetch(`/api/comments/drafts/${encodeURIComponent(id)}/${state}`, { method: 'POST' });
+  } catch (e) {
+    console.warn('[casper] failed to mark draft', state, e);
+  }
+};
+
+const stubFollow = stubAction;
+
 export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => {
   switch (task.taskType) {
     case 'like':
@@ -162,7 +250,8 @@ export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => 
     case 'scan-profile-likes':
       return executeScan(task);
     case 'comment':
+      return executeComment(task);
     case 'follow':
-      return stubAction(task);
+      return stubFollow(task);
   }
 };

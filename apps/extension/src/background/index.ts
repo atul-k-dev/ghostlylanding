@@ -2,8 +2,14 @@
  * Casper background service worker.
  * Owns auth state, scheduler alarm, and message routing.
  */
-import type { ApiResponse, User, ActionType, Platform } from '@casper/shared';
-import { ACTION_TYPES, PLATFORMS } from '@casper/shared';
+import type {
+  ApiResponse,
+  User,
+  ActionType,
+  Platform,
+  TonePreset,
+} from '@casper/shared';
+import { ACTION_TYPES, PLATFORMS, TONE_PRESETS } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
 import { getAuth, setAuth, type StoredAuth } from '../lib/storage.js';
 import { installScheduler, handleTick, SCHEDULER_ALARM } from '../scheduler/scheduler.js';
@@ -46,6 +52,10 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   GET_QUEUE_STATS: handleQueueStats as AsyncHandler<unknown, unknown>,
   ENSURE_COUNTERS: handleEnsureCounters as AsyncHandler<unknown, unknown>,
   SCAN_TARGET_NOW: handleScanTargetNow as AsyncHandler<unknown, unknown>,
+  DRAFT_COMMENT: handleDraftComment as AsyncHandler<unknown, unknown>,
+  LIST_DRAFTS: handleListDrafts as AsyncHandler<unknown, unknown>,
+  APPROVE_DRAFT: handleApproveDraft as AsyncHandler<unknown, unknown>,
+  REJECT_DRAFT: handleRejectDraft as AsyncHandler<unknown, unknown>,
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -157,6 +167,75 @@ async function handleEnsureCounters() {
   const settings = await getSettings();
   const counters = await ensureToday(settings);
   return { ok: true, data: counters };
+}
+
+interface DraftDoc {
+  id: string;
+  platform: Platform;
+  postUrl: string;
+  draftText: string;
+  tone: TonePreset;
+  status: 'pending' | 'approved' | 'rejected' | 'posted' | 'failed';
+  createdAt: string;
+  postedAt?: string | null;
+  dedupe?: boolean;
+}
+
+async function handleDraftComment(payload: unknown) {
+  const { platform, postText, postUrl } = (payload ?? {}) as {
+    platform?: Platform;
+    postText?: string;
+    postUrl?: string;
+  };
+  if (!platform || !PLATFORMS.includes(platform) || !postText || !postUrl) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'platform/postText/postUrl required' } };
+  }
+  const settings = await getSettings();
+  const tone: TonePreset = TONE_PRESETS.includes(settings.tone) ? settings.tone : 'friendly';
+  const resp = await apiFetch<DraftDoc>('/api/comments/generate', {
+    method: 'POST',
+    body: { platform, postText, postUrl, tone },
+  });
+  return resp;
+}
+
+async function handleListDrafts(payload: unknown) {
+  const { status } = (payload ?? {}) as { status?: string };
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  const resp = await apiFetch<{ drafts: DraftDoc[] }>(`/api/comments/drafts${query}`);
+  return resp;
+}
+
+async function handleApproveDraft(payload: unknown) {
+  const { id } = (payload ?? {}) as { id?: string };
+  if (!id) return { ok: false, error: { code: 'missing_id', message: 'id required' } };
+  // Fetch the draft to get postUrl + text
+  const list = await apiFetch<{ drafts: DraftDoc[] }>(`/api/comments/drafts?status=pending`);
+  if (!list.ok) return list;
+  const draft = list.data.drafts.find((d) => d.id === id);
+  if (!draft) {
+    return { ok: false, error: { code: 'draft_not_found', message: 'No such pending draft' } };
+  }
+  const transition = await apiFetch<{ id: string; status: string }>(
+    `/api/comments/drafts/${encodeURIComponent(id)}/approve`,
+    { method: 'POST' },
+  );
+  if (!transition.ok) return transition;
+  const task = await enqueue(draft.platform, 'comment', {
+    draftId: id,
+    postUrl: draft.postUrl,
+    commentText: draft.draftText,
+  });
+  return { ok: true, data: { taskId: task.id } };
+}
+
+async function handleRejectDraft(payload: unknown) {
+  const { id } = (payload ?? {}) as { id?: string };
+  if (!id) return { ok: false, error: { code: 'missing_id', message: 'id required' } };
+  return await apiFetch(
+    `/api/comments/drafts/${encodeURIComponent(id)}/reject`,
+    { method: 'POST' },
+  );
 }
 
 async function handleScanTargetNow(payload: unknown) {

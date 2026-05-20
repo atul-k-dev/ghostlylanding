@@ -1,4 +1,4 @@
-import type { Platform } from './platform.js';
+import type { Platform, TonePreset } from './platform.js';
 
 export interface TargetCreator {
   platform: Platform;
@@ -25,6 +25,7 @@ export interface AccountAge {
 export interface ExtensionSettings {
   isPaused: boolean;
   timezone: string;
+  tone: TonePreset;
   activeHours: ActiveHours;
   accountAgeMonths: AccountAge;
   targetCreators: TargetCreator[];

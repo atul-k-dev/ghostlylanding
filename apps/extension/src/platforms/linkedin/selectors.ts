@@ -20,6 +20,18 @@ export const LINKEDIN_SELECTORS = {
   reactButton:
     'button.react-button__trigger, button[aria-label="Like"], button[aria-label*="React Like" i]',
   reactButtonPressedAttr: 'aria-pressed',
+  /** Text body of a post (best-effort across LI variations). */
+  postBody:
+    '.feed-shared-update-v2__description, .update-components-text, [data-test-id="main-feed-activity-card__commentary"]',
+  /** Comment button on the post — opens the comment composer. */
+  commentTriggerButton:
+    'button[aria-label="Comment"], button.comment-button, button[data-test-id*="comment-button"]',
+  /** Composer (contenteditable div). */
+  commentComposer:
+    'div.ql-editor[contenteditable="true"], div[contenteditable="true"][data-placeholder*="comment" i]',
+  /** Submit button inside the comment box (labeled "Post"). */
+  commentSubmitButton:
+    'button.comments-comment-box__submit-button, button[aria-label="Post comment"], button.comments-comment-box__submit-button--cr',
 } as const;
 
 export const buildProfileFeedUrl = (handle: string): string => {

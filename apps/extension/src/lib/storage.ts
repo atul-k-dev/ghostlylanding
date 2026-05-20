@@ -15,6 +15,7 @@ export const STORAGE_KEYS = {
   actionLogBuffer: 'casper.actionLogBuffer',
   targetState: 'casper.targetState',
   likedPosts: 'casper.likedPosts',
+  commentedPosts: 'casper.commentedPosts',
 } as const;
 
 export interface StoredAuth {
@@ -34,6 +35,7 @@ const detectTimezone = (): string => {
 const DEFAULT_SETTINGS: ExtensionSettings = {
   isPaused: false,
   timezone: detectTimezone(),
+  tone: 'friendly',
   activeHours: { startHour: 9, endHour: 22 },
   accountAgeMonths: { twitter: null, linkedin: null },
   targetCreators: [],
@@ -162,5 +164,35 @@ export const markLiked = async (platform: string, postId: string): Promise<void>
 
 export const isAlreadyLiked = async (platform: string, postId: string): Promise<boolean> => {
   const map = await getLikedPosts();
+  return `${platform}:${postId}` in map;
+};
+
+// -- commented posts dedupe (same shape as liked) ---------------------------
+export const getCommentedPosts = async (): Promise<LikedPostsMap> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.commentedPosts);
+  return (got[STORAGE_KEYS.commentedPosts] as LikedPostsMap | undefined) ?? {};
+};
+
+export const setCommentedPosts = async (map: LikedPostsMap): Promise<void> => {
+  const keys = Object.keys(map);
+  if (keys.length > LIKED_POSTS_MAX) {
+    const sorted = keys.sort((a, b) => (map[a] ?? 0) - (map[b] ?? 0));
+    const toDrop = sorted.slice(0, keys.length - LIKED_POSTS_MAX);
+    for (const k of toDrop) delete map[k];
+  }
+  await chrome.storage.local.set({ [STORAGE_KEYS.commentedPosts]: map });
+};
+
+export const markCommented = async (platform: string, postId: string): Promise<void> => {
+  const map = await getCommentedPosts();
+  map[`${platform}:${postId}`] = Date.now();
+  await setCommentedPosts(map);
+};
+
+export const isAlreadyCommented = async (
+  platform: string,
+  postId: string,
+): Promise<boolean> => {
+  const map = await getCommentedPosts();
   return `${platform}:${postId}` in map;
 };

@@ -1,13 +1,16 @@
 /**
- * Twitter content-script message router.
- * Registers a single chrome.runtime.onMessage listener that dispatches
- * SCAN_PROFILE and LIKE_POST requests to DOM helpers.
+ * Twitter content-script router.
+ * Handles SCAN_PROFILE, LIKE_POST, SUBMIT_COMMENT from the service worker;
+ * also installs the Draft-button injector that decorates every visible post.
  */
 import type {
   ContentRequest,
   ContentResponse,
 } from '../common/content-messages.js';
 import { scanProfile, likeCurrentPost } from './dom.js';
+import { extractPostText, submitComment } from './comment.js';
+import { installDraftButtonInjector } from '../common/draft-button.js';
+import { TWITTER_SELECTORS } from './selectors.js';
 
 export const installTwitterHandler = (): void => {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -25,10 +28,13 @@ export const installTwitterHandler = (): void => {
         }
         if (req.type === 'LIKE_POST') {
           const result = await likeCurrentPost();
-          const resp: ContentResponse = {
-            type: 'LIKE_RESULT',
-            payload: result,
-          };
+          const resp: ContentResponse = { type: 'LIKE_RESULT', payload: result };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'SUBMIT_COMMENT') {
+          const result = await submitComment(req.payload.commentText);
+          const resp: ContentResponse = { type: 'COMMENT_RESULT', payload: result };
           sendResponse(resp);
           return;
         }
@@ -40,7 +46,16 @@ export const installTwitterHandler = (): void => {
         sendResponse(resp);
       }
     })();
-    return true; // async
+    return true;
   });
+
+  installDraftButtonInjector({
+    platform: 'twitter',
+    postSelector: TWITTER_SELECTORS.postArticle,
+    actionBarSelector: TWITTER_SELECTORS.actionBarRow,
+    permalinkSelector: TWITTER_SELECTORS.permalink,
+    extractPostText,
+  });
+
   console.log('[casper] twitter handler installed');
 };

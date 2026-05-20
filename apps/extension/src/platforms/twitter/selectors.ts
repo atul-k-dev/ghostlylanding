@@ -18,6 +18,14 @@ export const TWITTER_SELECTORS = {
   unlikeButton: 'button[data-testid="unlike"]',
   /** Aria fallbacks if data-testid disappears. */
   likeButtonAria: 'button[aria-label*="Like" i][role="button"]',
+  /** Inner text container of a tweet. */
+  postText: '[data-testid="tweetText"]',
+  /** Reply composer — the contenteditable rich textbox. */
+  replyComposer: 'div[data-testid="tweetTextarea_0"]',
+  /** Reply submit button (Reply / Post). */
+  replyButton: 'button[data-testid="tweetButton"], button[data-testid="tweetButtonInline"]',
+  /** Action bar row inside an article (reply / retweet / like / share group). */
+  actionBarRow: 'div[role="group"]',
 } as const;
 
 export const buildProfileUrl = (handle: string): string => {

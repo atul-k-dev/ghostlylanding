@@ -5,9 +5,10 @@ import type {
   ExtensionSettings,
   Platform,
   TargetCreator,
+  TonePreset,
   User,
 } from '@casper/shared';
-import { PLATFORMS } from '@casper/shared';
+import { PLATFORMS, TONE_PRESETS } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import { getSettings, setSettings, STORAGE_KEYS } from '../../lib/storage.js';
 
@@ -250,15 +251,134 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
   );
 };
 
-const QueueTab = () => (
-  <div className="flex h-full flex-col items-center justify-center text-center text-xs text-casper-ink/50">
-    <div className="mb-2 text-3xl" aria-hidden>
-      📭
+interface DraftRow {
+  id: string;
+  platform: Platform;
+  postUrl: string;
+  draftText: string;
+  tone: TonePreset;
+  status: string;
+  createdAt: string;
+}
+
+const QueueTab = () => {
+  const [drafts, setDrafts] = useState<DraftRow[] | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = async () => {
+    try {
+      const resp = await sendToBackground<
+        | { ok: true; data: { drafts: DraftRow[] } }
+        | { ok: false; error: { message: string } }
+      >({ type: 'LIST_DRAFTS', payload: { status: 'pending' } });
+      if (resp.ok) {
+        setDrafts(resp.data.drafts);
+        setError(null);
+      } else {
+        setError(resp.error.message);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed');
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+    const id = setInterval(refresh, 5_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const approve = async (draft: DraftRow) => {
+    setBusyId(draft.id);
+    try {
+      const resp = await sendToBackground<
+        { ok: true; data: { taskId: string } } | { ok: false; error: { message: string } }
+      >({ type: 'APPROVE_DRAFT', payload: { id: draft.id } });
+      if (!resp.ok) {
+        setError(resp.error.message);
+      } else {
+        setDrafts((prev) => prev?.filter((d) => d.id !== draft.id) ?? null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const reject = async (draft: DraftRow) => {
+    setBusyId(draft.id);
+    try {
+      await sendToBackground({ type: 'REJECT_DRAFT', payload: { id: draft.id } });
+      setDrafts((prev) => prev?.filter((d) => d.id !== draft.id) ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (drafts === null) {
+    return <p className="py-4 text-center text-xs text-casper-ink/40">Loading drafts…</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {error && (
+        <div className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</div>
+      )}
+      {drafts.length === 0 ? (
+        <div className="flex h-[280px] flex-col items-center justify-center text-center text-xs text-casper-ink/50">
+          <div className="mb-2 text-3xl" aria-hidden>
+            📭
+          </div>
+          <p>No drafts waiting.</p>
+          <p className="text-[10px] text-casper-ink/40">
+            Click ✨ Draft on any post to add one.
+          </p>
+        </div>
+      ) : (
+        drafts.map((d) => (
+          <div key={d.id} className="rounded-2xl bg-white p-3 text-xs shadow-sm">
+            <div className="mb-2 flex items-center justify-between text-[10px] text-casper-ink/40">
+              <span className="capitalize">{d.platform} · {d.tone}</span>
+              <a
+                href={d.postUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-casper-violet hover:underline"
+              >
+                open post ↗
+              </a>
+            </div>
+            <p className="mb-3 whitespace-pre-wrap leading-relaxed text-casper-ink">
+              {d.draftText}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => approve(d)}
+                disabled={busyId === d.id}
+                className="flex-1 rounded-lg bg-casper-violet px-3 py-1.5 text-[11px] font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                {busyId === d.id ? '…' : '✓ Approve'}
+              </button>
+              <button
+                type="button"
+                onClick={() => reject(d)}
+                disabled={busyId === d.id}
+                className="rounded-lg border border-casper-ink/10 px-3 py-1.5 text-[11px] text-casper-ink/60 transition hover:bg-casper-cloud disabled:opacity-50"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        ))
+      )}
     </div>
-    <p>No drafts yet.</p>
-    <p className="text-[10px] text-casper-ink/40">Approval queue lands in M5.</p>
-  </div>
-);
+  );
+};
 
 const NumberField = ({
   label,
@@ -334,6 +454,20 @@ const SettingsTab = ({
           <NumberField label="Start" value={settings.activeHours.startHour} onChange={setStart} />
           <NumberField label="End" value={settings.activeHours.endHour} onChange={setEnd} />
         </div>
+      </Section>
+
+      <Section title="Comment tone" subtitle="Used when you click ✨ Draft on a post.">
+        <select
+          value={settings.tone}
+          onChange={(e) => onChange({ ...settings, tone: e.target.value as TonePreset })}
+          className="w-full rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-sm capitalize focus:border-casper-violet focus:outline-none"
+        >
+          {TONE_PRESETS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
       </Section>
 
       <Section

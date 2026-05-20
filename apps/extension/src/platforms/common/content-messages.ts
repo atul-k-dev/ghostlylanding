@@ -20,6 +20,10 @@ export type ContentRequest =
   | {
       type: 'LIKE_POST';
       payload: { postUrl: string };
+    }
+  | {
+      type: 'SUBMIT_COMMENT';
+      payload: { postUrl: string; commentText: string };
     };
 
 export type ContentResponse =
@@ -30,6 +34,10 @@ export type ContentResponse =
   | {
       type: 'LIKE_RESULT';
       payload: { liked: boolean; alreadyLiked: boolean; error?: string };
+    }
+  | {
+      type: 'COMMENT_RESULT';
+      payload: { posted: boolean; error?: string };
     }
   | {
       type: 'ERROR';
