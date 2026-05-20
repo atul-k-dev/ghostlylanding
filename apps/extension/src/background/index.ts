@@ -1,52 +1,100 @@
 /**
  * Casper background service worker.
- * Owns the action queue, scheduling engine, and message routing (M3+).
- * In M0 it only proves the popup → SW → API → SW → popup roundtrip.
+ * Owns auth state + API messaging. M3 will add the action queue / scheduler.
  */
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
+import type { ApiResponse, User } from '@casper/shared';
+import { apiFetch, API_BASE } from '../lib/api.js';
+import { getAuth, setAuth, type StoredAuth } from '../lib/storage.js';
 
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('[casper] installed', details.reason);
 });
+
+interface AsyncHandler<Req, Resp> {
+  (payload: Req): Promise<Resp>;
+}
+
+const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
+  GET_AUTH: handleGetAuth as AsyncHandler<unknown, unknown>,
+  REQUEST_MAGIC_LINK: handleRequestMagicLink as AsyncHandler<unknown, unknown>,
+  AUTH_FROM_WEB: handleAuthFromWeb as AsyncHandler<unknown, unknown>,
+  LOGOUT: handleLogout as AsyncHandler<unknown, unknown>,
+  PING: handlePing as AsyncHandler<unknown, unknown>,
+};
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || typeof message !== 'object' || typeof message.type !== 'string') {
     sendResponse({ ok: false, error: 'invalid_message' });
     return false;
   }
-
-  if (message.type === 'GET_API_URL') {
-    sendResponse({ type: 'API_URL', payload: { apiUrl: API_BASE_URL } });
+  const handler = asyncHandlers[message.type];
+  if (!handler) {
+    sendResponse({ ok: false, error: 'unknown_message_type' });
     return false;
   }
-
-  if (message.type === 'PING') {
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/health`);
-        const body = (await res.json()) as { ok: boolean; data?: { timestamp: string } };
-        const timestamp = body.ok && body.data ? body.data.timestamp : new Date().toISOString();
-        sendResponse({
-          type: 'PONG',
-          payload: { apiOk: body.ok === true, timestamp },
-        });
-      } catch (error) {
-        sendResponse({
-          type: 'PONG',
-          payload: {
-            apiOk: false,
-            timestamp: new Date().toISOString(),
-            error: error instanceof Error ? error.message : String(error),
-          },
-        });
-      }
-    })();
-    return true; // keep channel open for async sendResponse
-  }
-
-  sendResponse({ ok: false, error: 'unknown_message_type' });
-  return false;
+  handler(message.payload).then(sendResponse).catch((err) => {
+    console.error('[casper] handler error', err);
+    sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
+  });
+  return true; // async response
 });
+
+async function handleGetAuth(): Promise<{ type: 'AUTH_STATE'; payload: { authenticated: boolean; user: User | null } }> {
+  const auth = await getAuth();
+  return {
+    type: 'AUTH_STATE',
+    payload: { authenticated: auth !== null, user: auth?.user ?? null },
+  };
+}
+
+async function handleRequestMagicLink(payload: unknown) {
+  const { email } = (payload ?? {}) as { email?: string };
+  if (!email || typeof email !== 'string') {
+    return { type: 'MAGIC_LINK_SENT', payload: { sent: false, error: 'invalid_email' } };
+  }
+  const resp = await apiFetch<{ sent: boolean; via: string; devVerifyUrl?: string }>(
+    '/api/auth/request-magic-link',
+    { method: 'POST', body: { email }, auth: false },
+  );
+  if (!resp.ok) {
+    return {
+      type: 'MAGIC_LINK_SENT',
+      payload: { sent: false, error: resp.error.message },
+    };
+  }
+  return { type: 'MAGIC_LINK_SENT', payload: resp.data };
+}
+
+async function handleAuthFromWeb(payload: unknown) {
+  const { token, user } = (payload ?? {}) as { token?: unknown; user?: unknown };
+  if (typeof token !== 'string' || typeof user !== 'object' || user === null) {
+    return { ok: false, error: 'invalid_payload' };
+  }
+  const stored: StoredAuth = {
+    token,
+    user: user as User,
+    savedAt: new Date().toISOString(),
+  };
+  await setAuth(stored);
+  console.log('[casper] auth stored for', stored.user.email);
+  return { ok: true };
+}
+
+async function handleLogout() {
+  await setAuth(null);
+  return { type: 'LOGGED_OUT', payload: {} };
+}
+
+async function handlePing() {
+  let apiOk = false;
+  try {
+    const res = await fetch(`${API_BASE}/api/health`);
+    const body = (await res.json()) as ApiResponse<unknown>;
+    apiOk = body.ok === true;
+  } catch {
+    apiOk = false;
+  }
+  return { type: 'PONG', payload: { apiOk, timestamp: new Date().toISOString() } };
+}
 
 export {};

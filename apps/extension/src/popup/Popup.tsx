@@ -1,85 +1,57 @@
 import { useEffect, useState } from 'react';
+import type { User } from '@casper/shared';
+import { sendToBackground } from '../lib/messages.js';
+import { STORAGE_KEYS } from '../lib/storage.js';
+import { LoggedOut } from './views/LoggedOut.js';
+import { Dashboard } from './views/Dashboard.js';
 
-type SmokeStatus = 'idle' | 'pinging' | 'ok' | 'error';
+type AuthState =
+  | { kind: 'loading' }
+  | { kind: 'logged-out' }
+  | { kind: 'logged-in'; user: User };
 
 export const Popup = () => {
-  const [status, setStatus] = useState<SmokeStatus>('idle');
-  const [detail, setDetail] = useState<string>('');
-  const [apiUrl, setApiUrl] = useState<string>('');
+  const [state, setState] = useState<AuthState>({ kind: 'loading' });
 
-  useEffect(() => {
-    chrome.runtime.sendMessage({ type: 'GET_API_URL', payload: {} }, (response) => {
-      if (chrome.runtime.lastError) {
-        setApiUrl('(service worker not ready)');
-        return;
+  const refresh = async () => {
+    try {
+      const resp = await sendToBackground<{
+        type: 'AUTH_STATE';
+        payload: { authenticated: boolean; user: User | null };
+      }>({ type: 'GET_AUTH', payload: {} });
+      if (resp.payload.authenticated && resp.payload.user) {
+        setState({ kind: 'logged-in', user: resp.payload.user });
+      } else {
+        setState({ kind: 'logged-out' });
       }
-      setApiUrl(response?.payload?.apiUrl ?? '');
-    });
-  }, []);
-
-  const handlePing = () => {
-    setStatus('pinging');
-    setDetail('');
-    chrome.runtime.sendMessage(
-      { type: 'PING', payload: { from: 'popup' } },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          setStatus('error');
-          setDetail(chrome.runtime.lastError.message ?? 'unknown error');
-          return;
-        }
-        if (response?.type === 'PONG' && response.payload?.apiOk) {
-          setStatus('ok');
-          setDetail(`API reachable at ${response.payload.timestamp}`);
-        } else {
-          setStatus('error');
-          setDetail(JSON.stringify(response));
-        }
-      },
-    );
+    } catch {
+      setState({ kind: 'logged-out' });
+    }
   };
 
+  useEffect(() => {
+    void refresh();
+    const listener = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: chrome.storage.AreaName,
+    ) => {
+      if (area === 'local' && STORAGE_KEYS.auth in changes) {
+        void refresh();
+      }
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, []);
+
   return (
-    <main className="w-[360px] min-h-[480px] bg-casper-cloud p-5 text-casper-ink">
-      <header className="mb-6 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-casper-violet text-white text-xl">
-          👻
+    <main className="w-[360px] min-h-[480px] bg-casper-cloud text-casper-ink">
+      {state.kind === 'loading' && (
+        <div className="flex h-[480px] items-center justify-center text-sm text-casper-ink/60">
+          <span>Loading…</span>
         </div>
-        <div>
-          <h1 className="text-lg font-semibold">Casper AI</h1>
-          <p className="text-xs text-casper-ink/60">Friendly growth, on autopilot.</p>
-        </div>
-      </header>
-
-      <section className="rounded-2xl bg-white p-4 shadow-sm">
-        <h2 className="mb-2 text-sm font-medium">M0 smoke test</h2>
-        <p className="mb-3 text-xs text-casper-ink/60">
-          Roundtrip: popup → service worker → API → back.
-        </p>
-        <p className="mb-3 break-all text-[10px] text-casper-ink/50">
-          API: {apiUrl || '...'}
-        </p>
-        <button
-          type="button"
-          onClick={handlePing}
-          disabled={status === 'pinging'}
-          className="w-full rounded-xl bg-casper-violet px-3 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-        >
-          {status === 'pinging' ? 'Pinging…' : 'Test API'}
-        </button>
-        <div className="mt-3 min-h-[40px] text-xs">
-          {status === 'ok' && (
-            <p className="text-emerald-600">✓ {detail}</p>
-          )}
-          {status === 'error' && (
-            <p className="text-rose-600">✗ {detail}</p>
-          )}
-        </div>
-      </section>
-
-      <footer className="mt-6 text-center text-[10px] text-casper-ink/40">
-        v0.0.1 · MVP scaffolding
-      </footer>
+      )}
+      {state.kind === 'logged-out' && <LoggedOut />}
+      {state.kind === 'logged-in' && <Dashboard user={state.user} onLogout={refresh} />}
     </main>
   );
 };

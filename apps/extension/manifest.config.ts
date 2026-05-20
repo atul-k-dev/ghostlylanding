@@ -25,6 +25,12 @@ export default defineManifest({
       js: ['src/content/linkedin.ts'],
       run_at: 'document_idle',
     },
+    {
+      // TODO: add prod web domain to matches before publishing
+      matches: ['http://localhost:3000/auth/verify*'],
+      js: ['src/content/auth-handoff.ts'],
+      run_at: 'document_idle',
+    },
   ],
   permissions: ['storage', 'alarms', 'scripting', 'activeTab'],
   host_permissions: [
@@ -32,5 +38,6 @@ export default defineManifest({
     'https://twitter.com/*',
     'https://www.linkedin.com/*',
     'http://localhost:4000/*',
+    'http://localhost:3000/*',
   ],
 });
