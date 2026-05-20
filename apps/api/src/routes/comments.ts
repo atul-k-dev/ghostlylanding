@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { ok, err, PLATFORMS, TONE_PRESETS } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requirePro } from '../middleware/require-pro.js';
 import { validate } from '../middleware/validate.js';
 import { generateCommentDraft } from '../openai/generate-comment.js';
 import { moderate } from '../openai/moderation.js';
@@ -26,6 +27,7 @@ const generateSchema = z.object({
 commentsRouter.post(
   '/generate',
   requireAuth,
+  requirePro,
   validate(generateSchema),
   asyncHandler(async (req, res) => {
     if (!hasOpenAI()) {

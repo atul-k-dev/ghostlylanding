@@ -1,5 +1,11 @@
 import { Schema, model, type InferSchemaType } from 'mongoose';
-import { PLATFORMS, TONE_PRESETS, type User as UserDTO } from '@casper/shared';
+import {
+  PLATFORMS,
+  TONE_PRESETS,
+  SUBSCRIPTION_PLANS,
+  SUBSCRIPTION_STATUSES,
+  type User as UserDTO,
+} from '@casper/shared';
 
 const preferencesSchema = new Schema(
   {
@@ -24,12 +30,19 @@ const preferencesSchema = new Schema(
 const userSchema = new Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-    stripeCustomerId: { type: String, default: null },
+    stripeCustomerId: { type: String, default: null, index: true },
+    stripeSubscriptionId: { type: String, default: null },
     subscriptionStatus: {
       type: String,
-      enum: ['free', 'active', 'past_due', 'canceled', null],
+      enum: [...SUBSCRIPTION_STATUSES, null],
       default: 'free',
     },
+    subscriptionPlan: {
+      type: String,
+      enum: SUBSCRIPTION_PLANS,
+      default: 'free',
+    },
+    currentPeriodEnd: { type: Date, default: null },
     preferences: { type: preferencesSchema, default: () => ({}) },
   },
   { timestamps: true },
@@ -51,6 +64,8 @@ export const toUserDTO = (
     createdAt: doc.createdAt.toISOString(),
     stripeCustomerId: doc.stripeCustomerId ?? null,
     subscriptionStatus: doc.subscriptionStatus ?? null,
+    subscriptionPlan: (doc.subscriptionPlan ?? 'free') as UserDTO['subscriptionPlan'],
+    currentPeriodEnd: doc.currentPeriodEnd ? doc.currentPeriodEnd.toISOString() : null,
     preferences: {
       enabledPlatforms: prefs.enabledPlatforms,
       tone: prefs.tone,

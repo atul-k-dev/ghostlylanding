@@ -66,6 +66,9 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   REJECT_DRAFT: handleRejectDraft as AsyncHandler<unknown, unknown>,
   LIST_ACTION_LOG: handleListActionLog as AsyncHandler<unknown, unknown>,
   DELETE_ACCOUNT: handleDeleteAccount as AsyncHandler<unknown, unknown>,
+  REFRESH_ME: handleRefreshMe as AsyncHandler<unknown, unknown>,
+  START_CHECKOUT: handleStartCheckout as AsyncHandler<unknown, unknown>,
+  OPEN_BILLING_PORTAL: handleOpenBillingPortal as AsyncHandler<unknown, unknown>,
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -290,6 +293,40 @@ async function handleScanTargetNow(payload: unknown) {
   }
   const task = await enqueue(platform, 'scan-profile-likes', { handle });
   return { ok: true, data: { taskId: task.id } };
+}
+
+async function handleRefreshMe() {
+  const resp = await apiFetch<User>('/api/me');
+  if (resp.ok) {
+    const current = await getAuth();
+    if (current) {
+      await setAuth({ ...current, user: resp.data });
+    }
+  }
+  return resp;
+}
+
+async function handleStartCheckout(payload: unknown) {
+  const { plan } = (payload ?? {}) as { plan?: string };
+  if (!plan || !['monthly', 'quarterly', 'annual'].includes(plan)) {
+    return { ok: false, error: { code: 'invalid_plan', message: 'plan required' } };
+  }
+  const resp = await apiFetch<{ url: string; sessionId: string }>(
+    '/api/billing/checkout-session',
+    { method: 'POST', body: { plan } },
+  );
+  if (resp.ok) {
+    await chrome.tabs.create({ url: resp.data.url, active: true });
+  }
+  return resp;
+}
+
+async function handleOpenBillingPortal() {
+  const resp = await apiFetch<{ url: string }>('/api/billing/portal', { method: 'POST' });
+  if (resp.ok) {
+    await chrome.tabs.create({ url: resp.data.url, active: true });
+  }
+  return resp;
 }
 
 async function handleListActionLog(payload: unknown) {

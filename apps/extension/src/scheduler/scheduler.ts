@@ -17,10 +17,12 @@
  * Scans go through 2–4 but not 6 — they're internal and feed real actions.
  */
 import type { ExtensionSettings } from '@casper/shared';
+import { FREE_TIER, isPro } from '@casper/shared';
 import {
   getSettings,
   getSchedulerState,
   setSchedulerState,
+  getAuth,
 } from '../lib/storage.js';
 import { ensureToday, incrementCounter, isUnderCap } from './counters.js';
 import { isActiveNow, nextActionDelayMs } from './timegate.js';
@@ -89,6 +91,46 @@ export const handleTick = async (): Promise<void> => {
     }
 
     if (task.kind === 'action') {
+      // Free-tier gate
+      const auth = await getAuth();
+      const status = auth?.user.subscriptionStatus ?? 'free';
+      if (!isPro(status)) {
+        // 1) No AI comments for free users
+        if (task.taskType === 'comment') {
+          await updateTask(task.id, {
+            status: 'skipped',
+            lastError: 'AI comments require Casper Pro',
+          });
+          await maybeFlush();
+          return;
+        }
+        // 2) Only one platform — whichever has a target listed first
+        const allowedPlatform = settings.targetCreators[0]?.platform;
+        if (allowedPlatform && task.platform !== allowedPlatform) {
+          await updateTask(task.id, {
+            status: 'skipped',
+            lastError: `Free plan: only ${allowedPlatform} is active. Upgrade to Pro for both platforms.`,
+          });
+          await maybeFlush();
+          return;
+        }
+        // 3) 25 total actions/day across all platforms+types
+        const counters = await ensureToday(settings);
+        const totalToday =
+          (counters.twitter?.byActionType.like ?? 0) +
+          (counters.twitter?.byActionType.follow ?? 0) +
+          (counters.linkedin?.byActionType.like ?? 0) +
+          (counters.linkedin?.byActionType.follow ?? 0);
+        if (totalToday >= FREE_TIER.actionsPerDay) {
+          await updateTask(task.id, {
+            status: 'skipped',
+            lastError: `Free plan daily cap (${FREE_TIER.actionsPerDay}) reached. Upgrade to Pro for more.`,
+          });
+          await maybeFlush();
+          return;
+        }
+      }
+
       const counters = await ensureToday(settings);
       if (!isUnderCap(counters, task.platform, task.taskType as Parameters<typeof isUnderCap>[2])) {
         await updateTask(task.id, {

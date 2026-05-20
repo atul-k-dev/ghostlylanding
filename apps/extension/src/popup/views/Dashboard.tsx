@@ -4,11 +4,12 @@ import type {
   DailyCounter,
   ExtensionSettings,
   Platform,
+  SubscriptionPlan,
   TargetCreator,
   TonePreset,
   User,
 } from '@casper/shared';
-import { PLATFORMS, TONE_PRESETS } from '@casper/shared';
+import { PLATFORMS, TONE_PRESETS, isPro } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import {
   getSettings,
@@ -503,6 +504,8 @@ const SettingsTab = ({
         <p className="text-[10px] text-casper-ink/40">Timezone: {settings.timezone}</p>
       </Section>
 
+      <PlanSection />
+
       <Section title="Active hours" subtitle="Casper only acts inside this window.">
         <div className="grid grid-cols-2 gap-2">
           <NumberField label="Start" value={settings.activeHours.startHour} onChange={setStart} />
@@ -706,6 +709,175 @@ const formatRelative = (iso: string): string => {
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
   return `${Math.floor(diff / 86_400_000)}d ago`;
 };
+
+const PLAN_LABELS: Record<SubscriptionPlan, { label: string; price: string }> = {
+  free: { label: 'Free', price: '$0' },
+  monthly: { label: 'Pro · Monthly', price: '$19.99/mo' },
+  quarterly: { label: 'Pro · Quarterly', price: '$49.99/qtr' },
+  annual: { label: 'Pro · Annual', price: '$199.99/yr' },
+};
+
+const PlanSection = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = async () => {
+    try {
+      const resp = await sendToBackground<
+        | { ok: true; data: User }
+        | { ok: false; error: { message: string } }
+      >({ type: 'REFRESH_ME', payload: {} });
+      if (resp.ok) setUser(resp.data);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+    // Poll every 15s so post-checkout webhook updates land without manual refresh.
+    const id = setInterval(refresh, 15_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const upgrade = async (plan: SubscriptionPlan) => {
+    setBusy(plan);
+    setError(null);
+    try {
+      const resp = await sendToBackground<
+        | { ok: true; data: { url: string } }
+        | { ok: false; error: { message: string } }
+      >({ type: 'START_CHECKOUT', payload: { plan } });
+      if (!resp.ok) setError(resp.error.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const manage = async () => {
+    setBusy('portal');
+    setError(null);
+    try {
+      const resp = await sendToBackground<
+        | { ok: true; data: { url: string } }
+        | { ok: false; error: { message: string } }
+      >({ type: 'OPEN_BILLING_PORTAL', payload: {} });
+      if (!resp.ok) setError(resp.error.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const status = user?.subscriptionStatus ?? 'free';
+  const plan = (user?.subscriptionPlan ?? 'free') as SubscriptionPlan;
+  const pro = isPro(status);
+  const renewLine =
+    pro && user?.currentPeriodEnd
+      ? `Renews ${new Date(user.currentPeriodEnd).toLocaleDateString()}`
+      : null;
+
+  return (
+    <Section
+      title="Plan"
+      subtitle={pro ? 'Casper Pro · all features unlocked' : 'Free · likes + follows on 1 platform'}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-sm font-medium">{PLAN_LABELS[plan].label}</p>
+          <p className="text-[10px] text-casper-ink/50">{PLAN_LABELS[plan].price}</p>
+          {renewLine && (
+            <p className="text-[10px] text-casper-ink/40">{renewLine}</p>
+          )}
+        </div>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            pro
+              ? 'bg-emerald-100 text-emerald-700'
+              : status === 'past_due'
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-casper-ink/10 text-casper-ink/60'
+          }`}
+        >
+          {pro ? 'Active' : status === 'past_due' ? 'Past due' : 'Free'}
+        </span>
+      </div>
+
+      {pro ? (
+        <button
+          type="button"
+          onClick={manage}
+          disabled={busy === 'portal'}
+          className="w-full rounded-xl border border-casper-ink/10 px-3 py-2 text-[11px] text-casper-ink/80 transition hover:bg-white disabled:opacity-50"
+        >
+          {busy === 'portal' ? 'Opening…' : 'Manage subscription'}
+        </button>
+      ) : (
+        <div className="space-y-1.5">
+          <UpgradeButton
+            label="Monthly · $19.99"
+            sub="Cancel anytime"
+            highlight={false}
+            busy={busy === 'monthly'}
+            onClick={() => upgrade('monthly')}
+          />
+          <UpgradeButton
+            label="Quarterly · $49.99"
+            sub="Save ~17%"
+            highlight={false}
+            busy={busy === 'quarterly'}
+            onClick={() => upgrade('quarterly')}
+          />
+          <UpgradeButton
+            label="Annual · $199.99"
+            sub="Save ~17% — best value"
+            highlight={true}
+            busy={busy === 'annual'}
+            onClick={() => upgrade('annual')}
+          />
+        </div>
+      )}
+      {error && <p className="mt-2 text-[10px] text-rose-600">✗ {error}</p>}
+    </Section>
+  );
+};
+
+const UpgradeButton = ({
+  label,
+  sub,
+  highlight,
+  busy,
+  onClick,
+}: {
+  label: string;
+  sub: string;
+  highlight: boolean;
+  busy: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={busy}
+    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] transition disabled:opacity-50 ${
+      highlight
+        ? 'bg-casper-violet text-white hover:opacity-90'
+        : 'border border-casper-ink/10 text-casper-ink/80 hover:bg-white'
+    }`}
+  >
+    <span className="text-left">
+      <span className="block font-medium">{busy ? 'Opening checkout…' : label}</span>
+      <span className={`block text-[10px] ${highlight ? 'text-white/70' : 'text-casper-ink/50'}`}>
+        {sub}
+      </span>
+    </span>
+    <span aria-hidden>→</span>
+  </button>
+);
 
 const DiagnosticsSection = () => {
   const [diags, setDiags] = useState<DiagnosticEntry[] | null>(null);

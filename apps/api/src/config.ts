@@ -29,6 +29,13 @@ export const config = {
   resendApiKey: optional('RESEND_API_KEY'),
   resendFromEmail: optional('RESEND_FROM_EMAIL'),
   webBaseUrl: required('WEB_BASE_URL', 'http://localhost:3000'),
+  stripeSecretKey: optional('STRIPE_SECRET_KEY'),
+  stripeWebhookSecret: optional('STRIPE_WEBHOOK_SECRET'),
+  stripePrices: {
+    monthly: optional('STRIPE_PRICE_MONTHLY'),
+    quarterly: optional('STRIPE_PRICE_QUARTERLY'),
+    annual: optional('STRIPE_PRICE_ANNUAL'),
+  },
 } as const;
 
 export const isProd = config.env === 'production';

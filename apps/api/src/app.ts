@@ -11,6 +11,8 @@ import { meRouter } from './routes/me.js';
 import { accountRouter } from './routes/account.js';
 import { actionsRouter } from './routes/actions.js';
 import { commentsRouter } from './routes/comments.js';
+import { billingRouter } from './routes/billing.js';
+import { billingWebhookRouter } from './routes/billing-webhook.js';
 
 export const createApp = (): Express => {
   const app = express();
@@ -30,6 +32,10 @@ export const createApp = (): Express => {
     }),
   );
 
+  // Stripe webhook MUST receive the raw body for signature verification —
+  // mount it before express.json() so the buffer isn't parsed.
+  app.use('/api/billing', billingWebhookRouter);
+
   app.use(express.json({ limit: '1mb' }));
   app.use(pinoHttp({ logger }));
 
@@ -39,6 +45,7 @@ export const createApp = (): Express => {
   app.use('/api/account', accountRouter);
   app.use('/api/actions', actionsRouter);
   app.use('/api/comments', commentsRouter);
+  app.use('/api/billing', billingRouter);
 
   app.use((req: Request, res: Response) => {
     res.status(404).json(err('not_found', `Route not found: ${req.method} ${req.path}`));
