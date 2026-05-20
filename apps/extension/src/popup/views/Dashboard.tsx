@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import type { ExtensionSettings, User } from '@casper/shared';
+import type {
+  CountersState,
+  DailyCounter,
+  ExtensionSettings,
+  Platform,
+  User,
+} from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import { getSettings, setSettings, STORAGE_KEYS } from '../../lib/storage.js';
 
@@ -35,6 +41,11 @@ export const Dashboard = ({ user, onLogout }: Props) => {
     await setSettings(next);
   };
 
+  const updateSettings = async (next: ExtensionSettings) => {
+    setLocalSettings(next);
+    await setSettings(next);
+  };
+
   const logout = async () => {
     await sendToBackground({ type: 'LOGOUT', payload: {} });
     onLogout();
@@ -45,9 +56,16 @@ export const Dashboard = ({ user, onLogout }: Props) => {
       <Header user={user} isPaused={settings?.isPaused ?? false} onTogglePause={togglePause} />
       <Tabs tab={tab} onChange={setTab} />
       <div className="flex-1 overflow-y-auto px-5 py-4">
-        {tab === 'dashboard' && <DashboardTab isPaused={settings?.isPaused ?? false} />}
+        {tab === 'dashboard' && <DashboardTab settings={settings} />}
         {tab === 'queue' && <QueueTab />}
-        {tab === 'settings' && <SettingsTab onLogout={logout} userEmail={user.email} />}
+        {tab === 'settings' && settings && (
+          <SettingsTab
+            settings={settings}
+            onChange={updateSettings}
+            onLogout={logout}
+            userEmail={user.email}
+          />
+        )}
       </div>
     </div>
   );
@@ -127,28 +145,108 @@ const Counter = ({ label, value, max }: { label: string; value: number; max: num
   </div>
 );
 
-const DashboardTab = ({ isPaused }: { isPaused: boolean }) => (
-  <div className="space-y-4">
-    <div className="rounded-2xl border border-casper-violet/20 bg-casper-violet/5 p-3 text-xs">
-      <p className="font-medium text-casper-ink">
-        {isPaused ? "I'm taking a break 🌙" : "I'm watching over things 👀"}
-      </p>
-      <p className="text-casper-ink/60">
-        {isPaused
-          ? 'Toggle the pill above to resume.'
-          : 'Engine warming up — actions land in M3.'}
-      </p>
+const PlatformCounters = ({
+  platform,
+  counter,
+}: {
+  platform: Platform;
+  counter: DailyCounter | null;
+}) => (
+  <div className="rounded-2xl bg-white p-3 shadow-sm">
+    <div className="mb-2 flex items-center justify-between">
+      <p className="text-xs font-semibold capitalize">{platform}</p>
+      {counter && (
+        <p className="text-[10px] text-casper-ink/40">{counter.date}</p>
+      )}
     </div>
     <div className="grid grid-cols-3 gap-2">
-      <Counter label="Likes" value={0} max={130} />
-      <Counter label="Comments" value={0} max={35} />
-      <Counter label="Follows" value={0} max={45} />
+      <Counter
+        label="Likes"
+        value={counter?.byActionType.like ?? 0}
+        max={counter?.effectiveCap.likesPerDay ?? 0}
+      />
+      <Counter
+        label="Comments"
+        value={counter?.byActionType.comment ?? 0}
+        max={counter?.effectiveCap.commentsPerDay ?? 0}
+      />
+      <Counter
+        label="Follows"
+        value={counter?.byActionType.follow ?? 0}
+        max={counter?.effectiveCap.followsPerDay ?? 0}
+      />
     </div>
-    <p className="text-[10px] text-casper-ink/40">
-      Counters are stubs in M2. The real scheduler arrives in M3.
-    </p>
   </div>
 );
+
+const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
+  const [counters, setCountersState] = useState<CountersState | null>(null);
+  const [stats, setStats] = useState<{
+    pending: number;
+    running: number;
+    completed: number;
+    failed: number;
+  } | null>(null);
+
+  const refresh = async () => {
+    try {
+      const c = await sendToBackground<{ ok: true; data: CountersState }>({
+        type: 'ENSURE_COUNTERS',
+        payload: {},
+      });
+      if (c.ok) setCountersState(c.data);
+      const s = await sendToBackground<{
+        ok: true;
+        data: { pending: number; running: number; completed: number; failed: number };
+      }>({ type: 'GET_QUEUE_STATS', payload: {} });
+      if (s.ok) setStats(s.data);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+    const id = setInterval(refresh, 2_000);
+    const listener = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: chrome.storage.AreaName,
+    ) => {
+      if (area === 'local' && (STORAGE_KEYS.counters in changes || STORAGE_KEYS.queue in changes)) {
+        void refresh();
+      }
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => {
+      clearInterval(id);
+      chrome.storage.onChanged.removeListener(listener);
+    };
+  }, []);
+
+  const isPaused = settings?.isPaused ?? false;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-casper-violet/20 bg-casper-violet/5 p-3 text-xs">
+        <p className="font-medium text-casper-ink">
+          {isPaused ? "I'm taking a break 🌙" : "I'm watching over things 👀"}
+        </p>
+        <p className="text-casper-ink/60">
+          {isPaused
+            ? 'Toggle the pill above to resume.'
+            : stats
+              ? `${stats.pending} pending · ${stats.completed} done · ${stats.failed} failed`
+              : 'Engine warming up…'}
+        </p>
+      </div>
+      <PlatformCounters platform="twitter" counter={counters?.twitter ?? null} />
+      <PlatformCounters platform="linkedin" counter={counters?.linkedin ?? null} />
+      <p className="text-[10px] text-casper-ink/40">
+        Real platform actions land in M4. Until then, seed stub tasks from Settings ↘
+      </p>
+    </div>
+  );
+};
 
 const QueueTab = () => (
   <div className="flex h-full flex-col items-center justify-center text-center text-xs text-casper-ink/50">
@@ -160,21 +258,138 @@ const QueueTab = () => (
   </div>
 );
 
-const SettingsTab = ({ onLogout, userEmail }: { onLogout: () => void; userEmail: string }) => (
-  <div className="space-y-4 text-xs">
-    <div className="rounded-xl bg-white p-3 shadow-sm">
-      <p className="font-medium">Account</p>
-      <p className="text-casper-ink/60">{userEmail}</p>
+const NumberField = ({
+  label,
+  value,
+  onChange,
+  min = 0,
+  max = 23,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  min?: number;
+  max?: number;
+}) => (
+  <label className="flex flex-col gap-1 text-xs">
+    <span className="text-casper-ink/60">{label}</span>
+    <input
+      type="number"
+      value={value}
+      min={min}
+      max={max}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="w-full rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-sm focus:border-casper-violet focus:outline-none"
+    />
+  </label>
+);
+
+const SettingsTab = ({
+  settings,
+  onChange,
+  onLogout,
+  userEmail,
+}: {
+  settings: ExtensionSettings;
+  onChange: (s: ExtensionSettings) => void;
+  onLogout: () => void;
+  userEmail: string;
+}) => {
+  const [seedStatus, setSeedStatus] = useState<string | null>(null);
+
+  const setStart = (h: number) =>
+    onChange({ ...settings, activeHours: { ...settings.activeHours, startHour: h } });
+  const setEnd = (h: number) =>
+    onChange({ ...settings, activeHours: { ...settings.activeHours, endHour: h } });
+  const setAge = (platform: Platform, months: number | null) =>
+    onChange({
+      ...settings,
+      accountAgeMonths: { ...settings.accountAgeMonths, [platform]: months },
+    });
+
+  const seed = async () => {
+    setSeedStatus('Seeding…');
+    try {
+      const r = await sendToBackground<{ ok: true; data: { enqueued: number } }>({
+        type: 'DEV_ENQUEUE_STUB_TASKS',
+        payload: { count: 10 },
+      });
+      setSeedStatus(`Enqueued ${r.data.enqueued} stub tasks`);
+    } catch (err) {
+      setSeedStatus(err instanceof Error ? err.message : 'failed');
+    }
+  };
+
+  return (
+    <div className="space-y-4 text-xs">
+      <Section title="Account">
+        <p className="text-casper-ink/60">{userEmail}</p>
+        <p className="text-[10px] text-casper-ink/40">Timezone: {settings.timezone}</p>
+      </Section>
+
+      <Section title="Active hours" subtitle="Casper only acts inside this window.">
+        <div className="grid grid-cols-2 gap-2">
+          <NumberField label="Start" value={settings.activeHours.startHour} onChange={setStart} />
+          <NumberField label="End" value={settings.activeHours.endHour} onChange={setEnd} />
+        </div>
+      </Section>
+
+      <Section
+        title="Account age (months)"
+        subtitle="Newer accounts get safer caps. Leave blank if unsure."
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <NumberField
+            label="Twitter"
+            value={settings.accountAgeMonths.twitter ?? 0}
+            onChange={(n) => setAge('twitter', n > 0 ? n : null)}
+            min={0}
+            max={240}
+          />
+          <NumberField
+            label="LinkedIn"
+            value={settings.accountAgeMonths.linkedin ?? 0}
+            onChange={(n) => setAge('linkedin', n > 0 ? n : null)}
+            min={0}
+            max={240}
+          />
+        </div>
+      </Section>
+
+      <Section title="Dev tools" subtitle="Will be hidden when real platform engines land.">
+        <button
+          type="button"
+          onClick={seed}
+          className="w-full rounded-xl bg-casper-violet/10 px-3 py-2 text-casper-violet transition hover:bg-casper-violet/20"
+        >
+          Enqueue 10 stub tasks
+        </button>
+        {seedStatus && <p className="mt-2 text-[10px] text-casper-ink/50">{seedStatus}</p>}
+      </Section>
+
+      <button
+        type="button"
+        onClick={onLogout}
+        className="w-full rounded-xl border border-casper-ink/10 px-3 py-2 text-casper-ink/70 transition hover:bg-white"
+      >
+        Sign out
+      </button>
     </div>
-    <button
-      type="button"
-      onClick={onLogout}
-      className="w-full rounded-xl border border-casper-ink/10 px-3 py-2 text-casper-ink/70 transition hover:bg-white"
-    >
-      Sign out
-    </button>
-    <p className="text-[10px] text-casper-ink/40">
-      Targets, hours, and caps editing lands with M3.
-    </p>
+  );
+};
+
+const Section = ({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) => (
+  <div className="rounded-xl bg-white p-3 shadow-sm">
+    <p className="font-medium text-casper-ink">{title}</p>
+    {subtitle && <p className="mb-2 text-[10px] text-casper-ink/50">{subtitle}</p>}
+    {children}
   </div>
 );

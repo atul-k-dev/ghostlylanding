@@ -35,6 +35,13 @@ export type AuthFromWebMessage = MessageEnvelope<
 export type LogoutMessage = MessageEnvelope<'LOGOUT', Record<string, never>>;
 export type LogoutResponse = MessageEnvelope<'LOGGED_OUT', Record<string, never>>;
 
+// -- scheduler ---------------------------------------------------------------
+export type EnqueueStubTasksMessage = MessageEnvelope<
+  'DEV_ENQUEUE_STUB_TASKS',
+  { count: number }
+>;
+export type FlushBufferMessage = MessageEnvelope<'FLUSH_ACTION_BUFFER', Record<string, never>>;
+
 // -- web → content handoff ----------------------------------------------------
 export const WEB_AUTH_MESSAGE_TYPE = 'CASPER_AUTH_HANDOFF' as const;
 export interface WebAuthHandoff {

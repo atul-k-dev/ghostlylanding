@@ -1,14 +1,35 @@
 /**
  * Casper background service worker.
- * Owns auth state + API messaging. M3 will add the action queue / scheduler.
+ * Owns auth state, scheduler alarm, and message routing.
  */
-import type { ApiResponse, User } from '@casper/shared';
+import type { ApiResponse, User, ActionType, Platform } from '@casper/shared';
+import { ACTION_TYPES, PLATFORMS } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
 import { getAuth, setAuth, type StoredAuth } from '../lib/storage.js';
+import { installScheduler, handleTick, SCHEDULER_ALARM } from '../scheduler/scheduler.js';
+import { enqueue, stats as queueStats } from '../scheduler/queue.js';
+import { flushActionLog } from '../scheduler/action-log.js';
+import { ensureToday } from '../scheduler/counters.js';
+import { getSettings } from '../lib/storage.js';
 
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('[casper] installed', details.reason);
+  void installScheduler();
 });
+
+chrome.runtime.onStartup.addListener(() => {
+  console.log('[casper] startup');
+  void installScheduler();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === SCHEDULER_ALARM) {
+    void handleTick();
+  }
+});
+
+// Install on initial SW boot too (some lifecycles skip onInstalled).
+void installScheduler();
 
 interface AsyncHandler<Req, Resp> {
   (payload: Req): Promise<Resp>;
@@ -20,6 +41,10 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   AUTH_FROM_WEB: handleAuthFromWeb as AsyncHandler<unknown, unknown>,
   LOGOUT: handleLogout as AsyncHandler<unknown, unknown>,
   PING: handlePing as AsyncHandler<unknown, unknown>,
+  DEV_ENQUEUE_STUB_TASKS: handleEnqueueStub as AsyncHandler<unknown, unknown>,
+  FLUSH_ACTION_BUFFER: handleFlush as AsyncHandler<unknown, unknown>,
+  GET_QUEUE_STATS: handleQueueStats as AsyncHandler<unknown, unknown>,
+  ENSURE_COUNTERS: handleEnsureCounters as AsyncHandler<unknown, unknown>,
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -32,14 +57,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse({ ok: false, error: 'unknown_message_type' });
     return false;
   }
-  handler(message.payload).then(sendResponse).catch((err) => {
-    console.error('[casper] handler error', err);
-    sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
-  });
-  return true; // async response
+  handler(message.payload)
+    .then(sendResponse)
+    .catch((err) => {
+      console.error('[casper] handler error', err);
+      sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    });
+  return true;
 });
 
-async function handleGetAuth(): Promise<{ type: 'AUTH_STATE'; payload: { authenticated: boolean; user: User | null } }> {
+async function handleGetAuth(): Promise<{
+  type: 'AUTH_STATE';
+  payload: { authenticated: boolean; user: User | null };
+}> {
   const auth = await getAuth();
   return {
     type: 'AUTH_STATE',
@@ -57,10 +87,7 @@ async function handleRequestMagicLink(payload: unknown) {
     { method: 'POST', body: { email }, auth: false },
   );
   if (!resp.ok) {
-    return {
-      type: 'MAGIC_LINK_SENT',
-      payload: { sent: false, error: resp.error.message },
-    };
+    return { type: 'MAGIC_LINK_SENT', payload: { sent: false, error: resp.error.message } };
   }
   return { type: 'MAGIC_LINK_SENT', payload: resp.data };
 }
@@ -95,6 +122,40 @@ async function handlePing() {
     apiOk = false;
   }
   return { type: 'PONG', payload: { apiOk, timestamp: new Date().toISOString() } };
+}
+
+async function handleEnqueueStub(payload: unknown) {
+  const { count = 10 } = (payload ?? {}) as { count?: number };
+  const safeCount = Math.max(1, Math.min(50, Math.floor(count)));
+  const platforms: Platform[] = [...PLATFORMS];
+  const actions: ActionType[] = [...ACTION_TYPES];
+  const enqueued: string[] = [];
+  for (let i = 0; i < safeCount; i++) {
+    const platform = platforms[i % platforms.length]!;
+    const action = actions[i % actions.length]!;
+    const task = await enqueue(platform, action, {
+      targetHandle: `@stub_user_${i}`,
+      seed: i,
+    });
+    enqueued.push(task.id);
+  }
+  return { ok: true, data: { enqueued: enqueued.length } };
+}
+
+async function handleFlush() {
+  const r = await flushActionLog();
+  return { ok: true, data: r };
+}
+
+async function handleQueueStats() {
+  const stats = await queueStats();
+  return { ok: true, data: stats };
+}
+
+async function handleEnsureCounters() {
+  const settings = await getSettings();
+  const counters = await ensureToday(settings);
+  return { ok: true, data: counters };
 }
 
 export {};

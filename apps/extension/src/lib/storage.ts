@@ -1,9 +1,18 @@
-import type { User, ExtensionSettings } from '@casper/shared';
+import type {
+  User,
+  ExtensionSettings,
+  CountersState,
+  ActionLogInput,
+} from '@casper/shared';
+import type { QueuedTask, SchedulerState } from '../scheduler/types.js';
 
 export const STORAGE_KEYS = {
   auth: 'casper.auth',
   settings: 'casper.settings',
   counters: 'casper.counters',
+  queue: 'casper.queue',
+  schedulerState: 'casper.schedulerState',
+  actionLogBuffer: 'casper.actionLogBuffer',
 } as const;
 
 export interface StoredAuth {
@@ -12,8 +21,19 @@ export interface StoredAuth {
   savedAt: string;
 }
 
+const detectTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+};
+
 const DEFAULT_SETTINGS: ExtensionSettings = {
   isPaused: false,
+  timezone: detectTimezone(),
+  activeHours: { startHour: 9, endHour: 22 },
+  accountAgeMonths: { twitter: null, linkedin: null },
   targetCreators: [],
   whitelist: [],
   caps: {
@@ -21,6 +41,9 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
     linkedin: { likesPerDay: 50, commentsPerDay: 15, followsPerDay: 15 },
   },
 };
+
+const DEFAULT_COUNTERS: CountersState = { twitter: null, linkedin: null };
+const DEFAULT_SCHEDULER_STATE: SchedulerState = { nextEligibleAt: 0, lastFlushAt: 0 };
 
 export const getAuth = async (): Promise<StoredAuth | null> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.auth);
@@ -37,9 +60,60 @@ export const setAuth = async (auth: StoredAuth | null): Promise<void> => {
 
 export const getSettings = async (): Promise<ExtensionSettings> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.settings);
-  return (got[STORAGE_KEYS.settings] as ExtensionSettings | undefined) ?? DEFAULT_SETTINGS;
+  const stored = got[STORAGE_KEYS.settings] as ExtensionSettings | undefined;
+  if (!stored) return DEFAULT_SETTINGS;
+  // Fill in fields a previous version may not have written.
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    caps: { ...DEFAULT_SETTINGS.caps, ...stored.caps },
+    activeHours: { ...DEFAULT_SETTINGS.activeHours, ...stored.activeHours },
+    accountAgeMonths: { ...DEFAULT_SETTINGS.accountAgeMonths, ...stored.accountAgeMonths },
+  };
 };
 
 export const setSettings = async (settings: ExtensionSettings): Promise<void> => {
   await chrome.storage.local.set({ [STORAGE_KEYS.settings]: settings });
+};
+
+// -- counters ---------------------------------------------------------------
+export const getCounters = async (): Promise<CountersState> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.counters);
+  return (got[STORAGE_KEYS.counters] as CountersState | undefined) ?? DEFAULT_COUNTERS;
+};
+
+export const setCounters = async (counters: CountersState): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.counters]: counters });
+};
+
+// -- queue ------------------------------------------------------------------
+export const getQueue = async (): Promise<QueuedTask[]> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.queue);
+  return (got[STORAGE_KEYS.queue] as QueuedTask[] | undefined) ?? [];
+};
+
+export const setQueue = async (queue: QueuedTask[]): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.queue]: queue });
+};
+
+// -- scheduler state --------------------------------------------------------
+export const getSchedulerState = async (): Promise<SchedulerState> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.schedulerState);
+  return (
+    (got[STORAGE_KEYS.schedulerState] as SchedulerState | undefined) ?? DEFAULT_SCHEDULER_STATE
+  );
+};
+
+export const setSchedulerState = async (state: SchedulerState): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.schedulerState]: state });
+};
+
+// -- action log buffer ------------------------------------------------------
+export const getActionLogBuffer = async (): Promise<ActionLogInput[]> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.actionLogBuffer);
+  return (got[STORAGE_KEYS.actionLogBuffer] as ActionLogInput[] | undefined) ?? [];
+};
+
+export const setActionLogBuffer = async (buffer: ActionLogInput[]): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.actionLogBuffer]: buffer });
 };
