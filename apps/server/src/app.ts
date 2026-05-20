@@ -1,4 +1,5 @@
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import { randomUUID } from 'node:crypto';
 import cors from 'cors';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
@@ -38,7 +39,25 @@ export const createApp = (): Express => {
   app.use('/api/billing', billingWebhookRouter);
 
   app.use(express.json({ limit: '1mb' }));
-  app.use(pinoHttp({ logger }));
+  app.use(
+    pinoHttp({
+      logger,
+      // Stable request ID for log correlation — honor inbound header if present.
+      genReqId: (req, res) => {
+        const inbound = req.headers['x-request-id'];
+        const id =
+          typeof inbound === 'string' && inbound.length > 0 && inbound.length <= 128
+            ? inbound
+            : randomUUID();
+        res.setHeader('x-request-id', id);
+        return id;
+      },
+      // Don't log /api/health — it's polled by uptime monitors and floods the log.
+      autoLogging: {
+        ignore: (req) => req.url === '/api/health',
+      },
+    }),
+  );
 
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);

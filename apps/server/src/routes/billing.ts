@@ -4,6 +4,7 @@ import { ok, err, SUBSCRIPTION_PLANS } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { rateLimit } from '../middleware/rate-limit.js';
 import { config } from '../config.js';
 import { UserModel } from '../models/user.model.js';
 import { getStripe, hasStripe, priceIdForPlan } from '../stripe/client.js';
@@ -19,6 +20,12 @@ const checkoutSchema = z.object({
 billingRouter.post(
   '/checkout-session',
   requireAuth,
+  // Each checkout session creation hits Stripe's API. 10/min/user is plenty.
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    key: (req) => `checkout:${req.auth?.sub ?? req.ip}`,
+  }),
   validate(checkoutSchema),
   asyncHandler(async (req, res) => {
     if (!hasStripe()) {
@@ -79,6 +86,11 @@ billingRouter.post(
 billingRouter.post(
   '/portal',
   requireAuth,
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    key: (req) => `portal:${req.auth?.sub ?? req.ip}`,
+  }),
   asyncHandler(async (req, res) => {
     if (!hasStripe()) {
       res.status(503).json(err('billing_unconfigured', 'Billing is not configured on the server'));

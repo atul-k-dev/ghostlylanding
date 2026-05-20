@@ -19,6 +19,14 @@ export const connectDb = async (): Promise<void> => {
   try {
     await mongoose.connect(config.mongoUri, {
       serverSelectionTimeoutMS: 10_000,
+      // Connection pool — Mongoose defaults to 100 which is fine for a single
+      // node, but pin it so behavior is explicit. Atlas free tier has a 500
+      // connection ceiling shared across all clients.
+      maxPoolSize: config.mongoMaxPool,
+      minPoolSize: config.mongoMinPool,
+      maxIdleTimeMS: 30_000,
+      // Retry transient writes (e.g. replica-set failover) once before erroring.
+      retryWrites: true,
     });
   } catch (err) {
     logger.error({ err }, 'failed to connect to mongodb');

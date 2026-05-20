@@ -4,6 +4,7 @@ import { ok, err, ACTION_TYPES, PLATFORMS } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { rateLimit } from '../middleware/rate-limit.js';
 import { ActionLogModel } from '../models/action-log.model.js';
 import { UserModel } from '../models/user.model.js';
 import type { Types } from 'mongoose';
@@ -27,6 +28,12 @@ const batchSchema = z.object({
 actionsRouter.post(
   '/log',
   requireAuth,
+  // Legit clients flush at most every 5 min; 20/min/user is generous.
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    key: (req) => `log:${req.auth?.sub ?? req.ip}`,
+  }),
   validate(batchSchema),
   asyncHandler(async (req, res) => {
     if (!req.auth) {
@@ -71,6 +78,11 @@ const listSchema = z.object({
 actionsRouter.get(
   '/log',
   requireAuth,
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    key: (req) => `loglist:${req.auth?.sub ?? req.ip}`,
+  }),
   validate(listSchema, 'query'),
   asyncHandler(async (req, res) => {
     if (!req.auth) {

@@ -6,6 +6,7 @@ import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requirePro } from '../middleware/require-pro.js';
 import { validate } from '../middleware/validate.js';
+import { rateLimit } from '../middleware/rate-limit.js';
 import { generateCommentDraft } from '../openai/generate-comment.js';
 import { moderate } from '../openai/moderation.js';
 import { hasOpenAI } from '../openai/client.js';
@@ -27,6 +28,13 @@ const generateSchema = z.object({
 commentsRouter.post(
   '/generate',
   requireAuth,
+  // Hard cap: 60 drafts per user per hour. Stops a compromised JWT from
+  // running up an OpenAI bill and from spamming moderation.
+  rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 60,
+    key: (req) => `gen:${req.auth?.sub ?? req.ip}`,
+  }),
   requirePro,
   validate(generateSchema),
   asyncHandler(async (req, res) => {
@@ -148,6 +156,11 @@ const listSchema = z.object({
 commentsRouter.get(
   '/drafts',
   requireAuth,
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    key: (req) => `drafts:${req.auth?.sub ?? req.ip}`,
+  }),
   validate(listSchema, 'query'),
   asyncHandler(async (req, res) => {
     if (!req.auth) {
