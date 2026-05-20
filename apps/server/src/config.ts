@@ -20,7 +20,8 @@ export const config = {
   mongoUri: optional('MONGODB_URI'),
   jwtSecret: optional('JWT_SECRET'),
   jwtExpiresIn: required('JWT_EXPIRES_IN', '30d'),
-  magicLinkTtlMinutes: Number(required('MAGIC_LINK_TTL_MINUTES', '15')),
+  bcryptRounds: Number(required('BCRYPT_ROUNDS', '12')),
+  googleClientId: optional('GOOGLE_CLIENT_ID'),
   allowedOrigins: required('ALLOWED_ORIGINS', 'http://localhost:3000')
     .split(',')
     .map((s) => s.trim())

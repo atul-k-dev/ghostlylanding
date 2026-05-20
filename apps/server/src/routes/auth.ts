@@ -4,79 +4,121 @@ import { ok, err, type AuthResponse } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { validate } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rate-limit.js';
-import { config } from '../config.js';
-import { logger } from '../logger.js';
-import { generateAuthCode, consumeAuthCode } from '../auth/magic-link.js';
-import { sendAuthCodeEmail } from '../auth/email.js';
 import { signJwt } from '../auth/jwt.js';
+import { hashPassword, verifyPassword } from '../auth/password.js';
+import { hasGoogle, verifyGoogleIdToken } from '../auth/google.js';
+import type { HydratedDocument } from 'mongoose';
 import { UserModel, toUserDTO } from '../models/user.model.js';
 
 export const authRouter = Router();
 
-// -- POST /request-code -----------------------------------------------------
-const requestSchema = z.object({
+const issueAuth = (user: HydratedDocument<unknown>): AuthResponse => {
+  const obj = user.toObject() as unknown as Parameters<typeof toUserDTO>[0];
+  const dto = toUserDTO(obj);
+  const token = signJwt({ sub: user._id.toString(), email: obj.email });
+  return { token, user: dto };
+};
+
+// -- POST /signup -----------------------------------------------------------
+const signupSchema = z.object({
+  name: z.string().trim().min(1).max(80),
   email: z.string().email().max(254),
+  password: z.string().min(8).max(128),
 });
 
 authRouter.post(
-  '/request-code',
+  '/signup',
   rateLimit({ windowMs: 60_000, max: 5 }),
-  validate(requestSchema),
+  validate(signupSchema),
   asyncHandler(async (req, res) => {
-    const { email } = req.body as z.infer<typeof requestSchema>;
-    const { code } = await generateAuthCode(email);
-    const result = await sendAuthCodeEmail({
-      to: email,
-      code,
-      ttlMinutes: config.magicLinkTtlMinutes,
-    });
-    if (result.via === 'console') {
-      logger.info({ code, email }, '👻 dev sign-in code');
+    const { name, email, password } = req.body as z.infer<typeof signupSchema>;
+    const normalizedEmail = email.toLowerCase();
+    const existing = await UserModel.findOne({ email: normalizedEmail });
+    if (existing) {
+      res.status(409).json(err('email_in_use', 'An account already exists for that email.'));
+      return;
     }
-    // Dev-only inline code for local testing. Stripped in prod.
-    const devCode = config.env !== 'production' && result.via === 'console' ? code : undefined;
-    res.json(
-      ok({
-        sent: true,
-        via: result.via,
-        ttlMinutes: config.magicLinkTtlMinutes,
-        ...(devCode ? { devCode } : {}),
-      }),
-    );
+    const passwordHash = await hashPassword(password);
+    const user = await UserModel.create({ name, email: normalizedEmail, passwordHash });
+    res.json(ok(issueAuth(user)));
   }),
 );
 
-// -- POST /verify-code ------------------------------------------------------
-const verifySchema = z.object({
+// -- POST /login ------------------------------------------------------------
+const loginSchema = z.object({
   email: z.string().email().max(254),
-  code: z.string().regex(/^\d{6}$/, '6-digit code required'),
+  password: z.string().min(1).max(128),
 });
 
 authRouter.post(
-  '/verify-code',
+  '/login',
   rateLimit({ windowMs: 60_000, max: 10 }),
-  validate(verifySchema),
+  validate(loginSchema),
   asyncHandler(async (req, res) => {
-    const { email, code } = req.body as z.infer<typeof verifySchema>;
-    const result = await consumeAuthCode(email, code);
-    if (!result.ok) {
-      const messages = {
-        expired: 'That code has expired. Request a new one.',
-        locked: 'Too many wrong attempts. Request a new code.',
-        invalid: 'That code is not right.',
-      };
-      res.status(400).json(err(result.reason, messages[result.reason]));
+    const { email, password } = req.body as z.infer<typeof loginSchema>;
+    const user = await UserModel.findOne({ email: email.toLowerCase() });
+    if (!user || !user.passwordHash) {
+      // Don't leak which one is wrong, and don't reveal whether this email is
+      // a Google-only account.
+      res.status(401).json(err('invalid_credentials', 'Email or password is incorrect.'));
+      return;
+    }
+    const matches = await verifyPassword(password, user.passwordHash);
+    if (!matches) {
+      res.status(401).json(err('invalid_credentials', 'Email or password is incorrect.'));
+      return;
+    }
+    res.json(ok(issueAuth(user)));
+  }),
+);
+
+// -- POST /google -----------------------------------------------------------
+const googleSchema = z.object({
+  idToken: z.string().min(20).max(4_096),
+});
+
+authRouter.post(
+  '/google',
+  rateLimit({ windowMs: 60_000, max: 10 }),
+  validate(googleSchema),
+  asyncHandler(async (req, res) => {
+    if (!hasGoogle()) {
+      res.status(503).json(err('google_unconfigured', 'Google Sign-In is not configured.'));
+      return;
+    }
+    const { idToken } = req.body as z.infer<typeof googleSchema>;
+
+    let verified;
+    try {
+      verified = await verifyGoogleIdToken(idToken);
+    } catch (e) {
+      req.log.warn({ err: e }, 'google id token verification failed');
+      res.status(401).json(err('invalid_google_token', 'Could not verify Google sign-in.'));
+      return;
+    }
+    if (!verified.emailVerified) {
+      res
+        .status(403)
+        .json(err('google_email_unverified', 'Verify your Google email first, then try again.'));
       return;
     }
 
-    let user = await UserModel.findOne({ email: email.toLowerCase() });
+    // Find existing by googleId, then by email (link), else create.
+    let user = await UserModel.findOne({ googleId: verified.googleId });
     if (!user) {
-      user = await UserModel.create({ email: email.toLowerCase() });
+      user = await UserModel.findOne({ email: verified.email });
+      if (user) {
+        user.googleId = verified.googleId;
+        if (!user.name) user.name = verified.name;
+        await user.save();
+      } else {
+        user = await UserModel.create({
+          name: verified.name,
+          email: verified.email,
+          googleId: verified.googleId,
+        });
+      }
     }
-
-    const jwt = signJwt({ sub: user._id.toString(), email: user.email });
-    const dto = toUserDTO(user.toObject() as Parameters<typeof toUserDTO>[0]);
-    const payload: AuthResponse = { token: jwt, user: dto };
-    res.json(ok(payload));
+    res.json(ok(issueAuth(user)));
   }),
 );

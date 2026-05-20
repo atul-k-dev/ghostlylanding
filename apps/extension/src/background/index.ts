@@ -18,6 +18,7 @@ import {
   type StoredAuth,
 } from '../lib/storage.js';
 import { installScheduler, handleTick, SCHEDULER_ALARM } from '../scheduler/scheduler.js';
+import { fetchGoogleIdToken } from './google-signin.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog } from '../scheduler/action-log.js';
 import { ensureToday } from '../scheduler/counters.js';
@@ -48,8 +49,9 @@ interface AsyncHandler<Req, Resp> {
 
 const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   GET_AUTH: handleGetAuth as AsyncHandler<unknown, unknown>,
-  REQUEST_CODE: handleRequestCode as AsyncHandler<unknown, unknown>,
-  VERIFY_CODE: handleVerifyCode as AsyncHandler<unknown, unknown>,
+  SIGNUP: handleSignup as AsyncHandler<unknown, unknown>,
+  LOGIN: handleLogin as AsyncHandler<unknown, unknown>,
+  GOOGLE_LOGIN: handleGoogleLogin as AsyncHandler<unknown, unknown>,
   LOGOUT: handleLogout as AsyncHandler<unknown, unknown>,
   PING: handlePing as AsyncHandler<unknown, unknown>,
   DEV_ENQUEUE_STUB_TASKS: handleEnqueueStub as AsyncHandler<unknown, unknown>,
@@ -99,57 +101,85 @@ async function handleGetAuth(): Promise<{
   };
 }
 
-async function handleRequestCode(payload: unknown) {
-  const { email } = (payload ?? {}) as { email?: string };
-  if (!email || typeof email !== 'string') {
-    return { type: 'CODE_SENT', payload: { sent: false, error: 'invalid_email' } };
-  }
-  const resp = await apiFetch<{
-    sent: boolean;
-    via: string;
-    ttlMinutes: number;
-    devCode?: string;
-  }>('/api/auth/request-code', { method: 'POST', body: { email }, auth: false });
-  if (!resp.ok) {
-    if (resp.error.code === 'rate_limited') {
-      await appendDiagnostic({
-        kind: 'rate_limited',
-        context: 'request-code',
-        detail: resp.error.message,
-      });
-    }
-    return { type: 'CODE_SENT', payload: { sent: false, error: resp.error.message } };
-  }
-  return { type: 'CODE_SENT', payload: resp.data };
-}
-
-async function handleVerifyCode(payload: unknown) {
-  const { email, code } = (payload ?? {}) as { email?: unknown; code?: unknown };
-  if (typeof email !== 'string' || typeof code !== 'string') {
-    return { type: 'CODE_VERIFIED', payload: { ok: false, error: 'invalid_payload' } };
-  }
-  const resp = await apiFetch<{ token: string; user: User }>(
-    '/api/auth/verify-code',
-    { method: 'POST', body: { email, code }, auth: false },
-  );
-  if (!resp.ok) {
-    if (resp.error.code === 'invalid' || resp.error.code === 'expired' || resp.error.code === 'locked') {
-      await appendDiagnostic({
-        kind: 'auth_failure',
-        context: 'verify-code',
-        detail: resp.error.message,
-      });
-    }
-    return { type: 'CODE_VERIFIED', payload: { ok: false, error: resp.error.message } };
-  }
+const storeAuth = async (data: { token: string; user: User }): Promise<void> => {
   const stored: StoredAuth = {
-    token: resp.data.token,
-    user: resp.data.user,
+    token: data.token,
+    user: data.user,
     savedAt: new Date().toISOString(),
   };
   await setAuth(stored);
   console.log('[casper] auth stored for', stored.user.email);
-  return { type: 'CODE_VERIFIED', payload: { ok: true } };
+};
+
+const authResult = (resp: { ok: false; error: { code: string; message: string } }) => {
+  if (
+    resp.error.code === 'rate_limited' ||
+    resp.error.code === 'invalid_credentials' ||
+    resp.error.code === 'invalid_google_token'
+  ) {
+    void appendDiagnostic({
+      kind: 'auth_failure',
+      context: 'auth',
+      detail: resp.error.message,
+    });
+  }
+  return {
+    type: 'AUTH_RESULT',
+    payload: { ok: false, error: resp.error.message, errorCode: resp.error.code },
+  };
+};
+
+async function handleSignup(payload: unknown) {
+  const { name, email, password } = (payload ?? {}) as {
+    name?: unknown;
+    email?: unknown;
+    password?: unknown;
+  };
+  if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
+    return { type: 'AUTH_RESULT', payload: { ok: false, error: 'invalid_payload' } };
+  }
+  const resp = await apiFetch<{ token: string; user: User }>('/api/auth/signup', {
+    method: 'POST',
+    body: { name, email, password },
+    auth: false,
+  });
+  if (!resp.ok) return authResult(resp);
+  await storeAuth(resp.data);
+  return { type: 'AUTH_RESULT', payload: { ok: true } };
+}
+
+async function handleLogin(payload: unknown) {
+  const { email, password } = (payload ?? {}) as { email?: unknown; password?: unknown };
+  if (typeof email !== 'string' || typeof password !== 'string') {
+    return { type: 'AUTH_RESULT', payload: { ok: false, error: 'invalid_payload' } };
+  }
+  const resp = await apiFetch<{ token: string; user: User }>('/api/auth/login', {
+    method: 'POST',
+    body: { email, password },
+    auth: false,
+  });
+  if (!resp.ok) return authResult(resp);
+  await storeAuth(resp.data);
+  return { type: 'AUTH_RESULT', payload: { ok: true } };
+}
+
+async function handleGoogleLogin() {
+  let idToken: string;
+  try {
+    idToken = await fetchGoogleIdToken();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Google sign-in failed';
+    await appendDiagnostic({ kind: 'auth_failure', context: 'google', detail: message });
+    return { type: 'AUTH_RESULT', payload: { ok: false, error: message } };
+  }
+  const resp = await apiFetch<{ token: string; user: User }>('/api/auth/google', {
+    method: 'POST',
+    body: { idToken },
+    auth: false,
+  });
+  if (!resp.ok) return authResult(resp);
+  await storeAuth(resp.data);
+  return { type: 'AUTH_RESULT', payload: { ok: true } };
 }
 
 async function handleLogout() {

@@ -29,7 +29,12 @@ const preferencesSchema = new Schema(
 
 const userSchema = new Schema(
   {
+    name: { type: String, required: true, trim: true, maxlength: 80 },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+    /** bcrypt hash. Null/undefined means the account was created with Google only. */
+    passwordHash: { type: String, default: null },
+    /** Google `sub` claim, set when the account is linked to a Google identity. */
+    googleId: { type: String, default: null, index: true },
     stripeCustomerId: { type: String, default: null, index: true },
     stripeSubscriptionId: { type: String, default: null },
     subscriptionStatus: {
@@ -62,7 +67,10 @@ export const toUserDTO = (
   const ages = prefs.accountAgeMonths ?? { twitter: null, linkedin: null };
   return {
     id: doc._id.toString(),
+    name: doc.name,
     email: doc.email,
+    hasGoogleLink: Boolean(doc.googleId),
+    hasPassword: Boolean(doc.passwordHash),
     createdAt: doc.createdAt.toISOString(),
     stripeCustomerId: doc.stripeCustomerId ?? null,
     subscriptionStatus: doc.subscriptionStatus ?? null,

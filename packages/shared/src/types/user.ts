@@ -15,7 +15,12 @@ export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 
 export interface User {
   id: string;
+  name: string;
   email: string;
+  /** True when the account was created/linked via Google Sign-In. */
+  hasGoogleLink: boolean;
+  /** True when the account has a password set (false for Google-only accounts). */
+  hasPassword: boolean;
   createdAt: string;
   stripeCustomerId?: string | null;
   subscriptionStatus?: SubscriptionStatus | null;

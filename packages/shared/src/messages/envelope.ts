@@ -21,16 +21,16 @@ export type GetAuthResponse = MessageEnvelope<
   { authenticated: boolean; user: User | null }
 >;
 
-export type RequestCodeMessage = MessageEnvelope<'REQUEST_CODE', { email: string }>;
-export type RequestCodeResponse = MessageEnvelope<
-  'CODE_SENT',
-  { sent: boolean; via: 'resend' | 'console'; ttlMinutes: number; devCode?: string }
+export type SignupMessage = MessageEnvelope<
+  'SIGNUP',
+  { name: string; email: string; password: string }
 >;
+export type LoginMessage = MessageEnvelope<'LOGIN', { email: string; password: string }>;
+export type GoogleLoginMessage = MessageEnvelope<'GOOGLE_LOGIN', Record<string, never>>;
 
-export type VerifyCodeMessage = MessageEnvelope<'VERIFY_CODE', { email: string; code: string }>;
-export type VerifyCodeResponse = MessageEnvelope<
-  'CODE_VERIFIED',
-  { ok: boolean; error?: string }
+export type AuthResultMessage = MessageEnvelope<
+  'AUTH_RESULT',
+  { ok: boolean; error?: string; errorCode?: string }
 >;
 
 export type LogoutMessage = MessageEnvelope<'LOGOUT', Record<string, never>>;
@@ -48,9 +48,9 @@ export type CasperMessage =
   | PongMessage
   | GetAuthMessage
   | GetAuthResponse
-  | RequestCodeMessage
-  | RequestCodeResponse
-  | VerifyCodeMessage
-  | VerifyCodeResponse
+  | SignupMessage
+  | LoginMessage
+  | GoogleLoginMessage
+  | AuthResultMessage
   | LogoutMessage
   | LogoutResponse;

@@ -26,7 +26,7 @@ export default defineManifest({
       run_at: 'document_idle',
     },
   ],
-  permissions: ['storage', 'alarms', 'scripting', 'activeTab'],
+  permissions: ['storage', 'alarms', 'scripting', 'activeTab', 'identity'],
   host_permissions: [
     'https://x.com/*',
     'https://twitter.com/*',

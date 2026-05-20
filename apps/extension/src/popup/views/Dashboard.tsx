@@ -110,9 +110,11 @@ const Header = ({
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-casper-violet text-white text-lg">
           👻
         </div>
-        <div>
-          <p className="text-xs text-casper-ink/50">Signed in as</p>
+        <div className="min-w-0">
           <p className="truncate text-sm font-medium" title={user.email}>
+            Hi, {user.name.split(/\s+/)[0] || user.name}
+          </p>
+          <p className="truncate text-[11px] text-casper-ink/50" title={user.email}>
             {user.email}
           </p>
         </div>

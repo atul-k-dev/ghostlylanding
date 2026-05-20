@@ -1,8 +1,7 @@
 /* eslint-disable no-console */
 /**
- * End-to-end auth smoke test.
+ * End-to-end auth smoke test (password flow).
  * Requires apps/server/.env populated with MONGODB_URI and JWT_SECRET.
- * Resend can stay unset — sign-in code is exposed inline in dev mode.
  *
  * Run with: pnpm --filter @casper/server smoke
  */
@@ -10,6 +9,8 @@ import 'dotenv/config';
 
 const API = process.env.SMOKE_API_BASE ?? 'http://localhost:4000';
 const TEST_EMAIL = `casper-smoke+${Date.now()}@example.com`;
+const TEST_PASSWORD = 'correct-horse-battery-staple';
+const TEST_NAME = 'Casper Smoke';
 
 interface ApiOk<T> {
   ok: true;
@@ -54,49 +55,49 @@ const run = async (): Promise<void> => {
   );
   console.log('✓  health:', health);
 
-  // 2. Request sign-in code (dev-mode returns the code inline)
-  const codeResp = must(
-    await call<{ sent: boolean; via: string; devCode?: string }>(
+  // 2. Signup
+  const signup = must(
+    await call<{ token: string; user: { id: string; email: string; name: string } }>(
       'POST',
-      '/api/auth/request-code',
-      { body: { email: TEST_EMAIL } },
+      '/api/auth/signup',
+      { body: { name: TEST_NAME, email: TEST_EMAIL, password: TEST_PASSWORD } },
     ),
-    'POST /api/auth/request-code',
+    'POST /api/auth/signup',
   );
-  console.log('✓  code sent:', codeResp);
-  if (!codeResp.devCode) {
-    throw new Error('No devCode returned — needs RESEND unset and NODE_ENV != production');
-  }
+  console.log('✓  signed up as', signup.user.email, '· name:', signup.user.name);
 
-  // 3. Verify code
-  const verifyResp = must(
-    await call<{ token: string; user: { id: string; email: string } }>(
-      'POST',
-      '/api/auth/verify-code',
-      { body: { email: TEST_EMAIL, code: codeResp.devCode } },
-    ),
-    'POST /api/auth/verify-code',
+  // 3. Duplicate signup should 409
+  const dup = await call<unknown>('POST', '/api/auth/signup', {
+    body: { name: TEST_NAME, email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  if (dup.ok) throw new Error('expected duplicate signup to fail');
+  console.log('✓  duplicate signup rejected:', dup.error.code);
+
+  // 4. Wrong password
+  const wrong = await call<unknown>('POST', '/api/auth/login', {
+    body: { email: TEST_EMAIL, password: 'nope' },
+  });
+  if (wrong.ok) throw new Error('expected wrong password to fail');
+  console.log('✓  wrong password rejected');
+
+  // 5. Login with correct password
+  const login = must(
+    await call<{ token: string; user: { id: string } }>('POST', '/api/auth/login', {
+      body: { email: TEST_EMAIL, password: TEST_PASSWORD },
+    }),
+    'POST /api/auth/login',
   );
-  console.log('✓  verified, jwt issued for', verifyResp.user.email);
-  const jwt = verifyResp.token;
+  const jwt = login.token;
+  console.log('✓  login ok');
 
-  // 4. Re-using the same code should fail
-  const reuse = await call<unknown>(
-    'POST',
-    '/api/auth/verify-code',
-    { body: { email: TEST_EMAIL, code: codeResp.devCode } },
-  );
-  if (reuse.ok) throw new Error('expected code reuse to fail');
-  console.log('✓  code single-use enforced');
-
-  // 5. GET /me
+  // 6. GET /me
   const me = must(
-    await call<{ id: string; email: string }>('GET', '/api/me', { token: jwt }),
+    await call<{ id: string; email: string; name: string }>('GET', '/api/me', { token: jwt }),
     'GET /api/me',
   );
-  console.log('✓  /me:', me);
+  console.log('✓  /me:', { id: me.id, email: me.email, name: me.name });
 
-  // 6. Log an action
+  // 7. Log an action
   const logResp = must(
     await call<{ inserted: number }>('POST', '/api/actions/log', {
       token: jwt,
@@ -117,19 +118,19 @@ const run = async (): Promise<void> => {
   );
   console.log('✓  actions logged:', logResp);
 
-  // 7. DELETE /account
+  // 8. DELETE /account
   const wipe = must(
     await call<{ deleted: Record<string, number> }>('DELETE', '/api/account', { token: jwt }),
     'DELETE /api/account',
   );
   console.log('✓  account wiped:', wipe);
 
-  // 8. /me should now 404 (user gone)
+  // 9. /me should now 404
   const after = await call<unknown>('GET', '/api/me', { token: jwt });
   if (after.ok) throw new Error('expected /me to fail after account delete');
   console.log('✓  /me rejects after wipe');
 
-  console.log('\n🎉  M1 smoke OK');
+  console.log('\n🎉  auth smoke OK');
 };
 
 run().catch((err) => {

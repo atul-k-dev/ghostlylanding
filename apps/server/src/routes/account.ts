@@ -3,7 +3,6 @@ import { ok, err } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { UserModel } from '../models/user.model.js';
-import { MagicLinkModel } from '../models/magic-link.model.js';
 import { ActionLogModel } from '../models/action-log.model.js';
 import { CommentDraftModel } from '../models/comment-draft.model.js';
 
@@ -21,12 +20,10 @@ accountRouter.delete(
       return;
     }
     const userId = req.auth.sub;
-    const email = req.auth.email;
 
-    const [actionLogs, drafts, magicLinks] = await Promise.all([
+    const [actionLogs, drafts] = await Promise.all([
       ActionLogModel.deleteMany({ userId }),
       CommentDraftModel.deleteMany({ userId }),
-      MagicLinkModel.deleteMany({ email }),
     ]);
     const user = await UserModel.findByIdAndDelete(userId);
 
@@ -37,7 +34,6 @@ accountRouter.delete(
           user: user ? 1 : 0,
           actionLogs: actionLogs.deletedCount,
           drafts: drafts.deletedCount,
-          magicLinks: magicLinks.deletedCount,
         },
       },
       'account wiped',
@@ -49,7 +45,6 @@ accountRouter.delete(
           user: user ? 1 : 0,
           actionLogs: actionLogs.deletedCount,
           drafts: drafts.deletedCount,
-          magicLinks: magicLinks.deletedCount,
         },
       }),
     );
