@@ -1,0 +1,46 @@
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import { pinoHttp } from 'pino-http';
+import { err } from '@casper/shared';
+import { config } from './config.js';
+import { logger } from './logger.js';
+import { healthRouter } from './routes/health.js';
+
+export const createApp = (): Express => {
+  const app = express();
+
+  app.disable('x-powered-by');
+  app.use(helmet());
+
+  app.use(
+    cors({
+      origin: (origin, cb) => {
+        // Allow same-origin / curl / extension popup (no Origin header)
+        if (!origin) return cb(null, true);
+        // Allow any chrome-extension:// origin in dev (we don't know the extension id yet)
+        if (origin.startsWith('chrome-extension://')) return cb(null, true);
+        if (config.allowedOrigins.includes(origin)) return cb(null, true);
+        return cb(new Error(`Origin not allowed: ${origin}`));
+      },
+      credentials: true,
+    }),
+  );
+
+  app.use(express.json({ limit: '1mb' }));
+  app.use(pinoHttp({ logger }));
+
+  app.use('/api/health', healthRouter);
+
+  app.use((req: Request, res: Response) => {
+    res.status(404).json(err('not_found', `Route not found: ${req.method} ${req.path}`));
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((error: Error, req: Request, res: Response, _next: NextFunction) => {
+    req.log.error({ error }, 'unhandled error');
+    res.status(500).json(err('internal_error', 'Something went wrong'));
+  });
+
+  return app;
+};

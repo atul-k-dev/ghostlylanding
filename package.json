@@ -1,0 +1,31 @@
+{
+  "name": "casper-ai",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Casper AI — friendly browser extension that grows solo creators' Twitter & LinkedIn presence.",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @casper/web dev",
+    "dev:api": "pnpm --filter @casper/api dev",
+    "dev:ext": "pnpm --filter @casper/extension dev",
+    "build:web": "pnpm --filter @casper/web build",
+    "build:api": "pnpm --filter @casper/api build",
+    "build:ext": "pnpm --filter @casper/extension build",
+    "build:shared": "pnpm --filter @casper/shared build",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\" --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "sharp"]
+  }
+}

@@ -1,0 +1,34 @@
+import 'dotenv/config';
+
+const required = (name: string, fallback?: string): string => {
+  const v = process.env[name] ?? fallback;
+  if (v === undefined || v === '') {
+    throw new Error(`Missing env var: ${name}`);
+  }
+  return v;
+};
+
+const optional = (name: string): string | undefined => {
+  const v = process.env[name];
+  return v === '' ? undefined : v;
+};
+
+export const config = {
+  env: required('NODE_ENV', 'development'),
+  port: Number(required('PORT', '4000')),
+  logLevel: required('LOG_LEVEL', 'debug'),
+  mongoUri: optional('MONGODB_URI'),
+  jwtSecret: optional('JWT_SECRET'),
+  jwtExpiresIn: required('JWT_EXPIRES_IN', '30d'),
+  magicLinkTtlMinutes: Number(required('MAGIC_LINK_TTL_MINUTES', '15')),
+  allowedOrigins: required('ALLOWED_ORIGINS', 'http://localhost:3000')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+  openaiApiKey: optional('OPENAI_API_KEY'),
+  resendApiKey: optional('RESEND_API_KEY'),
+  resendFromEmail: optional('RESEND_FROM_EMAIL'),
+  webBaseUrl: required('WEB_BASE_URL', 'http://localhost:3000'),
+} as const;
+
+export const isProd = config.env === 'production';

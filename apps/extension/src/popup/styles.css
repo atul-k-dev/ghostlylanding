@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-casper-violet: #7c5cff;
+  --color-casper-cloud: #f6f5ff;
+  --color-casper-ink: #1a1a2e;
+}
+
+html,
+body {
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
