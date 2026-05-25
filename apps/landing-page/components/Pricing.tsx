@@ -25,23 +25,23 @@ const PRICING: Record<
 > = {
   monthly: {
     label: "Monthly",
-    price: "$19.99",
+    price: "$14.99",
     per: "/month",
-    perMonth: "$19.99 / month",
+    perMonth: "$14.99 / month",
   },
   quarterly: {
     label: "Quarterly",
-    price: "$49.99",
+    price: "$37.99",
     per: "/quarter",
-    savings: "save ~17%",
-    perMonth: "≈ $16.66 / month",
+    savings: "save ~16%",
+    perMonth: "≈ $12.66 / month",
   },
   yearly: {
     label: "Yearly",
-    price: "$199.99",
+    price: "$149.99",
     per: "/year",
     savings: "save ~17%",
-    perMonth: "≈ $16.66 / month",
+    perMonth: "≈ $12.50 / month",
   },
 };
 

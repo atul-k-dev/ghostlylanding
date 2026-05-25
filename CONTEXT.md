@@ -91,9 +91,9 @@ Free tier as the acquisition funnel. Single paid tier (Pro), three billing cycle
 | Tier     | Price       | Billing     | Notes                                                                      |
 | -------- | ----------- | ----------- | -------------------------------------------------------------------------- |
 | **Free** | $0          | forever     | 25 actions/day cap, 1 platform only, no AI comments (likes + follows only) |
-| **Pro**  | **$19.99**  | per month   | Full product, both platforms, all features unlocked                        |
-| **Pro**  | **$49.99**  | per quarter | ~17% off vs monthly                                                        |
-| **Pro**  | **$199.99** | per year    | ~17% off vs monthly                                                        |
+| **Pro**  | **$14.99**  | per month   | Full product, both platforms, all features unlocked                        |
+| **Pro**  | **$37.99**  | per quarter | ~16% off vs monthly                                                        |
+| **Pro**  | **$149.99** | per year    | ~17% off vs monthly                                                        |
 
 **Stripe setup:** one product (`Casper Pro`) with three recurring prices (monthly, quarterly, annual). All Pro plans get the same feature set — only the discount changes across cycles.
 
@@ -210,7 +210,7 @@ When I say _"go through the md file"_ (or you're starting fresh):
 - **Wedge:** Browser extension, both platforms day one, built for solo creators (not sales teams).
 - **Moat:** Personal Voice Training + cute brand + transparent safety (compounds over time, hard for B2B-feeling competitors to copy).
 - **Timing:** LinkedIn's 360Brew algorithm now penalizes generic comments — context-aware AI is the only path forward, and `gpt-4o-mini` finally makes it cheap enough.
-- **Pricing:** Free + Pro at $19.99/mo, $49.99/quarter, $199.99/year.
+- **Pricing:** Free + Pro at $14.99/mo, $37.99/quarter, $149.99/year.
 - **AI:** `gpt-4o-mini` for comment generation, post relevance scoring, voice training. OpenAI moderation for safety.
 - **MVP scope:** Twitter + LinkedIn, auto-like + AI comments (approval mode) + auto-follow, scheduling, safety engine, basic backend, landing page. Nothing else until that ships.
 
