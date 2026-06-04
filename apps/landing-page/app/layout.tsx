@@ -155,12 +155,6 @@ const STRUCTURED_DATA = {
           priceCurrency: "USD",
           name: "Pro Monthly",
         },
-        {
-          "@type": "Offer",
-          price: "149.99",
-          priceCurrency: "USD",
-          name: "Pro Yearly",
-        },
       ],
       aggregateRating: {
         "@type": "AggregateRating",

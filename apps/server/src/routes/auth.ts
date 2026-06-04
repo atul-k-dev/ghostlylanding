@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import { ok, err, type AuthResponse } from '@casper/shared';
@@ -7,10 +8,16 @@ import { rateLimit } from '../middleware/rate-limit.js';
 import { signJwt } from '../auth/jwt.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { hasGoogle, verifyGoogleIdToken } from '../auth/google.js';
+import { sendPasswordResetCode } from '../email/resend.js';
 import type { HydratedDocument } from 'mongoose';
 import { UserModel, toUserDTO } from '../models/user.model.js';
 
 export const authRouter = Router();
+
+/** How long a password-reset code stays valid. */
+const RESET_CODE_TTL_MINUTES = 15;
+
+const generateResetCode = (): string => randomInt(0, 1_000_000).toString().padStart(6, '0');
 
 const issueAuth = (user: HydratedDocument<unknown>): AuthResponse => {
   const obj = user.toObject() as unknown as Parameters<typeof toUserDTO>[0];
@@ -68,6 +75,81 @@ authRouter.post(
       res.status(401).json(err('invalid_credentials', 'Email or password is incorrect.'));
       return;
     }
+    res.json(ok(issueAuth(user)));
+  }),
+);
+
+// -- POST /forgot-password --------------------------------------------------
+const forgotSchema = z.object({
+  email: z.string().email().max(254),
+});
+
+authRouter.post(
+  '/forgot-password',
+  rateLimit({ windowMs: 60_000, max: 5 }),
+  validate(forgotSchema),
+  asyncHandler(async (req, res) => {
+    const { email } = req.body as z.infer<typeof forgotSchema>;
+    const user = await UserModel.findOne({ email: email.toLowerCase() });
+
+    // Only generate + send when the account exists, but always respond the same
+    // way so we never reveal whether an email is registered.
+    if (user) {
+      const code = generateResetCode();
+      user.passwordResetCodeHash = await hashPassword(code);
+      user.passwordResetExpiresAt = new Date(Date.now() + RESET_CODE_TTL_MINUTES * 60_000);
+      await user.save();
+      try {
+        await sendPasswordResetCode(user.email, code, RESET_CODE_TTL_MINUTES);
+      } catch (e) {
+        req.log.error({ err: e }, 'failed to send password reset email');
+      }
+    }
+
+    res.json(
+      ok({ sent: true, ttlMinutes: RESET_CODE_TTL_MINUTES }),
+    );
+  }),
+);
+
+// -- POST /reset-password ---------------------------------------------------
+const resetSchema = z.object({
+  email: z.string().email().max(254),
+  code: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
+  password: z.string().min(8).max(128),
+});
+
+authRouter.post(
+  '/reset-password',
+  rateLimit({ windowMs: 60_000, max: 10 }),
+  validate(resetSchema),
+  asyncHandler(async (req, res) => {
+    const { email, code, password } = req.body as z.infer<typeof resetSchema>;
+    const user = await UserModel.findOne({ email: email.toLowerCase() });
+
+    const invalid = () =>
+      res.status(400).json(err('invalid_reset_code', 'That code is invalid or has expired.'));
+
+    if (!user || !user.passwordResetCodeHash || !user.passwordResetExpiresAt) {
+      invalid();
+      return;
+    }
+    if (user.passwordResetExpiresAt.getTime() < Date.now()) {
+      invalid();
+      return;
+    }
+    const matches = await verifyPassword(code, user.passwordResetCodeHash);
+    if (!matches) {
+      invalid();
+      return;
+    }
+
+    user.passwordHash = await hashPassword(password);
+    user.passwordResetCodeHash = null;
+    user.passwordResetExpiresAt = null;
+    await user.save();
+
+    // Auto-login on success so the user lands straight in the popup.
     res.json(ok(issueAuth(user)));
   }),
 );

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Bat } from "./Bat";
 import { BloodDrip } from "./BloodDrip";
 import { BloodSplatter } from "./BloodSplatter";
@@ -11,39 +10,11 @@ import { Eyeball } from "./stickers/Eyeball";
 import { TextSticker } from "./stickers/TextSticker";
 import { INSTALL_URL } from "@/lib/install";
 
-type Cycle = "monthly" | "quarterly" | "yearly";
-
-const PRICING: Record<
-  Cycle,
-  {
-    label: string;
-    price: string;
-    per: string;
-    savings?: string;
-    perMonth?: string;
-  }
-> = {
-  monthly: {
-    label: "Monthly",
-    price: "$14.99",
-    per: "/month",
-    perMonth: "$14.99 / month",
-  },
-  quarterly: {
-    label: "Quarterly",
-    price: "$37.99",
-    per: "/quarter",
-    savings: "save ~16%",
-    perMonth: "≈ $12.66 / month",
-  },
-  yearly: {
-    label: "Yearly",
-    price: "$149.99",
-    per: "/year",
-    savings: "save ~17%",
-    perMonth: "≈ $12.50 / month",
-  },
-};
+const PRICING = {
+  price: "$14.99",
+  per: "/month",
+  perMonth: "$14.99 / month",
+} as const;
 
 const FREE_FEATURES = [
   "30 lifetime actions to try Casper",
@@ -64,8 +35,7 @@ const PRO_FEATURES = [
 ];
 
 export function Pricing() {
-  const [cycle, setCycle] = useState<Cycle>("monthly");
-  const current = PRICING[cycle];
+  const current = PRICING;
 
   return (
     <section
@@ -166,46 +136,6 @@ export function Pricing() {
           </p>
         </div>
 
-        {/* Billing toggle — lifted above all decorations with z-30 */}
-        <div className="relative z-30 mt-8 flex justify-center">
-          <div
-            role="tablist"
-            aria-label="Billing cycle"
-            className="inline-flex items-center gap-1 rounded-full border border-cream/15 bg-ink/80 p-1 backdrop-blur"
-          >
-            {(Object.keys(PRICING) as Cycle[]).map((c) => {
-              const isActive = cycle === c;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setCycle(c)}
-                  className={`relative cursor-pointer rounded-full px-4 py-2 text-xs font-medium transition md:px-5 md:text-sm ${
-                    isActive
-                      ? "bg-coral text-cream shadow-[0_4px_18px_rgba(184,19,54,0.35)]"
-                      : "text-cream/60 hover:text-cream"
-                  }`}
-                >
-                  {PRICING[c].label}
-                  {PRICING[c].savings && (
-                    <span
-                      className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                        isActive
-                          ? "bg-cream/20 text-cream"
-                          : "bg-coral/15 text-coral"
-                      }`}
-                    >
-                      {PRICING[c].savings}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Cards */}
         <div className="relative z-20 mt-10 grid grid-cols-1 gap-5 lg:grid-cols-2">
           {/* FREE */}
@@ -304,14 +234,7 @@ export function Pricing() {
                 </span>
                 <span className="text-sm text-cream-dim">{current.per}</span>
               </div>
-              <p className="mt-1 text-xs text-cream-dim">
-                {current.perMonth}
-                {current.savings && (
-                  <span className="ml-2 font-semibold text-coral">
-                    · {current.savings}
-                  </span>
-                )}
-              </p>
+              <p className="mt-1 text-xs text-cream-dim">{current.perMonth}</p>
               <p className="mt-2 text-sm text-cream/70">
                 Full Casper. Both platforms. Cancel any time, in one click.
               </p>
@@ -361,7 +284,7 @@ export function Pricing() {
                 Install Casper · upgrade inside
               </a>
               <p className="mt-2 text-center text-[11px] text-cream-dim">
-                Pick Monthly · Quarterly · Yearly from the extension popup.
+                Upgrade from the extension popup — cancel any time.
               </p>
               </div>
             </article>
@@ -369,8 +292,7 @@ export function Pricing() {
         </div>
 
         <p className="mt-8 text-center text-xs text-cream-dim">
-          One product, three billing cycles. All Pro features unlocked across
-          every cycle — only the discount changes.
+          One simple plan. All Pro features unlocked — cancel any time.
         </p>
       </div>
     </section>

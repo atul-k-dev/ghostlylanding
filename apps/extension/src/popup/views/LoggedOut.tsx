@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { sendToBackground } from '../../lib/messages.js';
+import { ForgotPassword } from './ForgotPassword.js';
 
 type Mode = 'login' | 'signup';
 type Status = 'idle' | 'submitting' | 'googling';
@@ -9,11 +10,17 @@ const GOOGLE_CONFIGURED = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
 export const LoggedOut = () => {
   const [mode, setMode] = useState<Mode>('login');
+  const [view, setView] = useState<'auth' | 'forgot'>('auth');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
+
+  if (view === 'forgot') {
+    return <ForgotPassword initialEmail={email} onBack={() => setView('auth')} />;
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,18 +154,46 @@ export const LoggedOut = () => {
         <label htmlFor="password" className="mb-1 block text-xs font-medium text-casper-ink/70">
           Password
         </label>
-        <input
-          id="password"
-          type="password"
-          autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-          required
-          minLength={8}
-          disabled={busy}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'}
-          className="mb-3 w-full rounded-xl border border-casper-ink/10 bg-casper-cloud px-3 py-2 text-sm text-casper-ink placeholder-casper-ink/30 focus:border-casper-violet focus:outline-none focus:ring-2 focus:ring-casper-violet/20"
-        />
+        <div className="relative mb-3">
+          <input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+            required
+            minLength={8}
+            disabled={busy}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'}
+            className="w-full rounded-xl border border-casper-ink/10 bg-casper-cloud px-3 py-2 pr-10 text-sm text-casper-ink placeholder-casper-ink/30 focus:border-casper-violet focus:outline-none focus:ring-2 focus:ring-casper-violet/20"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            disabled={busy}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            aria-pressed={showPassword}
+            tabIndex={-1}
+            className="absolute inset-y-0 right-0 flex items-center px-3 text-casper-ink/40 transition hover:text-casper-ink/70 disabled:opacity-50"
+          >
+            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+          </button>
+        </div>
+        {mode === 'login' && (
+          <div className="-mt-1 mb-3 text-right">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setError(null);
+                setView('forgot');
+              }}
+              className="text-[11px] text-casper-violet hover:underline disabled:opacity-50"
+            >
+              Forgot password?
+            </button>
+          </div>
+        )}
         <button
           type="submit"
           disabled={busy}
@@ -203,6 +238,32 @@ export const LoggedOut = () => {
     </div>
   );
 };
+
+export const EyeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+  </svg>
+);
+
+export const EyeOffIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M10.6 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.2 3.1M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.8 9.8 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path d="m3 3 18 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
 
 const GoogleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">

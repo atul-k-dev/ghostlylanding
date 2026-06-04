@@ -42,8 +42,6 @@ export const config = {
   stripeWebhookSecret: optional('STRIPE_WEBHOOK_SECRET'),
   stripePrices: {
     monthly: optional('STRIPE_PRICE_MONTHLY'),
-    quarterly: optional('STRIPE_PRICE_QUARTERLY'),
-    annual: optional('STRIPE_PRICE_ANNUAL'),
   },
 } as const;
 

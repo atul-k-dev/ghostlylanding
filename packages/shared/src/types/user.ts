@@ -1,6 +1,6 @@
 import type { Platform, TonePreset } from './platform.js';
 
-export const SUBSCRIPTION_PLANS = ['free', 'monthly', 'quarterly', 'annual'] as const;
+export const SUBSCRIPTION_PLANS = ['free', 'monthly'] as const;
 export type SubscriptionPlan = (typeof SUBSCRIPTION_PLANS)[number];
 
 export const SUBSCRIPTION_STATUSES = [

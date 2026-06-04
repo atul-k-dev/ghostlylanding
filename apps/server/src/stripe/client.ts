@@ -28,7 +28,7 @@ export const priceIdForPlan = (plan: SubscriptionPlan): string | null => {
 
 /** Reverse lookup: given a Price ID, return the plan key (or null). */
 export const planForPriceId = (priceId: string): SubscriptionPlan | null => {
-  for (const plan of ['monthly', 'quarterly', 'annual'] as const) {
+  for (const plan of ['monthly'] as const) {
     if (config.stripePrices[plan] === priceId) return plan;
   }
   return null;

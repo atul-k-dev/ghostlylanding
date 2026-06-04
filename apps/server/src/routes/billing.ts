@@ -13,7 +13,7 @@ export const billingRouter = Router();
 
 const checkoutSchema = z.object({
   plan: z.enum(SUBSCRIPTION_PLANS).refine((p) => p !== 'free', {
-    message: 'plan must be monthly, quarterly, or annual',
+    message: 'plan must be monthly',
   }),
 });
 

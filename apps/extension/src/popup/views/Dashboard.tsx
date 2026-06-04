@@ -715,8 +715,6 @@ const formatRelative = (iso: string): string => {
 const PLAN_LABELS: Record<SubscriptionPlan, { label: string; price: string }> = {
   free: { label: 'Free', price: '$0' },
   monthly: { label: 'Pro · Monthly', price: '$14.99/mo' },
-  quarterly: { label: 'Pro · Quarterly', price: '$37.99/qtr' },
-  annual: { label: 'Pro · Annual', price: '$149.99/yr' },
 };
 
 const PlanSection = () => {
@@ -854,23 +852,9 @@ const PlanSection = () => {
           <UpgradeButton
             label="Monthly · $14.99"
             sub="Cancel anytime"
-            highlight={false}
+            highlight={true}
             busy={busy === 'monthly'}
             onClick={() => upgrade('monthly')}
-          />
-          <UpgradeButton
-            label="Quarterly · $37.99"
-            sub="Save ~17%"
-            highlight={false}
-            busy={busy === 'quarterly'}
-            onClick={() => upgrade('quarterly')}
-          />
-          <UpgradeButton
-            label="Annual · $149.99"
-            sub="Save ~17% — best value"
-            highlight={true}
-            busy={busy === 'annual'}
-            onClick={() => upgrade('annual')}
           />
         </div>
       )}

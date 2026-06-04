@@ -35,6 +35,10 @@ const userSchema = new Schema(
     passwordHash: { type: String, default: null },
     /** Google `sub` claim, set when the account is linked to a Google identity. */
     googleId: { type: String, default: null, index: true },
+    /** bcrypt hash of the active password-reset code; null when none pending. */
+    passwordResetCodeHash: { type: String, default: null },
+    /** Expiry for the pending reset code. */
+    passwordResetExpiresAt: { type: Date, default: null },
     stripeCustomerId: { type: String, default: null, index: true },
     stripeSubscriptionId: { type: String, default: null },
     subscriptionStatus: {

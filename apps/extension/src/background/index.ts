@@ -52,6 +52,8 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   SIGNUP: handleSignup as AsyncHandler<unknown, unknown>,
   LOGIN: handleLogin as AsyncHandler<unknown, unknown>,
   GOOGLE_LOGIN: handleGoogleLogin as AsyncHandler<unknown, unknown>,
+  FORGOT_PASSWORD: handleForgotPassword as AsyncHandler<unknown, unknown>,
+  RESET_PASSWORD: handleResetPassword as AsyncHandler<unknown, unknown>,
   LOGOUT: handleLogout as AsyncHandler<unknown, unknown>,
   PING: handlePing as AsyncHandler<unknown, unknown>,
   DEV_ENQUEUE_STUB_TASKS: handleEnqueueStub as AsyncHandler<unknown, unknown>,
@@ -175,6 +177,40 @@ async function handleGoogleLogin() {
   const resp = await apiFetch<{ token: string; user: User }>('/api/auth/google', {
     method: 'POST',
     body: { idToken },
+    auth: false,
+  });
+  if (!resp.ok) return authResult(resp);
+  await storeAuth(resp.data);
+  return { type: 'AUTH_RESULT', payload: { ok: true } };
+}
+
+async function handleForgotPassword(payload: unknown) {
+  const { email } = (payload ?? {}) as { email?: unknown };
+  if (typeof email !== 'string') {
+    return { type: 'RESET_RESULT', payload: { ok: false, error: 'invalid_payload' } };
+  }
+  const resp = await apiFetch<{ sent: boolean; ttlMinutes: number }>(
+    '/api/auth/forgot-password',
+    { method: 'POST', body: { email }, auth: false },
+  );
+  if (!resp.ok) {
+    return { type: 'RESET_RESULT', payload: { ok: false, error: resp.error.message } };
+  }
+  return { type: 'RESET_RESULT', payload: { ok: true, ttlMinutes: resp.data.ttlMinutes } };
+}
+
+async function handleResetPassword(payload: unknown) {
+  const { email, code, password } = (payload ?? {}) as {
+    email?: unknown;
+    code?: unknown;
+    password?: unknown;
+  };
+  if (typeof email !== 'string' || typeof code !== 'string' || typeof password !== 'string') {
+    return { type: 'AUTH_RESULT', payload: { ok: false, error: 'invalid_payload' } };
+  }
+  const resp = await apiFetch<{ token: string; user: User }>('/api/auth/reset-password', {
+    method: 'POST',
+    body: { email, code, password },
     auth: false,
   });
   if (!resp.ok) return authResult(resp);
@@ -332,7 +368,7 @@ async function handleRefreshMe() {
 
 async function handleStartCheckout(payload: unknown) {
   const { plan } = (payload ?? {}) as { plan?: string };
-  if (!plan || !['monthly', 'quarterly', 'annual'].includes(plan)) {
+  if (!plan || !['monthly'].includes(plan)) {
     return { ok: false, error: { code: 'invalid_plan', message: 'plan required' } };
   }
   const resp = await apiFetch<{ url: string; sessionId: string }>(
