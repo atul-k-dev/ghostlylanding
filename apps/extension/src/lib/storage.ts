@@ -36,9 +36,12 @@ const detectTimezone = (): string => {
 };
 
 const DEFAULT_SETTINGS: ExtensionSettings = {
-  isPaused: false,
+  // Paused on first run — the user must explicitly arm the engine (safety).
+  isPaused: true,
   timezone: detectTimezone(),
   tone: 'friendly',
+  // Auto-pause after an hour of activity to protect the account.
+  sessionMinutes: 60,
   activeHours: { startHour: 9, endHour: 22 },
   accountAgeMonths: { twitter: null, linkedin: null },
   targetCreators: [],
@@ -58,7 +61,11 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
 };
 
 const DEFAULT_COUNTERS: CountersState = { twitter: null, linkedin: null };
-const DEFAULT_SCHEDULER_STATE: SchedulerState = { nextEligibleAt: 0, lastFlushAt: 0 };
+const DEFAULT_SCHEDULER_STATE: SchedulerState = {
+  nextEligibleAt: 0,
+  lastFlushAt: 0,
+  activeSince: null,
+};
 
 export const getAuth = async (): Promise<StoredAuth | null> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.auth);
@@ -275,7 +282,8 @@ export type DiagnosticKind =
   | 'tab_load_timeout'
   | 'network_error'
   | 'auth_failure'
-  | 'rate_limited';
+  | 'rate_limited'
+  | 'auto_pause';
 
 export interface DiagnosticEntry {
   at: string; // ISO timestamp

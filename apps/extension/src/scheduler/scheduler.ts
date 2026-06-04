@@ -20,13 +20,15 @@ import type { ExtensionSettings } from '@casper/shared';
 import { FREE_TIER, isPro } from '@casper/shared';
 import {
   getSettings,
+  setSettings,
   getSchedulerState,
   setSchedulerState,
   getAuth,
+  appendDiagnostic,
 } from '../lib/storage.js';
 import { ensureToday, incrementCounter, isUnderCap } from './counters.js';
 import { setAuth } from '../lib/storage.js';
-import { isActiveNow, nextActionDelayMs } from './timegate.js';
+import { nextActionDelayMs } from './timegate.js';
 import {
   peekNextPending,
   updateTask,
@@ -66,8 +68,33 @@ export const installScheduler = async (): Promise<void> => {
 export const handleTick = async (): Promise<void> => {
   try {
     const settings = await getSettings();
+    const schedState = await getSchedulerState();
 
-    if (!isActiveNow(settings)) {
+    // Paused → engine idle. Clear any running session timer.
+    if (settings.isPaused) {
+      if (schedState.activeSince !== null) {
+        await setSchedulerState({ ...schedState, activeSince: null });
+      }
+      await maybeFlush();
+      return;
+    }
+
+    // Active → start the session clock on the first tick after arming.
+    if (schedState.activeSince === null) {
+      await setSchedulerState({ ...schedState, activeSince: Date.now() });
+    }
+    const startedAt = schedState.activeSince ?? Date.now();
+
+    // Safety auto-pause: once a session exceeds the limit, pause and notify.
+    const sessionMs = Math.max(1, settings.sessionMinutes) * 60_000;
+    if (Date.now() - startedAt >= sessionMs) {
+      await setSettings({ ...settings, isPaused: true });
+      await setSchedulerState({ ...schedState, activeSince: null });
+      await appendDiagnostic({
+        kind: 'auto_pause',
+        context: 'safety',
+        detail: `Auto-paused after ${settings.sessionMinutes} min to protect your account. Toggle Active to resume.`,
+      });
       await maybeFlush();
       return;
     }

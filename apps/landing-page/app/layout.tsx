@@ -17,7 +17,7 @@ const sans = Inter({
 });
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://casperaii.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://ai-casper.vercel.app";
 const TITLE = "Casper AI — Grow your Twitter & LinkedIn while you sleep";
 const DESCRIPTION =
   "The friendly little ghost that likes, comments, and follows in your tone. A browser extension built for solo creators, not sales teams. Twitter + LinkedIn under one license.";
@@ -69,10 +69,11 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     images: [
       {
-        url: "/logo.png",
+        url: `${SITE_URL}/opengraph.png?v=1`,
         width: 1200,
         height: 630,
         alt: "Casper AI — the friendly ghost that grows your socials while you sleep",
+        type: "image/png",
       },
     ],
   },
@@ -80,7 +81,14 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/logo.png"],
+    images: [
+      {
+        url: `${SITE_URL}/opengraph.png?v=1`,
+        width: 1200,
+        height: 630,
+        alt: "Casper AI — the friendly ghost that grows your socials while you sleep",
+      },
+    ],
     creator: "@casperaiapp",
     site: "@casperaiapp",
   },
@@ -155,6 +163,12 @@ const STRUCTURED_DATA = {
           priceCurrency: "USD",
           name: "Pro Monthly",
         },
+        {
+          "@type": "Offer",
+          price: "149.99",
+          priceCurrency: "USD",
+          name: "Pro Yearly",
+        },
       ],
       aggregateRating: {
         "@type": "AggregateRating",
@@ -171,7 +185,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable}`}>
+    <html lang="en" className={`${display.variable} ${sans.variable} dark`}>
       <body className="relative">
         <SmoothScroll />
         {children}

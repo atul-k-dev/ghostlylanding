@@ -14,6 +14,7 @@ import { sendToBackground } from '../../lib/messages.js';
 import {
   getSettings,
   setSettings,
+  getSchedulerState,
   STORAGE_KEYS,
   getDiagnostics,
   clearDiagnostics,
@@ -214,6 +215,7 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
     completed: number;
     failed: number;
   } | null>(null);
+  const [remainingMin, setRemainingMin] = useState<number | null>(null);
 
   const refresh = async () => {
     try {
@@ -227,6 +229,16 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
         data: { pending: number; running: number; completed: number; failed: number };
       }>({ type: 'GET_QUEUE_STATS', payload: {} });
       if (s.ok) setStats(s.data);
+
+      // Live auto-pause countdown.
+      const sched = await getSchedulerState();
+      if (settings && !settings.isPaused && sched.activeSince) {
+        const elapsedMs = Date.now() - sched.activeSince;
+        const left = Math.ceil((settings.sessionMinutes * 60_000 - elapsedMs) / 60_000);
+        setRemainingMin(left > 0 ? left : 0);
+      } else {
+        setRemainingMin(null);
+      }
     } catch {
       /* ignore */
     }
@@ -248,7 +260,8 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
       clearInterval(id);
       chrome.storage.onChanged.removeListener(listener);
     };
-  }, []);
+    // Re-arm with fresh `settings` so the auto-pause countdown stays accurate.
+  }, [settings]);
 
   const isPaused = settings?.isPaused ?? false;
 
@@ -262,11 +275,16 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
         </p>
         <p className="text-casper-ink/60">
           {isPaused
-            ? 'Toggle the pill above to resume.'
+            ? 'Toggle the pill above to start.'
             : stats
               ? `${stats.pending} pending · ${stats.completed} done · ${stats.failed} failed`
               : 'Engine warming up…'}
         </p>
+        {!isPaused && remainingMin !== null && (
+          <p className="mt-1 text-[10px] text-casper-ink/40">
+            Auto-pauses in {remainingMin} min
+          </p>
+        )}
       </div>
       {!hasTargets && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs">
@@ -457,10 +475,6 @@ const SettingsTab = ({
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const setStart = (h: number) =>
-    onChange({ ...settings, activeHours: { ...settings.activeHours, startHour: h } });
-  const setEnd = (h: number) =>
-    onChange({ ...settings, activeHours: { ...settings.activeHours, endHour: h } });
   const setAge = (platform: Platform, months: number | null) =>
     onChange({
       ...settings,
@@ -508,10 +522,25 @@ const SettingsTab = ({
 
       <PlanSection />
 
-      <Section title="Active hours" subtitle="Casper only acts inside this window.">
-        <div className="grid grid-cols-2 gap-2">
-          <NumberField label="Start" value={settings.activeHours.startHour} onChange={setStart} />
-          <NumberField label="End" value={settings.activeHours.endHour} onChange={setEnd} />
+      <Section
+        title="Safety auto-pause"
+        subtitle="Casper pauses itself after this long, so it never runs unattended forever."
+      >
+        <div className="flex flex-wrap gap-2">
+          {[15, 30, 60, 120].map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onChange({ ...settings, sessionMinutes: m })}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                settings.sessionMinutes === m
+                  ? 'bg-casper-violet text-white'
+                  : 'border border-casper-ink/10 text-casper-ink/70 hover:bg-white'
+              }`}
+            >
+              {m < 60 ? `${m} min` : `${m / 60} hr`}
+            </button>
+          ))}
         </div>
       </Section>
 

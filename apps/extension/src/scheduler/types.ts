@@ -27,6 +27,8 @@ export interface SchedulerState {
   nextEligibleAt: number;
   /** ms epoch — last time we flushed the local action-log buffer */
   lastFlushAt: number;
+  /** ms epoch when the current Active session began; null while paused. */
+  activeSince: number | null;
 }
 
 /** Per-target persisted state — tracks the last successful scan(s). */

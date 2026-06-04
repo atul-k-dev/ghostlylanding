@@ -1,20 +1,42 @@
 "use client";
 
-import { Bat } from "./Bat";
-import { BloodDrip } from "./BloodDrip";
-import { BloodSplatter } from "./BloodSplatter";
-import { GhostExcited } from "./GhostExcited";
-import { GhostHeartEyes } from "./GhostHeartEyes";
-import { GhostThumbsUp } from "./GhostThumbsUp";
-import { Eyeball } from "./stickers/Eyeball";
-import { TextSticker } from "./stickers/TextSticker";
+import { useState } from "react";
 import { INSTALL_URL } from "@/lib/install";
+import { FadeInStagger, FadeIn } from "./animations/FadeInStagger";
 
-const PRICING = {
-  price: "$14.99",
-  per: "/month",
-  perMonth: "$14.99 / month",
-} as const;
+type Cycle = "monthly" | "quarterly" | "yearly";
+
+const PRICING: Record<
+  Cycle,
+  {
+    label: string;
+    price: string;
+    per: string;
+    savings?: string;
+    perMonth?: string;
+  }
+> = {
+  monthly: {
+    label: "Monthly",
+    price: "$14.99",
+    per: "/month",
+    perMonth: "$14.99 / month",
+  },
+  quarterly: {
+    label: "Quarterly",
+    price: "$37.99",
+    per: "/quarter",
+    savings: "~16%",
+    perMonth: "≈ $12.66 / month",
+  },
+  yearly: {
+    label: "Yearly",
+    price: "$149.99",
+    per: "/year",
+    savings: "~17%",
+    perMonth: "≈ $12.50 / month",
+  },
+};
 
 const FREE_FEATURES = [
   "30 lifetime actions to try Casper",
@@ -35,151 +57,98 @@ const PRO_FEATURES = [
 ];
 
 export function Pricing() {
-  const current = PRICING;
+  const [cycle, setCycle] = useState<Cycle>("monthly");
+  const current = PRICING[cycle];
 
   return (
     <section
       id="pricing"
-      className="relative overflow-hidden bg-grad-a py-20 md:py-24"
+      className="relative w-full overflow-hidden bg-bg text-fg py-16 md:py-24 px-3 md:px-10 lg:px-16"
     >
-      {/* Decoration */}
-      <BloodSplatter
-        className="pointer-events-none absolute -right-32 top-0 h-[360px] w-[360px] opacity-[0.05]"
-        rotate={45}
-      />
-      <BloodSplatter
-        className="pointer-events-none absolute -left-40 bottom-10 h-[400px] w-[400px] opacity-[0.04]"
-        rotate={-25}
-      />
-      <BloodDrip
-        className="pointer-events-none absolute left-[8%] top-16 h-9 w-auto opacity-50"
-        rotate={-10}
-      />
-      <BloodDrip
-        className="pointer-events-none absolute right-[6%] bottom-24 h-7 w-auto opacity-50"
-        rotate={170}
-      />
-
-      {/* Bats — chamgadar */}
-      <div
-        className="pointer-events-none absolute left-[14%] top-[8%] text-cream/40 animate-fly"
-        style={{ animationDelay: "0.5s" }}
-      >
-        <Bat className="h-12 w-auto" flap />
-      </div>
-      <div
-        className="pointer-events-none absolute right-[18%] bottom-[12%] text-cream/30 animate-fly"
-        style={{ animationDelay: "2.1s" }}
-      >
-        <Bat className="h-10 w-auto" flap />
-      </div>
-
-      {/* Stickers */}
-      <TextSticker
-        text="WORTH IT!"
-        size="md"
-        tilt={-9}
-        className="absolute left-[3%] top-[10%] hidden lg:block"
-      />
-      <TextSticker
-        text="GO PRO!"
-        size="md"
-        tilt={11}
-        className="absolute right-[3%] top-[6%] hidden lg:block"
-      />
-      <TextSticker
-        text="BEST DEAL"
-        size="sm"
-        tilt={-9}
-        className="absolute left-[2%] bottom-[10%] hidden lg:block"
-      />
-      <TextSticker
-        text="NO TRICKS!"
-        size="sm"
-        tilt={6}
-        className="absolute right-[4%] bottom-[18%] hidden lg:block"
-      />
-      <Eyeball
-        className="pointer-events-none absolute right-[10%] bottom-[6%] hidden h-9 w-auto opacity-80 md:block"
-        rotate={15}
-      />
-
-      {/* Decorative floating ghosts */}
-      <div
-        className="pointer-events-none absolute left-[10%] top-[26%] hidden opacity-30 animate-float md:block"
-        style={{ animationDelay: "0.4s" }}
-      >
-        <GhostExcited className="h-12 w-auto" />
-      </div>
-      <div
-        className="pointer-events-none absolute right-[14%] bottom-[28%] hidden opacity-25 animate-float md:block"
-        style={{ animationDelay: "1.9s" }}
-      >
-        <GhostThumbsUp className="h-11 w-auto" />
-      </div>
-
-      <div className="relative z-10 mx-auto max-w-6xl px-6 md:px-10">
+      <div className="relative z-10 mx-auto max-w-5xl px-0 sm:px-6 md:px-10">
+        
         {/* Header */}
-        <div className="mx-auto max-w-2xl text-center">
-          <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-cream/15 bg-cream/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.25em] text-cream/70 md:text-[11px]">
-            <span className="h-1.5 w-1.5 rounded-full bg-coral" />
-            Pricing
-          </span>
-          <h2 className="font-sans font-black text-3xl leading-[0.95] tracking-tight text-cream sm:text-4xl md:text-5xl">
+        <FadeInStagger y={30} stagger={0.15} className="mx-auto max-w-2xl text-center flex flex-col items-center">
+          <div className="inline-flex items-center rounded-sm bg-card border border-border px-2 py-0.5 font-geist text-[10px] font-bold uppercase tracking-widest text-fg/60 mb-6 shadow-sm">
+            PRICING
+          </div>
+          <h2 className="font-aeonik text-[28px] sm:text-4xl md:text-[44px] font-semibold text-fg">
             Free forever.
             <br />
-            Or pro for a <span className="text-coral">coffee a week.</span>
+            Or pro for a <span className="text-fg">coffee a week.</span>
           </h2>
-          <p className="mx-auto mt-4 max-w-md text-sm text-cream/70">
-            Start on the free tier. Upgrade when you want AI comments, voice
-            training, and both platforms.
-          </p>
+        </FadeInStagger>
+
+        {/* Billing toggle */}
+        <div className="relative z-30 mt-12 flex justify-center">
+          <div
+            role="tablist"
+            aria-label="Billing cycle"
+            className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-[#161616] p-1"
+          >
+            {(Object.keys(PRICING) as Cycle[]).map((c) => {
+              const isActive = cycle === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setCycle(c)}
+                  className={`relative cursor-pointer rounded-full px-3 py-1.5 sm:px-5 sm:py-2 font-geist text-[10px] sm:text-[11px]  tracking-widest transition-all ${isActive
+                      ? "bg-white/10 text-fg font-bold"
+                      : "text-fg/60 hover:text-fg"
+                    }`}
+                >
+                  {PRICING[c].label}
+                  {PRICING[c].savings && (
+                    <span
+                      className={`ml-2 rounded-sm px-1.5 py-0.5 text-[9px] ${isActive
+                          ? "bg-white text-black"
+                          : "bg-white/10 text-fg/60"
+                        }`}
+                    >
+                      {PRICING[c].savings}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Cards */}
-        <div className="relative z-20 mt-10 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {/* FREE */}
-          <article className="relative flex flex-col rounded-3xl border border-cream/10 bg-ink-soft/60 p-6">
+        <FadeInStagger y={40} stagger={0.15} className="relative z-20 mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          
+          {/* FREE CARD */}
+          <article className="relative flex flex-col rounded border-b-4 border-r-4 border border-white/30 bg-card p-5 sm:p-7">
             <div className="flex items-center justify-between">
-              <span className="font-sans font-black text-[11px] tracking-[0.35em] text-cream-dim">
+              <span className="font-geist text-[11px] font-bold uppercase tracking-widest text-fg/60">
                 FREE FOREVER
               </span>
-              <span className="rounded-full border border-cream/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-cream/60">
+              <span className="rounded-sm border border-border bg-card px-2 py-0.5 font-geist text-[9px] font-bold uppercase tracking-wider text-fg/80">
                 Free
               </span>
             </div>
-            <div className="mt-4 flex items-baseline gap-2">
-              <span className="font-sans font-black text-4xl text-cream md:text-5xl">
+            
+            <div className="mt-8 flex items-baseline gap-2">
+              <span className="font-aeonik text-5xl font-bold tracking-tight text-fg">
                 $0
               </span>
-              <span className="text-sm text-cream-dim">forever</span>
+              <span className="font-geist text-xs uppercase tracking-wider text-fg/50">forever</span>
             </div>
-            <p className="mt-2 text-sm text-cream/65">
+            <p className="mt-3 font-inter text-[14px] text-fg/60">
               The friendliest way to start. No card, no expiry.
             </p>
 
-            <div className="my-5 h-px w-full bg-cream/10" />
+            <div className="my-7 h-px w-full bg-white/5" />
 
-            <ul className="space-y-2.5">
+            <ul className="space-y-4">
               {FREE_FEATURES.map((f) => (
-                <li
-                  key={f}
-                  className="flex items-start gap-2.5 text-sm text-cream/85"
-                >
-                  <span className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full border border-cream/30 text-cream/70">
-                    <svg
-                      viewBox="0 0 12 12"
-                      className="h-2.5 w-2.5"
-                      fill="none"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M2.5 6 L5 8.5 L9.5 4"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                <li key={f} className="flex items-start gap-3 font-inter text-[14px] text-fg/80">
+                  <span className="mt-1 flex-none text-fg/40">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </span>
                   {f}
@@ -187,112 +156,93 @@ export function Pricing() {
               ))}
             </ul>
 
-            <div className="mt-auto pt-6">
+            <div className="mt-auto pt-10">
               <a
                 href={INSTALL_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block rounded-full border border-cream/25 px-6 py-3 text-center text-sm font-semibold text-cream transition hover:border-coral hover:text-coral"
+                className="block rounded-full border border-border0 bg-transparent px-6 py-4 text-center font-geist text-[11px] font-bold uppercase tracking-widest text-fg transition hover:bg-white/5"
               >
                 Install Casper · free
               </a>
-              <p className="mt-2 text-center text-[11px] text-cream-dim">
+              <p className="mt-4 text-center font-geist text-[10px] uppercase tracking-wider text-fg/40">
                 Sign in inside the extension after install.
               </p>
             </div>
           </article>
 
-          {/* PRO — outer wrapper has no overflow-hidden so the badge can stick above */}
-          <div className="relative">
-            {/* Most popular tape — lives ABOVE the card edge */}
-            <span
-              className="absolute -top-3 right-6 z-20 rounded-full bg-coral px-3.5 py-1 font-sans font-black text-[10px] tracking-[0.3em] text-cream shadow-[0_4px_20px_rgba(184,19,54,0.55)]"
-              style={{ transform: "rotate(3deg)" }}
-            >
-              MOST POPULAR
-            </span>
+          {/* PRO CARD */}
+          <article className="relative flex flex-col rounded border-b-4 border-r-4 border border-white/30 bg-card p-5 sm:p-7">
+            <div className="flex items-center justify-between">
+              <span className="font-geist text-[11px] font-bold uppercase tracking-widest text-fg">
+                CASPER PRO
+              </span>
+              <span className="rounded-sm bg-white px-2 py-0.5 font-geist text-[9px] font-bold uppercase tracking-wider text-black">
+                Most Popular
+              </span>
+            </div>
 
-            <article className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-coral/40 bg-gradient-to-br from-coral/[0.10] via-ink-soft to-ink p-6">
-              {/* Bg ghost — clipped by the article's overflow-hidden */}
-              <div className="pointer-events-none absolute -bottom-8 -right-6 opacity-[0.10]">
-                <GhostHeartEyes className="h-40 w-auto md:h-48" />
-              </div>
-
-              <div className="relative">
-              <div className="flex items-center justify-between">
-                <span className="font-sans font-black text-[11px] tracking-[0.35em] text-coral">
-                  CASPER PRO
+            <div className="mt-8 flex items-baseline gap-2">
+              <span className="font-aeonik text-5xl font-bold tracking-tight text-fg">
+                {current.price}
+              </span>
+              <span className="font-geist text-xs uppercase tracking-wider text-fg/50">{current.per}</span>
+            </div>
+            
+            <p className="mt-3 font-geist text-xs uppercase tracking-wider text-fg/50 flex items-center gap-2">
+              {current.perMonth}
+              {current.savings && (
+                <span className="text-fg/80 font-bold">
+                  · {current.savings}
                 </span>
-                <span className="rounded-full bg-coral/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-coral">
-                  Full access
-                </span>
-              </div>
+              )}
+            </p>
+            
+            <p className="mt-3 font-inter text-[14px] text-fg/60">
+              Full Casper. Both platforms. Cancel any time, in one click.
+            </p>
 
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="font-sans font-black text-4xl text-cream md:text-5xl">
-                  {current.price}
-                </span>
-                <span className="text-sm text-cream-dim">{current.per}</span>
-              </div>
-              <p className="mt-1 text-xs text-cream-dim">{current.perMonth}</p>
-              <p className="mt-2 text-sm text-cream/70">
-                Full Casper. Both platforms. Cancel any time, in one click.
-              </p>
+            <div className="my-7 h-px w-full bg-white/10" />
 
-              <div className="my-5 h-px w-full bg-cream/10" />
+            <ul className="space-y-4">
+              {PRO_FEATURES.map((f) => (
+                <li key={f.label} className="flex items-start gap-3 font-inter text-[14px] text-fg/90">
+                  <span className="mt-1 flex-none text-fg/80">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
+                  <span className={f.highlight ? "font-medium" : ""}>
+                    {f.label}
+                    {f.highlight && (
+                      <span className="ml-2 inline-block rounded-sm bg-white/10 px-1.5 py-0.5 font-geist text-[9px] font-bold uppercase tracking-wider text-fg/80">
+                        pro
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
 
-              <ul className="space-y-2.5">
-                {PRO_FEATURES.map((f) => (
-                  <li
-                    key={f.label}
-                    className="flex items-start gap-2.5 text-sm text-cream"
-                  >
-                    <span className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full bg-coral text-cream shadow-[0_2px_10px_rgba(184,19,54,0.3)]">
-                      <svg
-                        viewBox="0 0 12 12"
-                        className="h-2.5 w-2.5"
-                        fill="none"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M2.5 6 L5 8.5 L9.5 4"
-                          stroke="currentColor"
-                          strokeWidth="2.2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </span>
-                    <span className={f.highlight ? "font-medium" : ""}>
-                      {f.label}
-                      {f.highlight && (
-                        <span className="ml-1.5 inline-block rounded-sm bg-coral/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-coral">
-                          pro
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
+            <div className="mt-10">
               <a
                 href={INSTALL_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-7 block rounded-full bg-coral px-6 py-3 text-center text-sm font-semibold text-cream shadow-[0_8px_30px_rgba(184,19,54,0.4)] transition hover:bg-coral-dim"
+                className="block rounded-full bg-white px-6 py-4 text-center font-geist text-[11px] font-bold uppercase tracking-widest text-black transition hover:bg-white/90"
               >
                 Install Casper · upgrade inside
               </a>
-              <p className="mt-2 text-center text-[11px] text-cream-dim">
-                Upgrade from the extension popup — cancel any time.
+              <p className="mt-4 text-center font-geist text-[10px] uppercase tracking-wider text-fg/40">
+                Pick Monthly · Quarterly · Yearly from the extension popup.
               </p>
-              </div>
-            </article>
-          </div>
-        </div>
+            </div>
+          </article>
+        </FadeInStagger>
 
-        <p className="mt-8 text-center text-xs text-cream-dim">
-          One simple plan. All Pro features unlocked — cancel any time.
+        <p className="mt-12 text-center font-geist text-[10px] uppercase tracking-wider text-fg/40 max-w-md mx-auto">
+          One product, three billing cycles. All Pro features unlocked across
+          every cycle — only the discount changes.
         </p>
       </div>
     </section>

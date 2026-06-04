@@ -49,6 +49,12 @@ export interface ExtensionSettings {
   isPaused: boolean;
   timezone: string;
   tone: TonePreset;
+  /**
+   * Safety auto-pause: once the engine has been Active for this many minutes it
+   * pauses itself, so a session can't run unattended forever. The user re-arms
+   * it by toggling Active again.
+   */
+  sessionMinutes: number;
   activeHours: ActiveHours;
   accountAgeMonths: AccountAge;
   targetCreators: TargetCreator[];
