@@ -10,6 +10,10 @@ export interface ScannedPost {
   publishedAt: string | null;
   /** Author handle if we can parse it. Optional — used for telemetry. */
   authorHandle: string | null;
+  /** Post body text — only collected by the home-feed scan (for relevance + drafts). */
+  text?: string;
+  /** Author profile URL — only collected by the home-feed scan (for follows). */
+  profileUrl?: string | null;
 }
 
 export interface ScannedFollower {
@@ -37,11 +41,19 @@ export type ContentRequest =
   | {
       type: 'FOLLOW_HANDLE';
       payload: { handle: string };
+    }
+  | {
+      type: 'SCAN_HOME';
+      payload: { max: number };
     };
 
 export type ContentResponse =
   | {
       type: 'SCAN_RESULT';
+      payload: { posts: ScannedPost[] };
+    }
+  | {
+      type: 'HOME_RESULT';
       payload: { posts: ScannedPost[] };
     }
   | {

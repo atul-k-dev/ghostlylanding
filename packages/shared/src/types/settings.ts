@@ -22,6 +22,29 @@ export interface AccountAge {
   linkedin: number | null;
 }
 
+/**
+ * Home-feed autopilot: instead of (or alongside) visiting specific target
+ * creators, Casper scrolls the user's own home timeline and engages with posts
+ * that match the relevance keywords. Comments still route through the approval
+ * queue — never auto-posted.
+ */
+export interface HomeFeedSettings {
+  enabled: boolean;
+  /** Which home feeds to scan. */
+  platforms: Platform[];
+  /** Like matching posts. */
+  like: boolean;
+  /** Draft a comment for matching posts (lands in the approval queue). */
+  comment: boolean;
+  /** Follow the authors of matching posts. */
+  follow: boolean;
+  /**
+   * Case-insensitive keywords a post must contain to be "relevant".
+   * Empty = engage with everything in the feed.
+   */
+  keywords: string[];
+}
+
 export interface ExtensionSettings {
   isPaused: boolean;
   timezone: string;
@@ -31,6 +54,7 @@ export interface ExtensionSettings {
   targetCreators: TargetCreator[];
   whitelist: { platform: Platform; handle: string }[];
   caps: Record<Platform, PlatformCaps>;
+  homeFeed: HomeFeedSettings;
 }
 
 /**

@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   targetState: 'casper.targetState',
   likedPosts: 'casper.likedPosts',
   commentedPosts: 'casper.commentedPosts',
+  draftedPosts: 'casper.draftedPosts',
   followedHandles: 'casper.followedHandles',
   diagnostics: 'casper.diagnostics',
 } as const;
@@ -46,6 +47,14 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
     twitter: { likesPerDay: 80, commentsPerDay: 20, followsPerDay: 30 },
     linkedin: { likesPerDay: 50, commentsPerDay: 15, followsPerDay: 15 },
   },
+  homeFeed: {
+    enabled: false,
+    platforms: ['twitter', 'linkedin'],
+    like: true,
+    comment: false,
+    follow: false,
+    keywords: [],
+  },
 };
 
 const DEFAULT_COUNTERS: CountersState = { twitter: null, linkedin: null };
@@ -75,6 +84,7 @@ export const getSettings = async (): Promise<ExtensionSettings> => {
     caps: { ...DEFAULT_SETTINGS.caps, ...stored.caps },
     activeHours: { ...DEFAULT_SETTINGS.activeHours, ...stored.activeHours },
     accountAgeMonths: { ...DEFAULT_SETTINGS.accountAgeMonths, ...stored.accountAgeMonths },
+    homeFeed: { ...DEFAULT_SETTINGS.homeFeed, ...stored.homeFeed },
   };
 };
 
@@ -196,6 +206,33 @@ export const isAlreadyCommented = async (
   postId: string,
 ): Promise<boolean> => {
   const map = await getCommentedPosts();
+  return `${platform}:${postId}` in map;
+};
+
+// -- drafted posts dedupe (home-feed auto-draft; avoids re-generating) ------
+export const getDraftedPosts = async (): Promise<LikedPostsMap> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.draftedPosts);
+  return (got[STORAGE_KEYS.draftedPosts] as LikedPostsMap | undefined) ?? {};
+};
+
+export const setDraftedPosts = async (map: LikedPostsMap): Promise<void> => {
+  const keys = Object.keys(map);
+  if (keys.length > LIKED_POSTS_MAX) {
+    const sorted = keys.sort((a, b) => (map[a] ?? 0) - (map[b] ?? 0));
+    const toDrop = sorted.slice(0, keys.length - LIKED_POSTS_MAX);
+    for (const k of toDrop) delete map[k];
+  }
+  await chrome.storage.local.set({ [STORAGE_KEYS.draftedPosts]: map });
+};
+
+export const markDrafted = async (platform: string, postId: string): Promise<void> => {
+  const map = await getDraftedPosts();
+  map[`${platform}:${postId}`] = Date.now();
+  await setDraftedPosts(map);
+};
+
+export const isAlreadyDrafted = async (platform: string, postId: string): Promise<boolean> => {
+  const map = await getDraftedPosts();
   return `${platform}:${postId}` in map;
 };
 

@@ -551,6 +551,8 @@ const SettingsTab = ({
         </div>
       </Section>
 
+      <HomeFeedSection settings={settings} onChange={onChange} />
+
       <TargetsSection settings={settings} onChange={onChange} />
 
       <WhitelistSection settings={settings} onChange={onChange} />
@@ -1077,6 +1079,169 @@ const WhitelistSection = ({
             </li>
           ))}
         </ul>
+      )}
+    </Section>
+  );
+};
+
+const HomeFeedSection = ({
+  settings,
+  onChange,
+}: {
+  settings: ExtensionSettings;
+  onChange: (s: ExtensionSettings) => void;
+}) => {
+  const hf = settings.homeFeed;
+  const [keywordText, setKeywordText] = useState(hf.keywords.join(', '));
+  const [scanStatus, setScanStatus] = useState<string | null>(null);
+
+  const update = (patch: Partial<typeof hf>) =>
+    onChange({ ...settings, homeFeed: { ...hf, ...patch } });
+
+  const togglePlatform = (p: Platform) => {
+    const next = hf.platforms.includes(p)
+      ? hf.platforms.filter((x) => x !== p)
+      : [...hf.platforms, p];
+    update({ platforms: next });
+  };
+
+  const commitKeywords = () => {
+    const list = keywordText
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean);
+    update({ keywords: list });
+  };
+
+  const scanNow = async (p: Platform) => {
+    setScanStatus(`Scanning ${p} feed…`);
+    try {
+      await sendToBackground({ type: 'SCAN_HOME_NOW', payload: { platform: p } });
+      setScanStatus(`Queued ${p} home scan`);
+    } catch (err) {
+      setScanStatus(err instanceof Error ? err.message : 'failed');
+    }
+  };
+
+  const Check = ({
+    checked,
+    onToggle,
+    label,
+  }: {
+    checked: boolean;
+    onToggle: () => void;
+    label: string;
+  }) => (
+    <label className="flex items-center gap-2 text-xs text-casper-ink/80">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        className="h-3.5 w-3.5 rounded border-casper-ink/20 text-casper-violet focus:ring-casper-violet/30"
+      />
+      {label}
+    </label>
+  );
+
+  return (
+    <Section
+      title="Home feed autopilot"
+      subtitle="Casper scrolls your own timeline and engages with relevant posts."
+    >
+      <label className="flex items-center justify-between">
+        <span className="text-xs font-medium text-casper-ink">Enable autopilot</span>
+        <button
+          type="button"
+          onClick={() => update({ enabled: !hf.enabled })}
+          aria-pressed={hf.enabled}
+          className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
+            hf.enabled
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-casper-ink/10 text-casper-ink/60'
+          }`}
+        >
+          {hf.enabled ? 'On' : 'Off'}
+        </button>
+      </label>
+
+      {hf.enabled && (
+        <div className="mt-3 space-y-3">
+          <div>
+            <p className="mb-1.5 text-[10px] uppercase tracking-wide text-casper-ink/40">
+              Platforms
+            </p>
+            <div className="flex gap-4">
+              <Check
+                checked={hf.platforms.includes('twitter')}
+                onToggle={() => togglePlatform('twitter')}
+                label="Twitter"
+              />
+              <Check
+                checked={hf.platforms.includes('linkedin')}
+                onToggle={() => togglePlatform('linkedin')}
+                label="LinkedIn"
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-1.5 text-[10px] uppercase tracking-wide text-casper-ink/40">
+              Actions
+            </p>
+            <div className="flex gap-4">
+              <Check checked={hf.like} onToggle={() => update({ like: !hf.like })} label="Like" />
+              <Check
+                checked={hf.comment}
+                onToggle={() => update({ comment: !hf.comment })}
+                label="Comment"
+              />
+              <Check
+                checked={hf.follow}
+                onToggle={() => update({ follow: !hf.follow })}
+                label="Follow"
+              />
+            </div>
+            {hf.comment && (
+              <p className="mt-1.5 text-[10px] text-casper-ink/40">
+                Comments are drafted to your Queue for approval — never auto-posted.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <p className="mb-1.5 text-[10px] uppercase tracking-wide text-casper-ink/40">
+              Relevance keywords
+            </p>
+            <input
+              type="text"
+              value={keywordText}
+              onChange={(e) => setKeywordText(e.target.value)}
+              onBlur={commitKeywords}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitKeywords();
+              }}
+              placeholder="design, startups, ai (comma-separated)"
+              className="w-full rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+            />
+            <p className="mt-1 text-[10px] text-casper-ink/40">
+              Leave blank to engage with everything in your feed.
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            {hf.platforms.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => scanNow(p)}
+                className="rounded-lg bg-casper-violet/10 px-3 py-1.5 text-[11px] capitalize text-casper-violet transition hover:bg-casper-violet/20"
+              >
+                Scan {p} now
+              </button>
+            ))}
+          </div>
+          {scanStatus && <p className="text-[10px] text-casper-ink/50">{scanStatus}</p>}
+        </div>
       )}
     </Section>
   );

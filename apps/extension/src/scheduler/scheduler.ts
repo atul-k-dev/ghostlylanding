@@ -45,6 +45,8 @@ const TICK_PERIOD_MINUTES = 0.5; // 30 seconds
 
 /** Auto-rescan a target if it hasn't been scanned in this long. */
 const RESCAN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+/** Home feed refreshes more often than individual profiles. */
+const HOME_RESCAN_INTERVAL_MS = 2 * 60 * 60 * 1000;
 /** Don't auto-refill if there are already this many pending tasks. */
 const REFILL_PENDING_THRESHOLD = 5;
 
@@ -185,12 +187,17 @@ export const handleTick = async (): Promise<void> => {
 };
 
 const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
-  if (settings.targetCreators.length === 0) return;
+  const hasTargets = settings.targetCreators.length > 0;
+  const homeEnabled = settings.homeFeed.enabled && settings.homeFeed.platforms.length > 0;
+  if (!hasTargets && !homeEnabled) return;
+
   const s = await queueStats();
   if (s.pending + s.running >= REFILL_PENDING_THRESHOLD) return;
+
   const targetState = await getTargetState();
   const now = Date.now();
   let mutated = false;
+
   for (const target of settings.targetCreators) {
     const key = `${target.platform}:${target.handle.replace(/^@/, '')}`;
     const existing = targetState[key] ?? { lastScannedAt: 0 };
@@ -206,6 +213,20 @@ const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
     }
     targetState[key] = existing;
   }
+
+  if (homeEnabled) {
+    for (const platform of settings.homeFeed.platforms) {
+      const key = `home:${platform}`;
+      const existing = targetState[key] ?? { lastScannedAt: 0 };
+      if (now - (existing.lastHomeScanAt ?? 0) >= HOME_RESCAN_INTERVAL_MS) {
+        await enqueue(platform, 'scan-home-feed', {});
+        existing.lastHomeScanAt = now;
+        targetState[key] = existing;
+        mutated = true;
+      }
+    }
+  }
+
   if (mutated) {
     const { setTargetState } = await import('../lib/storage.js');
     await setTargetState(targetState);

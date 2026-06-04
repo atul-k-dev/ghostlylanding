@@ -2,7 +2,7 @@ import type {
   ContentRequest,
   ContentResponse,
 } from '../common/content-messages.js';
-import { scanProfile, likeCurrentPost } from './dom.js';
+import { scanProfile, scanHomeFeed, likeCurrentPost } from './dom.js';
 import { extractPostText, submitComment } from './comment.js';
 import { scanFollowers, followCurrentProfile } from './follow.js';
 import { installDraftButtonInjector } from '../common/draft-button.js';
@@ -19,6 +19,12 @@ export const installLinkedInHandler = (): void => {
         if (req.type === 'SCAN_PROFILE') {
           const posts = await scanProfile(15);
           const resp: ContentResponse = { type: 'SCAN_RESULT', payload: { posts } };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'SCAN_HOME') {
+          const posts = await scanHomeFeed(req.payload.max ?? 20);
+          const resp: ContentResponse = { type: 'HOME_RESULT', payload: { posts } };
           sendResponse(resp);
           return;
         }

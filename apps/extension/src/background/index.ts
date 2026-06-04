@@ -62,6 +62,7 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   ENSURE_COUNTERS: handleEnsureCounters as AsyncHandler<unknown, unknown>,
   SCAN_TARGET_NOW: handleScanTargetNow as AsyncHandler<unknown, unknown>,
   SCAN_FOLLOWERS_NOW: handleScanFollowersNow as AsyncHandler<unknown, unknown>,
+  SCAN_HOME_NOW: handleScanHomeNow as AsyncHandler<unknown, unknown>,
   DRAFT_COMMENT: handleDraftComment as AsyncHandler<unknown, unknown>,
   LIST_DRAFTS: handleListDrafts as AsyncHandler<unknown, unknown>,
   APPROVE_DRAFT: handleApproveDraft as AsyncHandler<unknown, unknown>,
@@ -407,6 +408,20 @@ async function handleDeleteAccount() {
     await chrome.storage.local.clear();
   }
   return resp;
+}
+
+async function handleScanHomeNow(payload: unknown) {
+  const { platform } = (payload ?? {}) as { platform?: Platform };
+  if (!platform || !PLATFORMS.includes(platform)) {
+    return { ok: false, error: 'invalid_payload' };
+  }
+  // Reset the home-scan cooldown so the refill loop / this call runs immediately.
+  const state = await getTargetState();
+  const key = `home:${platform}`;
+  state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastHomeScanAt: 0 };
+  await setTargetState(state);
+  const task = await enqueue(platform, 'scan-home-feed', {});
+  return { ok: true, data: { taskId: task.id } };
 }
 
 async function handleScanFollowersNow(payload: unknown) {

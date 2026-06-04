@@ -19,6 +19,8 @@ import {
   markCommented,
   isAlreadyFollowed,
   markFollowed,
+  isAlreadyDrafted,
+  markDrafted,
   getTargetState,
   setTargetState,
   getSettings,
@@ -44,6 +46,19 @@ const followersUrlFor = (platform: Platform, handle: string): string =>
 
 const candidateProfileUrl = (platform: Platform, handle: string): string =>
   platform === 'twitter' ? twitterProfileUrl(handle) : linkedinProfileFromHandle(handle);
+
+const homeUrlFor = (platform: Platform): string =>
+  platform === 'twitter' ? 'https://x.com/home' : 'https://www.linkedin.com/feed/';
+
+/** True if the post text matches the relevance keywords (empty = match all). */
+const isRelevant = (text: string, keywords: string[]): boolean => {
+  if (keywords.length === 0) return true;
+  const hay = text.toLowerCase();
+  return keywords.some((k) => {
+    const needle = k.trim().toLowerCase();
+    return needle.length > 0 && hay.includes(needle);
+  });
+};
 
 const executeLike = async (task: QueuedTask): Promise<ExecutorResult> => {
   const postUrl = task.payload.postUrl as string | undefined;
@@ -421,6 +436,108 @@ const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
   };
 };
 
+/**
+ * Home-feed autopilot: scroll the user's own timeline, find relevant fresh
+ * posts, and enqueue likes / follows / comment-drafts per the user's settings.
+ * Comment drafts go to the approval queue — never auto-posted here.
+ */
+const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
+  const settings = await getSettings();
+  const hf = settings.homeFeed;
+
+  let resp;
+  try {
+    resp = await driveTab(
+      homeUrlFor(task.platform),
+      { type: 'SCAN_HOME', payload: { max: 25 } },
+      { settleMs: 3_500 },
+    );
+  } catch (err) {
+    return {
+      success: false,
+      errorMessage: err instanceof Error ? err.message : 'tab driver failed',
+    };
+  }
+
+  if (resp.type !== 'HOME_RESULT') {
+    return {
+      success: false,
+      errorMessage: resp.type === 'ERROR' ? resp.payload.message : 'unexpected home response',
+    };
+  }
+
+  if (resp.payload.posts.length === 0) {
+    await appendDiagnostic({
+      kind: 'selector_miss',
+      context: `${task.platform}:scan-home-feed`,
+      detail: '0 posts found on home feed',
+    });
+  }
+
+  const fresh = resp.payload.posts.filter((p) => isFresh(p.publishedAt));
+  let likes = 0;
+  let follows = 0;
+  let drafts = 0;
+
+  for (const post of fresh) {
+    if (!isRelevant(post.text ?? '', hf.keywords)) continue;
+    const id = post.postId || extractPostId(task.platform, post.postUrl);
+
+    // Like
+    if (hf.like && id && !(await isAlreadyLiked(task.platform, id))) {
+      await enqueue(task.platform, 'like', {
+        postUrl: post.postUrl,
+        postId: id,
+        sourceHandle: post.authorHandle ?? 'home',
+      });
+      likes++;
+    }
+
+    // Comment draft (approval-queue only)
+    if (hf.comment && id && post.text && !(await isAlreadyDrafted(task.platform, id))) {
+      const tone = settings.tone;
+      const draftResp = await apiFetch(`/api/comments/generate`, {
+        method: 'POST',
+        body: { platform: task.platform, postText: post.text, postUrl: post.postUrl, tone },
+      });
+      if (draftResp.ok) {
+        await markDrafted(task.platform, id);
+        drafts++;
+      }
+    }
+
+    // Follow the author
+    if (hf.follow && post.authorHandle) {
+      const handle = post.authorHandle;
+      if (
+        !inWhitelist(settings.whitelist, task.platform, handle) &&
+        !(await isAlreadyFollowed(task.platform, handle))
+      ) {
+        await enqueue(task.platform, 'follow', {
+          handle,
+          profileUrl: post.profileUrl ?? candidateProfileUrl(task.platform, handle),
+          sourceHandle: 'home',
+        });
+        follows++;
+      }
+    }
+  }
+
+  // Record scan time so the refill loop paces home scans.
+  const state = await getTargetState();
+  const key = `home:${task.platform}`;
+  state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastHomeScanAt: Date.now() };
+  await setTargetState(state);
+
+  return {
+    success: true,
+    errorMessage:
+      likes + follows + drafts === 0
+        ? `home scan ok: no matches (saw ${resp.payload.posts.length})`
+        : undefined,
+  };
+};
+
 export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => {
   switch (task.taskType) {
     case 'like':
@@ -429,6 +546,8 @@ export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => 
       return executeScan(task);
     case 'scan-profile-followers':
       return executeFollowScan(task);
+    case 'scan-home-feed':
+      return executeHomeScan(task);
     case 'comment':
       return executeComment(task);
     case 'follow':

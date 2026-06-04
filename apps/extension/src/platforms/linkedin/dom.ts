@@ -84,6 +84,62 @@ export const collectPostsFromFeed = (max = 15): ScannedPost[] => {
   return out;
 };
 
+const parseInHandle = (href: string): string | null => {
+  const m = href.match(/\/in\/([^/?#]+)/);
+  return m?.[1] ?? null;
+};
+
+/** Collect feed posts with body text + author profile URL for the home autopilot. */
+const collectHomePosts = (max: number): ScannedPost[] => {
+  const articles = Array.from(document.querySelectorAll<HTMLElement>(S.postArticle));
+  const out: ScannedPost[] = [];
+  const seen = new Set<string>();
+  for (const article of articles) {
+    if (out.length >= max) break;
+    const id = extractActivityId(article.getAttribute('data-urn'));
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+
+    const link = article.querySelector<HTMLAnchorElement>(S.permalink);
+    const href = link?.getAttribute('href') ?? `/feed/update/urn:li:activity:${id}/`;
+
+    let publishedAt: string | null = null;
+    const timeEl = article.querySelector<HTMLElement>(S.timeRelative);
+    const datetimeAttr = timeEl?.getAttribute('datetime');
+    if (datetimeAttr) publishedAt = datetimeAttr;
+    else if (timeEl?.textContent) publishedAt = parseRelativeTimeToISO(timeEl.textContent);
+
+    const text = article.querySelector<HTMLElement>(S.postBody)?.textContent ?? '';
+    const actorLink = article.querySelector<HTMLAnchorElement>('a[href*="/in/"]');
+    const actorHref = actorLink?.getAttribute('href') ?? '';
+    const handle = parseInHandle(actorHref);
+
+    out.push({
+      postUrl: absoluteUrl(href),
+      postId: id,
+      publishedAt,
+      authorHandle: handle,
+      text: text.trim(),
+      profileUrl: handle ? `https://www.linkedin.com/in/${handle}/` : null,
+    });
+  }
+  return out;
+};
+
+/** Scroll the LinkedIn home feed to load posts, then collect with text. */
+export const scanHomeFeed = async (max = 20): Promise<ScannedPost[]> => {
+  await waitFor(S.postArticle, 15_000);
+  const collected = new Map<string, ScannedPost>();
+  for (let i = 0; i < 5 && collected.size < max; i++) {
+    for (const p of collectHomePosts(max)) collected.set(p.postId, p);
+    window.scrollBy({ top: 2200, behavior: 'instant' as ScrollBehavior });
+    await sleep(1200);
+  }
+  window.scrollTo({ top: 0 });
+  await sleep(300);
+  return Array.from(collected.values()).slice(0, max);
+};
+
 export const scanProfile = async (max = 15): Promise<ScannedPost[]> => {
   await waitFor(S.postArticle, 15_000);
   for (let i = 0; i < 2; i++) {

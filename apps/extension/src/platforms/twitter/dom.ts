@@ -67,6 +67,51 @@ const parseAuthorHandleFromUrl = (href: string): string | null => {
   return m?.[1] ?? null;
 };
 
+/** Like collectPostsFromTimeline, but also grabs the post text + author URL —
+ *  used by the home-feed autopilot for relevance matching and follows. */
+const collectHomePosts = (max: number): ScannedPost[] => {
+  const articles = Array.from(document.querySelectorAll<HTMLElement>(S.postArticle));
+  const out: ScannedPost[] = [];
+  const seen = new Set<string>();
+  for (const article of articles) {
+    if (out.length >= max) break;
+    const time = article.querySelector<HTMLTimeElement>(S.timestamp);
+    const link =
+      time?.closest<HTMLAnchorElement>(S.permalink) ??
+      article.querySelector<HTMLAnchorElement>(S.permalink);
+    if (!link) continue;
+    const href = link.getAttribute('href') ?? '';
+    const id = extractStatusId(href);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const handle = parseAuthorHandleFromUrl(href);
+    const text = article.querySelector<HTMLElement>(S.postText)?.textContent ?? '';
+    out.push({
+      postUrl: absoluteUrl(href),
+      postId: id,
+      publishedAt: time?.getAttribute('datetime') ?? null,
+      authorHandle: handle,
+      text: text.trim(),
+      profileUrl: handle ? `https://x.com/${handle}` : null,
+    });
+  }
+  return out;
+};
+
+/** Scroll the home timeline several times to load a batch, then collect. */
+export const scanHomeFeed = async (max = 25): Promise<ScannedPost[]> => {
+  await waitFor(S.postArticle, 12_000);
+  const collected = new Map<string, ScannedPost>();
+  for (let i = 0; i < 5 && collected.size < max; i++) {
+    for (const p of collectHomePosts(max)) collected.set(p.postId, p);
+    window.scrollBy({ top: 2000, behavior: 'instant' as ScrollBehavior });
+    await sleep(1100);
+  }
+  window.scrollTo({ top: 0 });
+  await sleep(300);
+  return Array.from(collected.values()).slice(0, max);
+};
+
 /** Scroll a bit to coax Twitter into rendering more tweets, then collect. */
 export const scanProfile = async (max = 20): Promise<ScannedPost[]> => {
   // Wait for at least one article to render
