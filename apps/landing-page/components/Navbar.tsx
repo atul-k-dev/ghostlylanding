@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { GhostLogo } from './GhostLogo';
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -26,10 +27,7 @@ export default function Navbar() {
     >
       <nav className="relative z-10 mx-auto gap-4 sm:gap-10 lg:gap-28 flex w-full max-w-[1400px] items-center justify-between px-4 py-3 sm:px-6 sm:py-4 md:px-10">
         <a href="#" className="flex items-center gap-2">
-          {/* Prismo Logo */}
-          <div className="flex w-9 flex-wrap items-center justify-center gap-[1px]">
-            <img src="/logo.png" alt="logo" />
-          </div>
+          <GhostLogo className="h-11 w-11 text-2xl" />
           <span className="font-inter text-[20px] sm:text-[27px] font-semibold text-fg tracking-tight">
             CasperAI
           </span>

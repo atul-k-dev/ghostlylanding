@@ -12,6 +12,9 @@ const DEFAULT_LOAD_TIMEOUT_MS = 25_000;
 const POST_LOAD_SETTLE_MS = 2_500;
 const CONTENT_SCRIPT_RETRY_MS = 1_500;
 const CONTENT_SCRIPT_MAX_ATTEMPTS = 4;
+/** In visible mode, pause after the action so the user can see the result
+ *  (filled heart / posted reply / "Following") before the tab closes. */
+const VISIBLE_LINGER_MS = 1_400;
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -75,7 +78,9 @@ export const driveTab = async (
   try {
     await waitForLoad(tabId, options.loadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS);
     await sleep(options.settleMs ?? POST_LOAD_SETTLE_MS);
-    return await sendWithRetry(tabId, message);
+    const resp = await sendWithRetry(tabId, message);
+    if (visibleMode !== false) await sleep(VISIBLE_LINGER_MS);
+    return resp;
   } finally {
     try {
       await chrome.tabs.remove(tabId);

@@ -48,7 +48,7 @@ export class ErrorBoundary extends React.Component<
   render(): React.ReactNode {
     if (!this.state.error) return this.props.children;
     return (
-      <main className="w-[360px] min-h-[480px] bg-casper-cloud p-6 text-casper-ink">
+      <main className="casper-app w-[480px] min-h-[300px] p-6 text-casper-ink">
         <div className="mb-5 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-500 text-white text-xl">
             👻
@@ -61,7 +61,7 @@ export class ErrorBoundary extends React.Component<
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <div className="rounded-2xl border border-casper-border bg-casper-surface p-4">
           <p className="mb-3 text-xs text-casper-ink/70">
             We logged the error in Diagnostics. Try resetting the view; if that doesn't help,
             reload the extension.
@@ -80,7 +80,7 @@ export class ErrorBoundary extends React.Component<
             <button
               type="button"
               onClick={this.reload}
-              className="rounded-xl border border-casper-ink/10 px-3 py-2 text-xs text-casper-ink/70 transition hover:bg-casper-cloud"
+              className="rounded-xl border border-casper-ink/10 px-3 py-2 text-xs text-casper-ink/70 transition hover:bg-white/5"
             >
               Reload extension
             </button>

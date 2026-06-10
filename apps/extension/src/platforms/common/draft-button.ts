@@ -41,8 +41,8 @@ const setButtonState = (
 ): void => {
   btn.dataset.state = state;
   const map: Record<ButtonState, { label: string; color: string }> = {
-    idle: { label: '✨ Draft', color: '#7c5cff' },
-    drafting: { label: 'Drafting…', color: '#7c5cff' },
+    idle: { label: '✨ Draft', color: '#f44d60' },
+    drafting: { label: 'Drafting…', color: '#f44d60' },
     drafted: { label: '✓ Added to queue', color: '#10b981' },
     error: { label: message ? `✗ ${message.slice(0, 40)}` : '✗ Error', color: '#ef4444' },
   };
@@ -65,7 +65,7 @@ const createButton = (
     'padding:2px 10px',
     'font:600 11px system-ui,-apple-system,sans-serif',
     'background:transparent',
-    'border:1px solid #7c5cff',
+    'border:1px solid #f44d60',
     'border-radius:9999px',
     'cursor:pointer',
     'line-height:1.4',
@@ -75,7 +75,7 @@ const createButton = (
   setButtonState(btn, 'idle');
 
   btn.addEventListener('mouseenter', () => {
-    if (btn.dataset.state === 'idle') btn.style.background = 'rgba(124,92,255,0.08)';
+    if (btn.dataset.state === 'idle') btn.style.background = 'rgba(244,77,96,0.10)';
   });
   btn.addEventListener('mouseleave', () => {
     btn.style.background = 'transparent';

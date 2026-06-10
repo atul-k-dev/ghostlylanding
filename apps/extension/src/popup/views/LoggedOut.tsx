@@ -8,6 +8,10 @@ type Status = 'idle' | 'submitting' | 'googling';
 const isValidEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const GOOGLE_CONFIGURED = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
+const inputCls =
+  'w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-3 py-1.5 text-sm text-casper-ink placeholder-casper-ink/30 focus:border-casper-violet focus:outline-none focus:ring-2 focus:ring-casper-violet/20';
+const labelCls = 'mb-0.5 block text-[11px] font-medium text-casper-ink/70';
+
 export const LoggedOut = () => {
   const [mode, setMode] = useState<Mode>('login');
   const [view, setView] = useState<'auth' | 'forgot'>('auth');
@@ -81,160 +85,169 @@ export const LoggedOut = () => {
   const busy = status !== 'idle';
 
   return (
-    <div className="flex flex-col p-6 min-h-[480px]">
-      <header className="mb-5 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-casper-violet text-white text-xl">
-          👻
-        </div>
+    <div className="flex min-h-[300px] w-full">
+      {/* LEFT — brand panel */}
+      <aside className="flex w-[150px] flex-none flex-col justify-between border-r border-casper-border bg-casper-violet/5 p-4">
         <div>
-          <h1 className="text-lg font-semibold">Welcome to Casper</h1>
-          <p className="text-xs text-casper-ink/60">
-            {mode === 'login' ? 'Sign in to your account.' : 'Create your free account.'}
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-casper-violet text-xl text-white">
+            👻
+          </div>
+          <h1 className="text-base font-semibold leading-tight">
+            {mode === 'login' ? 'Welcome to Casper' : 'Create your account'}
+          </h1>
+          <p className="mt-1 text-[11px] leading-relaxed text-casper-ink/60">
+            {mode === 'login'
+              ? 'Sign in to pick up where you left off.'
+              : 'Free to start — no card needed.'}
           </p>
         </div>
-      </header>
+        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+          v0.0.1 · safe by default
+        </p>
+      </aside>
 
-      {/* Mode tabs */}
-      <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-casper-ink/5 p-1">
-        {(['login', 'signup'] as Mode[]).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => {
-              if (!busy) {
-                setMode(m);
-                setError(null);
-              }
-            }}
-            disabled={busy}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-              mode === m
-                ? 'bg-white text-casper-ink shadow-sm'
-                : 'text-casper-ink/60 hover:text-casper-ink'
-            }`}
-          >
-            {m === 'login' ? 'Sign in' : 'Sign up'}
-          </button>
-        ))}
-      </div>
+      {/* RIGHT — auth controls */}
+      <div className="flex flex-1 flex-col p-4">
+        {/* Mode tabs */}
+        <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-casper-ink/5 p-1">
+          {(['login', 'signup'] as Mode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => {
+                if (!busy) {
+                  setMode(m);
+                  setError(null);
+                }
+              }}
+              disabled={busy}
+              className={`rounded-lg px-3 py-1 text-[11px] font-medium transition ${
+                mode === m
+                  ? 'bg-white/10 text-casper-ink'
+                  : 'text-casper-ink/60 hover:text-casper-ink'
+              }`}
+            >
+              {m === 'login' ? 'Sign in' : 'Sign up'}
+            </button>
+          ))}
+        </div>
 
-      <form onSubmit={submit} className="rounded-2xl bg-white p-5 shadow-sm">
-        {mode === 'signup' && (
-          <>
-            <label htmlFor="name" className="mb-1 block text-xs font-medium text-casper-ink/70">
-              Name
+        <form onSubmit={submit} className="flex flex-col gap-2">
+          {mode === 'signup' && (
+            <div>
+              <label htmlFor="name" className={labelCls}>
+                Name
+              </label>
+              <input
+                id="name"
+                type="text"
+                autoComplete="name"
+                required
+                disabled={busy}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                className={inputCls}
+              />
+            </div>
+          )}
+          <div>
+            <label htmlFor="email" className={labelCls}>
+              Email
             </label>
             <input
-              id="name"
-              type="text"
-              autoComplete="name"
+              id="email"
+              type="email"
+              autoComplete={mode === 'signup' ? 'email' : 'username'}
               required
               disabled={busy}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              className="mb-3 w-full rounded-xl border border-casper-ink/10 bg-casper-cloud px-3 py-2 text-sm text-casper-ink placeholder-casper-ink/30 focus:border-casper-violet focus:outline-none focus:ring-2 focus:ring-casper-violet/20"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className={inputCls}
             />
-          </>
-        )}
-        <label htmlFor="email" className="mb-1 block text-xs font-medium text-casper-ink/70">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          autoComplete={mode === 'signup' ? 'email' : 'username'}
-          required
-          disabled={busy}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          className="mb-3 w-full rounded-xl border border-casper-ink/10 bg-casper-cloud px-3 py-2 text-sm text-casper-ink placeholder-casper-ink/30 focus:border-casper-violet focus:outline-none focus:ring-2 focus:ring-casper-violet/20"
-        />
-        <label htmlFor="password" className="mb-1 block text-xs font-medium text-casper-ink/70">
-          Password
-        </label>
-        <div className="relative mb-3">
-          <input
-            id="password"
-            type={showPassword ? 'text' : 'password'}
-            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-            required
-            minLength={8}
-            disabled={busy}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'}
-            className="w-full rounded-xl border border-casper-ink/10 bg-casper-cloud px-3 py-2 pr-10 text-sm text-casper-ink placeholder-casper-ink/30 focus:border-casper-violet focus:outline-none focus:ring-2 focus:ring-casper-violet/20"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            disabled={busy}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-            aria-pressed={showPassword}
-            tabIndex={-1}
-            className="absolute inset-y-0 right-0 flex items-center px-3 text-casper-ink/40 transition hover:text-casper-ink/70 disabled:opacity-50"
-          >
-            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-          </button>
-        </div>
-        {mode === 'login' && (
-          <div className="-mt-1 mb-3 text-right">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setError(null);
-                setView('forgot');
-              }}
-              className="text-[11px] text-casper-violet hover:underline disabled:opacity-50"
-            >
-              Forgot password?
-            </button>
           </div>
-        )}
+          <div>
+            <label htmlFor="password" className={labelCls}>
+              Password
+            </label>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                required
+                minLength={8}
+                disabled={busy}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'}
+                className={`${inputCls} pr-10`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                disabled={busy}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                tabIndex={-1}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-casper-ink/40 transition hover:text-casper-ink/70 disabled:opacity-50"
+              >
+                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            </div>
+          </div>
+          {mode === 'login' && (
+            <div className="-mt-1 text-right">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setError(null);
+                  setView('forgot');
+                }}
+                className="text-[11px] text-casper-violet hover:underline disabled:opacity-50"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full rounded-lg bg-casper-violet px-3 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+          >
+            {status === 'submitting'
+              ? mode === 'signup'
+                ? 'Creating account…'
+                : 'Signing in…'
+              : mode === 'signup'
+                ? 'Create account'
+                : 'Sign in'}
+          </button>
+          {error && <p className="text-xs text-rose-400">✗ {error}</p>}
+        </form>
+
+        {/* OR divider */}
+        <div className="my-2 flex items-center gap-3">
+          <div className="h-px flex-1 bg-casper-ink/10" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+            or
+          </span>
+          <div className="h-px flex-1 bg-casper-ink/10" />
+        </div>
+
         <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-xl bg-casper-violet px-3 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+          type="button"
+          onClick={continueWithGoogle}
+          disabled={busy || !GOOGLE_CONFIGURED}
+          title={!GOOGLE_CONFIGURED ? 'VITE_GOOGLE_CLIENT_ID is not set' : undefined}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-casper-ink/10 bg-casper-surface px-3 py-2 text-sm font-medium text-casper-ink transition hover:bg-white/5 disabled:opacity-50"
         >
-          {status === 'submitting'
-            ? mode === 'signup'
-              ? 'Creating account…'
-              : 'Signing in…'
-            : mode === 'signup'
-              ? 'Create account'
-              : 'Sign in'}
+          <GoogleIcon />
+          {status === 'googling' ? 'Opening Google…' : 'Continue with Google'}
         </button>
-        {error && <p className="mt-3 text-xs text-rose-600">✗ {error}</p>}
-      </form>
-
-      {/* OR divider */}
-      <div className="my-4 flex items-center gap-3">
-        <div className="h-px flex-1 bg-casper-ink/10" />
-        <span className="text-[10px] uppercase tracking-wider text-casper-ink/40">or</span>
-        <div className="h-px flex-1 bg-casper-ink/10" />
       </div>
-
-      <button
-        type="button"
-        onClick={continueWithGoogle}
-        disabled={busy || !GOOGLE_CONFIGURED}
-        title={!GOOGLE_CONFIGURED ? 'VITE_GOOGLE_CLIENT_ID is not set' : undefined}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-casper-ink/10 bg-white px-3 py-2 text-sm font-medium text-casper-ink transition hover:bg-casper-cloud disabled:opacity-50"
-      >
-        <GoogleIcon />
-        {status === 'googling' ? 'Opening Google…' : 'Continue with Google'}
-      </button>
-
-      <p className="mt-4 text-center text-[10px] leading-relaxed text-casper-ink/40">
-        By continuing you agree to Casper’s terms. We never post without your say-so.
-      </p>
-
-      <footer className="mt-auto pt-4 text-center text-[10px] text-casper-ink/40">
-        v0.0.1 · safe by default
-      </footer>
     </div>
   );
 };

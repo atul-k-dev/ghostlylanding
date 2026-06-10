@@ -125,8 +125,8 @@ const Header = ({
         onClick={onTogglePause}
         className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
           isPaused
-            ? 'bg-rose-100 text-rose-600 hover:bg-rose-200'
-            : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+            ? 'bg-rose-500/15 text-rose-300 hover:bg-rose-500/25'
+            : 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
         }`}
         aria-pressed={isPaused}
       >
@@ -164,8 +164,8 @@ const Tabs = ({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) => {
 };
 
 const Counter = ({ label, value, max }: { label: string; value: number; max: number }) => (
-  <div className="rounded-xl bg-white p-3 shadow-sm">
-    <p className="text-[10px] uppercase tracking-wide text-casper-ink/40">{label}</p>
+  <div className="rounded-xl bg-casper-surface p-3 border border-casper-border">
+    <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">{label}</p>
     <p className="mt-1 text-lg font-semibold">
       {value}
       <span className="text-xs font-normal text-casper-ink/40">/{max}</span>
@@ -180,7 +180,7 @@ const PlatformCounters = ({
   platform: Platform;
   counter: DailyCounter | null;
 }) => (
-  <div className="rounded-2xl bg-white p-3 shadow-sm">
+  <div className="rounded-2xl bg-casper-surface p-3 border border-casper-border">
     <div className="mb-2 flex items-center justify-between">
       <p className="text-xs font-semibold capitalize">{platform}</p>
       {counter && (
@@ -287,9 +287,9 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
         )}
       </div>
       {!hasTargets && (
-        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs">
-          <p className="font-medium text-amber-700">Add your first creator to begin 👋</p>
-          <p className="text-amber-700/80">
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+          <p className="font-medium text-amber-200">Add your first creator to begin 👋</p>
+          <p className="text-amber-200/70">
             Open <strong>Settings</strong> and add a Twitter or LinkedIn handle. Casper visits
             their profile, likes recent posts, and finds new accounts to follow — all on the
             schedule you set.
@@ -377,7 +377,7 @@ const QueueTab = () => {
   return (
     <div className="space-y-3">
       {error && (
-        <div className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</div>
+        <div className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{error}</div>
       )}
       {drafts.length === 0 ? (
         <div className="flex h-[280px] flex-col items-center justify-center text-center text-xs text-casper-ink/50">
@@ -391,7 +391,7 @@ const QueueTab = () => {
         </div>
       ) : (
         drafts.map((d) => (
-          <div key={d.id} className="rounded-2xl bg-white p-3 text-xs shadow-sm">
+          <div key={d.id} className="rounded-2xl bg-casper-surface p-3 text-xs border border-casper-border">
             <div className="mb-2 flex items-center justify-between text-[10px] text-casper-ink/40">
               <span className="capitalize">{d.platform} · {d.tone}</span>
               <a
@@ -419,7 +419,7 @@ const QueueTab = () => {
                 type="button"
                 onClick={() => reject(d)}
                 disabled={busyId === d.id}
-                className="rounded-lg border border-casper-ink/10 px-3 py-1.5 text-[11px] text-casper-ink/60 transition hover:bg-casper-cloud disabled:opacity-50"
+                className="rounded-lg border border-casper-ink/10 px-3 py-1.5 text-[11px] text-casper-ink/60 transition hover:bg-white/5 disabled:opacity-50"
               >
                 Skip
               </button>
@@ -452,7 +452,7 @@ const NumberField = ({
       min={min}
       max={max}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-sm focus:border-casper-violet focus:outline-none"
+      className="w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-sm focus:border-casper-violet focus:outline-none"
     />
   </label>
 );
@@ -538,7 +538,7 @@ const SettingsTab = ({
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 settings.sessionMinutes === m
                   ? 'bg-casper-violet text-white'
-                  : 'border border-casper-ink/10 text-casper-ink/70 hover:bg-white'
+                  : 'border border-casper-ink/10 text-casper-ink/70 hover:bg-white/5'
               }`}
             >
               {m < 60 ? `${m} min` : `${m / 60} hr`}
@@ -559,7 +559,7 @@ const SettingsTab = ({
             aria-pressed={settings.visibleMode}
             className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
               settings.visibleMode
-                ? 'bg-emerald-100 text-emerald-700'
+                ? 'bg-emerald-500/15 text-emerald-300'
                 : 'bg-casper-ink/10 text-casper-ink/60'
             }`}
           >
@@ -575,7 +575,7 @@ const SettingsTab = ({
         <select
           value={settings.tone}
           onChange={(e) => onChange({ ...settings, tone: e.target.value as TonePreset })}
-          className="w-full rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-sm capitalize focus:border-casper-violet focus:outline-none"
+          className="w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-sm capitalize focus:border-casper-violet focus:outline-none"
         >
           {TONE_PRESETS.map((t) => (
             <option key={t} value={t}>
@@ -635,7 +635,7 @@ const SettingsTab = ({
       >
         {confirmDelete ? (
           <div className="space-y-2">
-            <p className="text-[11px] text-rose-700">
+            <p className="text-[11px] text-rose-300">
               This permanently deletes your account and all data. Type-safe — no undo.
             </p>
             <div className="flex gap-2">
@@ -651,20 +651,20 @@ const SettingsTab = ({
                 type="button"
                 disabled={deleteBusy}
                 onClick={() => setConfirmDelete(false)}
-                className="rounded-xl border border-casper-ink/10 px-3 py-2 text-[11px] text-casper-ink/70 transition hover:bg-white disabled:opacity-50"
+                className="rounded-xl border border-casper-ink/10 px-3 py-2 text-[11px] text-casper-ink/70 transition hover:bg-white/5 disabled:opacity-50"
               >
                 Cancel
               </button>
             </div>
             {deleteError && (
-              <p className="text-[10px] text-rose-600">✗ {deleteError}</p>
+              <p className="text-[10px] text-rose-400">✗ {deleteError}</p>
             )}
           </div>
         ) : (
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="w-full rounded-xl border border-rose-200 px-3 py-2 text-[11px] text-rose-600 transition hover:bg-rose-50"
+            className="w-full rounded-xl border border-rose-500/30 px-3 py-2 text-[11px] text-rose-300 transition hover:bg-rose-500/10"
           >
             Delete my account
           </button>
@@ -674,7 +674,7 @@ const SettingsTab = ({
       <button
         type="button"
         onClick={onLogout}
-        className="w-full rounded-xl border border-casper-ink/10 px-3 py-2 text-casper-ink/70 transition hover:bg-white"
+        className="w-full rounded-xl border border-casper-ink/10 px-3 py-2 text-casper-ink/70 transition hover:bg-white/5"
       >
         Sign out
       </button>
@@ -716,7 +716,7 @@ const ActivityTab = () => {
   return (
     <div className="space-y-2">
       {error && (
-        <div className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</div>
+        <div className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{error}</div>
       )}
       {entries.length === 0 ? (
         <div className="flex h-[280px] flex-col items-center justify-center text-center text-xs text-casper-ink/50">
@@ -735,11 +735,11 @@ const ActivityTab = () => {
             href={e.targetUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-start gap-2 rounded-xl bg-white p-2.5 text-[11px] shadow-sm transition hover:bg-casper-cloud"
+            className="flex items-start gap-2 rounded-xl bg-casper-surface p-2.5 text-[11px] border border-casper-border transition hover:bg-white/5"
           >
             <span
               className={`mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-[10px] ${
-                e.success ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'
+                e.success ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'
               }`}
               aria-hidden
             >
@@ -865,9 +865,9 @@ const PlanSection = () => {
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
             pro
-              ? 'bg-emerald-100 text-emerald-700'
+              ? 'bg-emerald-500/15 text-emerald-300'
               : status === 'past_due'
-                ? 'bg-amber-100 text-amber-700'
+                ? 'bg-amber-500/15 text-amber-300'
                 : 'bg-casper-ink/10 text-casper-ink/60'
           }`}
         >
@@ -892,7 +892,7 @@ const PlanSection = () => {
             />
           </div>
           {exhausted && (
-            <p className="mt-2 text-[10px] text-rose-600">
+            <p className="mt-2 text-[10px] text-rose-400">
               You've used all {lifetimeCap} free actions. Upgrade to keep going.
             </p>
           )}
@@ -904,7 +904,7 @@ const PlanSection = () => {
           type="button"
           onClick={manage}
           disabled={busy === 'portal'}
-          className="w-full rounded-xl border border-casper-ink/10 px-3 py-2 text-[11px] text-casper-ink/80 transition hover:bg-white disabled:opacity-50"
+          className="w-full rounded-xl border border-casper-ink/10 px-3 py-2 text-[11px] text-casper-ink/80 transition hover:bg-white/5 disabled:opacity-50"
         >
           {busy === 'portal' ? 'Opening…' : 'Manage subscription'}
         </button>
@@ -919,7 +919,7 @@ const PlanSection = () => {
           />
         </div>
       )}
-      {error && <p className="mt-2 text-[10px] text-rose-600">✗ {error}</p>}
+      {error && <p className="mt-2 text-[10px] text-rose-400">✗ {error}</p>}
     </Section>
   );
 };
@@ -944,7 +944,7 @@ const UpgradeButton = ({
     className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-[11px] transition disabled:opacity-50 ${
       highlight
         ? 'bg-casper-violet text-white hover:opacity-90'
-        : 'border border-casper-ink/10 text-casper-ink/80 hover:bg-white'
+        : 'border border-casper-ink/10 text-casper-ink/80 hover:bg-white/5'
     }`}
   >
     <span className="text-left">
@@ -1034,7 +1034,7 @@ const Section = ({
   subtitle?: string;
   children: React.ReactNode;
 }) => (
-  <div className="rounded-xl bg-white p-3 shadow-sm">
+  <div className="rounded-xl bg-casper-surface p-3 border border-casper-border">
     <p className="font-medium text-casper-ink">{title}</p>
     {subtitle && <p className="mb-2 text-[10px] text-casper-ink/50">{subtitle}</p>}
     {children}
@@ -1087,7 +1087,7 @@ const WhitelistSection = ({
         <select
           value={platform}
           onChange={(e) => setPlatform(e.target.value as Platform)}
-          className="rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-xs"
+          className="rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs"
         >
           {PLATFORMS.map((p) => (
             <option key={p} value={p}>
@@ -1103,7 +1103,7 @@ const WhitelistSection = ({
             if (e.key === 'Enter') add();
           }}
           placeholder="@handle"
-          className="flex-1 rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+          className="flex-1 rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
         />
         <button
           type="button"
@@ -1131,7 +1131,7 @@ const WhitelistSection = ({
                 type="button"
                 onClick={() => remove(w)}
                 aria-label="Remove"
-                className="rounded px-2 py-0.5 text-[10px] text-rose-500 hover:bg-rose-50"
+                className="rounded px-2 py-0.5 text-[10px] text-rose-400 hover:bg-rose-500/10"
               >
                 ×
               </button>
@@ -1215,7 +1215,7 @@ const HomeFeedSection = ({
           aria-pressed={hf.enabled}
           className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
             hf.enabled
-              ? 'bg-emerald-100 text-emerald-700'
+              ? 'bg-emerald-500/15 text-emerald-300'
               : 'bg-casper-ink/10 text-casper-ink/60'
           }`}
         >
@@ -1226,7 +1226,7 @@ const HomeFeedSection = ({
       {hf.enabled && (
         <div className="mt-3 space-y-3">
           <div>
-            <p className="mb-1.5 text-[10px] uppercase tracking-wide text-casper-ink/40">
+            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
               Platforms
             </p>
             <div className="flex gap-4">
@@ -1244,7 +1244,7 @@ const HomeFeedSection = ({
           </div>
 
           <div>
-            <p className="mb-1.5 text-[10px] uppercase tracking-wide text-casper-ink/40">
+            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
               Actions
             </p>
             <div className="flex gap-4">
@@ -1277,7 +1277,7 @@ const HomeFeedSection = ({
           </div>
 
           <div>
-            <p className="mb-1.5 text-[10px] uppercase tracking-wide text-casper-ink/40">
+            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
               Relevance keywords
             </p>
             <input
@@ -1289,7 +1289,7 @@ const HomeFeedSection = ({
                 if (e.key === 'Enter') commitKeywords();
               }}
               placeholder="design, startups, ai (comma-separated)"
-              className="w-full rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+              className="w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
             />
             <p className="mt-1 text-[10px] text-casper-ink/40">
               Leave blank to engage with everything in your feed.
@@ -1390,7 +1390,7 @@ const TargetsSection = ({
         <select
           value={platform}
           onChange={(e) => setPlatform(e.target.value as Platform)}
-          className="rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-xs"
+          className="rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs"
         >
           {PLATFORMS.map((p) => (
             <option key={p} value={p}>
@@ -1406,7 +1406,7 @@ const TargetsSection = ({
             if (e.key === 'Enter') add();
           }}
           placeholder="@handle"
-          className="flex-1 rounded-lg border border-casper-ink/10 bg-white px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+          className="flex-1 rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
         />
         <button
           type="button"
@@ -1451,7 +1451,7 @@ const TargetsSection = ({
                   type="button"
                   onClick={() => remove(t)}
                   aria-label="Remove"
-                  className="rounded px-2 py-0.5 text-[10px] text-rose-500 hover:bg-rose-50"
+                  className="rounded px-2 py-0.5 text-[10px] text-rose-400 hover:bg-rose-500/10"
                 >
                   ×
                 </button>

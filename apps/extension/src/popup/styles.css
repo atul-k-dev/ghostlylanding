@@ -1,17 +1,88 @@
 @import 'tailwindcss';
 
+/*
+ * Casper popup theme — mirrors the landing page (apps/landing-page):
+ * near-black canvas, ghost-white text, coral accent, thin hairline borders.
+ */
 @theme {
-  --color-casper-violet: #7c5cff;
-  --color-casper-cloud: #f6f5ff;
-  --color-casper-ink: #1a1a2e;
+  /* Brand accent — landing coral. */
+  --color-casper-coral: #f44d60;
+  --color-casper-coral-bright: #ff6467;
+
+  /* Dark surface system (matches the landing page's .dark tokens). */
+  --color-casper-bg: #0e0e0e; /* page canvas */
+  --color-casper-surface: #1b1b1b; /* cards */
+  --color-casper-surface-2: #161616; /* insets / hovers */
+  --color-casper-border: #2e2e2e; /* hairlines */
+  --color-casper-fg: #f4f4f5; /* primary text */
+  --color-casper-muted: #a1a1aa; /* secondary text */
+
+  /*
+   * Back-compat aliases — existing components reference these three tokens
+   * everywhere, so remapping them flips the whole popup to the dark theme:
+   *   violet (was #7c5cff purple) → coral accent
+   *   cloud  (was #f6f5ff pale)   → dark canvas / input insets
+   *   ink    (was #1a1a2e navy)   → light text (incl. /opacity tints + borders)
+   */
+  --color-casper-violet: #f44d60;
+  --color-casper-cloud: #0e0e0e;
+  --color-casper-ink: #f4f4f5;
+}
+
+:root {
+  /* Render native controls (selects, scrollbars, number spinners) dark. */
+  color-scheme: dark;
 }
 
 html,
 body {
+  background-color: var(--color-casper-bg);
+  color: var(--color-casper-fg);
   font-family:
+    'Inter',
     ui-sans-serif,
     system-ui,
     -apple-system,
+    BlinkMacSystemFont,
     'Segoe UI',
+    Roboto,
     sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Popup canvas — solid near-black with a faint top coral glow and a subtle
+ * dot grid, echoing the landing page's hero (bg-hero / pattern-dots). Cards
+ * are opaque, so the texture only reads through the gaps between them.
+ */
+.casper-app {
+  background-color: var(--color-casper-bg);
+  background-image:
+    radial-gradient(ellipse 70% 24% at 50% 0%, rgba(244, 77, 96, 0.1), transparent 72%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1.4px);
+  background-size:
+    100% 100%,
+    22px 22px;
+  background-repeat: no-repeat, repeat;
+}
+
+::selection {
+  background: var(--color-casper-coral);
+  color: #0e0e0e;
+}
+
+/* Slim dark scrollbar for the scrolling tab content. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }

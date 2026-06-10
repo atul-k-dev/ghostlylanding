@@ -44,9 +44,9 @@ export const Popup = () => {
   }, []);
 
   return (
-    <main className="w-[360px] min-h-[480px] bg-casper-cloud text-casper-ink">
+    <main className="casper-app w-[480px] text-casper-ink">
       {state.kind === 'loading' && (
-        <div className="flex h-[480px] items-center justify-center text-sm text-casper-ink/60">
+        <div className="flex h-[300px] items-center justify-center text-sm text-casper-ink/60">
           <span>Loading…</span>
         </div>
       )}

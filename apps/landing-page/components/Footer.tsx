@@ -1,4 +1,5 @@
 import React from "react";
+import { GhostLogo } from "./GhostLogo";
 
 const SanjayaLogo = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -36,7 +37,7 @@ export function Footer() {
         <div className="flex flex-col w-full md:w-1/2 md:pr-10">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
-            
+            <GhostLogo className="h-9 w-9 text-xl" />
             <span className="text-[26px] font-medium tracking-tight">CasperAI</span>
           </div>
 
@@ -45,13 +46,9 @@ export function Footer() {
             Get your nights <br /> back to work.
           </h2>
 
-          {/* Abstract Image */}
-          <div className="w-full max-w-[220px] mt-4 relative hidden sm:flex">
-            <img 
-              src="/logo.png" 
-              alt="Casper AI" 
-              className="w-42 h-auto object-cover opacity-80  rounded-lg"
-            />
+          {/* Brand badge */}
+          <div className="mt-4 hidden sm:flex">
+            <GhostLogo className="h-32 w-32 text-7xl" />
           </div>
         </div>
 
