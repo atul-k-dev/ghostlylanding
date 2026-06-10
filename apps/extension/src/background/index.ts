@@ -5,11 +5,10 @@
 import type {
   ApiResponse,
   User,
-  ActionType,
   Platform,
   TonePreset,
 } from '@casper/shared';
-import { ACTION_TYPES, PLATFORMS, TONE_PRESETS } from '@casper/shared';
+import { PLATFORMS, TONE_PRESETS } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
 import {
   getAuth,
@@ -22,7 +21,10 @@ import { fetchGoogleIdToken } from './google-signin.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog } from '../scheduler/action-log.js';
 import { ensureToday } from '../scheduler/counters.js';
-import { getSettings, getTargetState, setTargetState } from '../lib/storage.js';
+import { getSettings, getTargetState, setTargetState, setQueue } from '../lib/storage.js';
+
+const BUILD_STAMP = 'casper-build-2026-06-05-homefeed-v2';
+console.log(`[casper] service worker booted — ${BUILD_STAMP}`);
 
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('[casper] installed', details.reason);
@@ -56,7 +58,7 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   RESET_PASSWORD: handleResetPassword as AsyncHandler<unknown, unknown>,
   LOGOUT: handleLogout as AsyncHandler<unknown, unknown>,
   PING: handlePing as AsyncHandler<unknown, unknown>,
-  DEV_ENQUEUE_STUB_TASKS: handleEnqueueStub as AsyncHandler<unknown, unknown>,
+  CLEAR_QUEUE: handleClearQueue as AsyncHandler<unknown, unknown>,
   FLUSH_ACTION_BUFFER: handleFlush as AsyncHandler<unknown, unknown>,
   GET_QUEUE_STATS: handleQueueStats as AsyncHandler<unknown, unknown>,
   ENSURE_COUNTERS: handleEnsureCounters as AsyncHandler<unknown, unknown>,
@@ -236,22 +238,10 @@ async function handlePing() {
   return { type: 'PONG', payload: { apiOk, timestamp: new Date().toISOString() } };
 }
 
-async function handleEnqueueStub(payload: unknown) {
-  const { count = 10 } = (payload ?? {}) as { count?: number };
-  const safeCount = Math.max(1, Math.min(50, Math.floor(count)));
-  const platforms: Platform[] = [...PLATFORMS];
-  const actions: ActionType[] = [...ACTION_TYPES];
-  const enqueued: string[] = [];
-  for (let i = 0; i < safeCount; i++) {
-    const platform = platforms[i % platforms.length]!;
-    const action = actions[i % actions.length]!;
-    const task = await enqueue(platform, action, {
-      targetHandle: `@stub_user_${i}`,
-      seed: i,
-    });
-    enqueued.push(task.id);
-  }
-  return { ok: true, data: { enqueued: enqueued.length } };
+async function handleClearQueue() {
+  const before = await queueStats();
+  await setQueue([]);
+  return { ok: true, data: { cleared: before.pending + before.running } };
 }
 
 async function handleFlush() {

@@ -42,6 +42,8 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   tone: 'friendly',
   // Auto-pause after an hour of activity to protect the account.
   sessionMinutes: 60,
+  // Show the work happening (foreground tabs) by default.
+  visibleMode: true,
   activeHours: { startHour: 9, endHour: 22 },
   accountAgeMonths: { twitter: null, linkedin: null },
   targetCreators: [],
@@ -55,6 +57,7 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
     platforms: ['twitter', 'linkedin'],
     like: true,
     comment: false,
+    autoPostComments: true,
     follow: false,
     keywords: [],
   },

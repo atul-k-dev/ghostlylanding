@@ -35,6 +35,7 @@ import {
   pruneFinished,
   hasRunningTask,
   reviveRunningTasks,
+  purgeStaleTasks,
   enqueue,
   stats as queueStats,
 } from './queue.js';
@@ -53,6 +54,9 @@ const HOME_RESCAN_INTERVAL_MS = 2 * 60 * 60 * 1000;
 const REFILL_PENDING_THRESHOLD = 5;
 
 export const installScheduler = async (): Promise<void> => {
+  // Clear out dev stub tasks / stale history so they can't block real work.
+  const purged = await purgeStaleTasks();
+  if (purged > 0) console.log(`[casper] purged ${purged} stale/stub tasks on startup`);
   // Repair any 'running' tasks left over from a dropped service worker
   await reviveRunningTasks();
   const existing = await chrome.alarms.get(SCHEDULER_ALARM);
@@ -72,12 +76,14 @@ export const handleTick = async (): Promise<void> => {
 
     // Paused → engine idle. Clear any running session timer.
     if (settings.isPaused) {
+      console.log('[casper] tick: PAUSED — toggle the Active pill to start');
       if (schedState.activeSince !== null) {
         await setSchedulerState({ ...schedState, activeSince: null });
       }
       await maybeFlush();
       return;
     }
+    console.log('[casper] tick: active');
 
     // Active → start the session clock on the first tick after arming.
     if (schedState.activeSince === null) {
@@ -107,6 +113,8 @@ export const handleTick = async (): Promise<void> => {
 
     const state = await getSchedulerState();
     if (Date.now() < state.nextEligibleAt) {
+      const waitS = Math.ceil((state.nextEligibleAt - Date.now()) / 1000);
+      console.log(`[casper] tick: cooling down, next action in ~${waitS}s`);
       await maybeFlush();
       return;
     }
@@ -116,9 +124,11 @@ export const handleTick = async (): Promise<void> => {
 
     const task = await peekNextPending();
     if (!task) {
+      console.log('[casper] tick: nothing queued (add targets or enable home feed)');
       await maybeFlush();
       return;
     }
+    console.log(`[casper] tick: executing ${task.taskType} on ${task.platform}`, task.payload);
 
     if (task.kind === 'action') {
       // Free-tier gate
@@ -175,6 +185,7 @@ export const handleTick = async (): Promise<void> => {
     try {
       result = await executeTask(task);
     } catch (err) {
+      console.error(`[casper] ${task.taskType} threw:`, err);
       await updateTask(task.id, {
         status: 'failed',
         lastError: err instanceof Error ? err.message : String(err),
@@ -183,6 +194,11 @@ export const handleTick = async (): Promise<void> => {
       return;
     }
 
+    console.log(
+      `[casper] ${task.taskType} → ${result.success ? 'OK' : 'FAIL'}${
+        result.errorMessage ? ` (${result.errorMessage})` : ''
+      }`,
+    );
     await updateTask(task.id, {
       status: result.success ? 'completed' : 'failed',
       ...(result.errorMessage ? { lastError: result.errorMessage } : {}),

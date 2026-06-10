@@ -34,8 +34,13 @@ export interface HomeFeedSettings {
   platforms: Platform[];
   /** Like matching posts. */
   like: boolean;
-  /** Draft a comment for matching posts (lands in the approval queue). */
+  /** Draft a comment for matching posts. */
   comment: boolean;
+  /**
+   * When commenting: true = generate + post the comment automatically (with
+   * moderation); false = leave it in the approval queue for one-tap posting.
+   */
+  autoPostComments: boolean;
   /** Follow the authors of matching posts. */
   follow: boolean;
   /**
@@ -55,6 +60,12 @@ export interface ExtensionSettings {
    * it by toggling Active again.
    */
   sessionMinutes: number;
+  /**
+   * When true, Casper opens the tabs it works in the FOREGROUND so the user can
+   * watch the scrolling / liking / commenting / following happen. When false it
+   * works quietly in background tabs.
+   */
+  visibleMode: boolean;
   activeHours: ActiveHours;
   accountAgeMonths: AccountAge;
   targetCreators: TargetCreator[];

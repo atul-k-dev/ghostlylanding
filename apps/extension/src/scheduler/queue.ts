@@ -8,7 +8,7 @@ const uid = (): string =>
     : `t_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
 const kindOf = (type: SchedulerTaskType): TaskKind =>
-  type === 'scan-profile-likes' ? 'scan' : 'action';
+  type.startsWith('scan-') ? 'scan' : 'action';
 
 export const enqueue = async (
   platform: Platform,
@@ -80,6 +80,24 @@ export const stats = async (): Promise<{
     completed: queue.filter((t) => t.status === 'completed').length,
     failed: queue.filter((t) => t.status === 'failed').length,
   };
+};
+
+/** Drop dev stub tasks and finished tasks on startup so a stale queue can't
+ *  block real work. Keeps real pending/running tasks intact. */
+export const purgeStaleTasks = async (): Promise<number> => {
+  const queue = await getQueue();
+  const kept = queue.filter((t) => {
+    const payload = (t.payload ?? {}) as Record<string, unknown>;
+    // Dev stub tasks (from the old seed button) — never valid.
+    if ('seed' in payload) return false;
+    const handle = typeof payload.targetHandle === 'string' ? payload.targetHandle : '';
+    if (handle.startsWith('@stub_')) return false;
+    // Finished tasks are just history — clear them on boot.
+    if (t.status === 'completed' || t.status === 'failed' || t.status === 'skipped') return false;
+    return true;
+  });
+  if (kept.length !== queue.length) await setQueue(kept);
+  return queue.length - kept.length;
 };
 
 /** Repair the queue on startup — any tasks left in 'running' before SW eviction

@@ -470,7 +470,7 @@ const SettingsTab = ({
   onAccountDeleted: () => void;
   userEmail: string;
 }) => {
-  const [seedStatus, setSeedStatus] = useState<string | null>(null);
+  const [queueStatus, setQueueStatus] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -481,16 +481,19 @@ const SettingsTab = ({
       accountAgeMonths: { ...settings.accountAgeMonths, [platform]: months },
     });
 
-  const seed = async () => {
-    setSeedStatus('Seeding…');
+  const clearQueue = async () => {
+    setQueueStatus('Clearing…');
     try {
-      const r = await sendToBackground<{ ok: true; data: { enqueued: number } }>({
-        type: 'DEV_ENQUEUE_STUB_TASKS',
-        payload: { count: 10 },
-      });
-      setSeedStatus(`Enqueued ${r.data.enqueued} stub tasks`);
+      const r = await sendToBackground<
+        { ok: true; data: { cleared: number } } | { ok: false; error?: { message?: string } }
+      >({ type: 'CLEAR_QUEUE', payload: {} });
+      if (r.ok) {
+        setQueueStatus(`Cleared ${r.data.cleared} queued task${r.data.cleared === 1 ? '' : 's'}`);
+      } else {
+        setQueueStatus('Reload the extension first, then try again.');
+      }
     } catch (err) {
-      setSeedStatus(err instanceof Error ? err.message : 'failed');
+      setQueueStatus(err instanceof Error ? err.message : 'failed');
     }
   };
 
@@ -544,6 +547,30 @@ const SettingsTab = ({
         </div>
       </Section>
 
+      <Section
+        title="Watch it work"
+        subtitle="Open the tabs Casper acts in so you can see scrolling, likes, comments & follows."
+      >
+        <label className="flex items-center justify-between">
+          <span className="text-xs font-medium text-casper-ink">Show activity on screen</span>
+          <button
+            type="button"
+            onClick={() => onChange({ ...settings, visibleMode: !settings.visibleMode })}
+            aria-pressed={settings.visibleMode}
+            className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
+              settings.visibleMode
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-casper-ink/10 text-casper-ink/60'
+            }`}
+          >
+            {settings.visibleMode ? 'On' : 'Off'}
+          </button>
+        </label>
+        <p className="mt-1.5 text-[10px] text-casper-ink/40">
+          Turn off to let Casper work quietly in the background.
+        </p>
+      </Section>
+
       <Section title="Comment tone" subtitle="Used when you click ✨ Draft on a post.">
         <select
           value={settings.tone}
@@ -588,15 +615,18 @@ const SettingsTab = ({
 
       <DiagnosticsSection />
 
-      <Section title="Dev tools" subtitle="Useful while testing the engine.">
+      <Section
+        title="Maintenance"
+        subtitle="Clear the action queue if Casper seems stuck on old tasks."
+      >
         <button
           type="button"
-          onClick={seed}
+          onClick={clearQueue}
           className="w-full rounded-xl bg-casper-violet/10 px-3 py-2 text-casper-violet transition hover:bg-casper-violet/20"
         >
-          Enqueue 10 stub tasks
+          Clear action queue
         </button>
-        {seedStatus && <p className="mt-2 text-[10px] text-casper-ink/50">{seedStatus}</p>}
+        {queueStatus && <p className="mt-2 text-[10px] text-casper-ink/50">{queueStatus}</p>}
       </Section>
 
       <Section
@@ -1231,9 +1261,18 @@ const HomeFeedSection = ({
               />
             </div>
             {hf.comment && (
-              <p className="mt-1.5 text-[10px] text-casper-ink/40">
-                Comments are drafted to your Queue for approval — never auto-posted.
-              </p>
+              <div className="mt-2">
+                <Check
+                  checked={hf.autoPostComments}
+                  onToggle={() => update({ autoPostComments: !hf.autoPostComments })}
+                  label="Auto-post comments (skip approval)"
+                />
+                <p className="mt-1 text-[10px] text-casper-ink/40">
+                  {hf.autoPostComments
+                    ? 'Comments are generated (with safety moderation) and posted automatically.'
+                    : 'Comments are drafted to your Queue for one-tap approval.'}
+                </p>
+              </div>
             )}
           </div>
 

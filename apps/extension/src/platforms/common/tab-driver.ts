@@ -6,6 +6,7 @@
  * closes the tab. Errors are normalized so the executor sees structured failures.
  */
 import type { ContentRequest, ContentResponse } from './content-messages.js';
+import { getSettings } from '../../lib/storage.js';
 
 const DEFAULT_LOAD_TIMEOUT_MS = 25_000;
 const POST_LOAD_SETTLE_MS = 2_500;
@@ -63,7 +64,10 @@ export const driveTab = async (
   message: ContentRequest,
   options: DriveOptions = {},
 ): Promise<ContentResponse> => {
-  const tab = await chrome.tabs.create({ url, active: false });
+  // In visible mode the tab opens in the foreground so the user can watch the
+  // scrolling / liking / commenting / following happen.
+  const { visibleMode } = await getSettings();
+  const tab = await chrome.tabs.create({ url, active: visibleMode !== false });
   const tabId = tab.id;
   if (typeof tabId !== 'number') {
     throw new Error('tab created without id');

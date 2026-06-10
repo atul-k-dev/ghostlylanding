@@ -493,16 +493,28 @@ const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
       likes++;
     }
 
-    // Comment draft (approval-queue only)
+    // Comment: generate a draft, then either auto-post it or leave it in the
+    // approval queue depending on the user's setting.
     if (hf.comment && id && post.text && !(await isAlreadyDrafted(task.platform, id))) {
       const tone = settings.tone;
-      const draftResp = await apiFetch(`/api/comments/generate`, {
-        method: 'POST',
-        body: { platform: task.platform, postText: post.text, postUrl: post.postUrl, tone },
-      });
+      const draftResp = await apiFetch<{ id: string; draftText: string }>(
+        `/api/comments/generate`,
+        {
+          method: 'POST',
+          body: { platform: task.platform, postText: post.text, postUrl: post.postUrl, tone },
+        },
+      );
       if (draftResp.ok) {
         await markDrafted(task.platform, id);
         drafts++;
+        if (hf.autoPostComments && !(await isAlreadyCommented(task.platform, id))) {
+          await enqueue(task.platform, 'comment', {
+            draftId: draftResp.data.id,
+            postUrl: post.postUrl,
+            commentText: draftResp.data.draftText,
+            postId: id,
+          });
+        }
       }
     }
 
