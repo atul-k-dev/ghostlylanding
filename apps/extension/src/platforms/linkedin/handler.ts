@@ -3,10 +3,8 @@ import type {
   ContentResponse,
 } from '../common/content-messages.js';
 import { scanProfile, scanHomeFeed, likeCurrentPost } from './dom.js';
-import { extractPostText, submitComment } from './comment.js';
+import { submitComment } from './comment.js';
 import { scanFollowers, followCurrentProfile } from './follow.js';
-import { installDraftButtonInjector } from '../common/draft-button.js';
-import { LINKEDIN_SELECTORS } from './selectors.js';
 
 export const installLinkedInHandler = (): void => {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -64,14 +62,6 @@ export const installLinkedInHandler = (): void => {
       }
     })();
     return true;
-  });
-
-  installDraftButtonInjector({
-    platform: 'linkedin',
-    postSelector: LINKEDIN_SELECTORS.postArticle,
-    actionBarSelector: '.feed-shared-social-action-bar, .feed-shared-social-actions',
-    permalinkSelector: LINKEDIN_SELECTORS.permalink,
-    extractPostText,
   });
 
   console.log('[casper] linkedin handler installed');

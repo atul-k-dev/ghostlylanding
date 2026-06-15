@@ -57,7 +57,6 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
     platforms: ['twitter', 'linkedin'],
     like: true,
     comment: false,
-    autoPostComments: true,
     follow: false,
     keywords: [],
   },

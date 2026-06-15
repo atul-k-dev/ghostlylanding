@@ -8,9 +8,10 @@
  *   - 'comment', 'follow' → stub for now (M5/M6)
  */
 import type { Platform } from '@casper/shared';
+import { FREE_TIER, isPro } from '@casper/shared';
 import type { ExecutorResult, QueuedTask } from './types.js';
 import { driveTab } from '../platforms/common/tab-driver.js';
-import { isFresh } from '../platforms/common/freshness.js';
+import { isFresh, FRESH_WINDOW_HOURS } from '../platforms/common/freshness.js';
 import { extractPostId } from '../platforms/common/dedupe.js';
 import {
   isAlreadyLiked,
@@ -24,6 +25,9 @@ import {
   getTargetState,
   setTargetState,
   getSettings,
+  getAuth,
+  setAuth,
+  getCommentedPosts,
   appendDiagnostic,
 } from '../lib/storage.js';
 import {
@@ -37,6 +41,8 @@ import {
 } from '../platforms/linkedin/selectors.js';
 import { enqueue } from './queue.js';
 import { apiFetch } from '../lib/api.js';
+import { ensureToday, incrementCounter } from './counters.js';
+import { appendActionLog } from './action-log.js';
 
 const profileUrlFor = (platform: Platform, handle: string): string =>
   platform === 'twitter' ? twitterProfileUrl(handle) : linkedinProfileUrl(handle);
@@ -437,13 +443,183 @@ const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
 };
 
 /**
- * Home-feed autopilot: scroll the user's own timeline, find relevant fresh
- * posts, and enqueue likes / follows / comment-drafts per the user's settings.
- * Comment drafts go to the approval queue — never auto-posted here.
+ * Twitter inline home-feed autopilot — ONE tab smoothly scrolls the timeline
+ * and likes / comments / follows in place (no per-action tabs). Daily caps and
+ * the free-tier lifetime cap are enforced via budgets passed to the content
+ * script; the results come back here and are logged + counted + de-duped.
  */
-const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
+const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult> => {
   const settings = await getSettings();
   const hf = settings.homeFeed;
+  const platform = task.platform;
+
+  const auth = await getAuth();
+  const pro = isPro(auth?.user.subscriptionStatus ?? 'free');
+
+  const counters = await ensureToday(settings);
+  const c = counters[platform];
+  const remaining = (action: 'like' | 'comment' | 'follow'): number => {
+    if (!c) return 0;
+    const cap =
+      action === 'like'
+        ? c.effectiveCap.likesPerDay
+        : action === 'comment'
+          ? c.effectiveCap.commentsPerDay
+          : c.effectiveCap.followsPerDay;
+    return Math.max(0, cap - c.byActionType[action]);
+  };
+
+  // Cap how much one session does so the tab stays open a sane amount of time
+  // (the MV3 worker can't run forever); the next scan continues where this left.
+  const maxLikes = hf.like ? Math.min(remaining('like'), 12) : 0;
+  const maxFollows = hf.follow ? Math.min(remaining('follow'), 8) : 0;
+  // Auto-reply is Pro-only; free users still get likes & follows.
+  const maxComments = hf.comment && pro ? Math.min(remaining('comment'), 4) : 0;
+  const lifetimeLeft = pro
+    ? Number.MAX_SAFE_INTEGER
+    : Math.max(0, FREE_TIER.lifetimeActions - (auth?.user.lifetimeActionCount ?? 0));
+  const totalBudget = Math.min(lifetimeLeft, maxLikes + maxComments + maxFollows);
+
+  // Surface *why* auto-reply won't happen so it shows in Diagnostics.
+  if (hf.comment && maxComments === 0) {
+    await appendDiagnostic({
+      kind: 'auth_failure',
+      context: 'twitter:comment',
+      detail: !pro
+        ? 'Auto-reply needs Casper Pro — likes & follows still run.'
+        : 'Daily reply cap reached for today.',
+    });
+  }
+
+  // Skip posts we've already replied to (recent slice is enough).
+  const prefix = `${platform}:`;
+  const commentedMap = await getCommentedPosts();
+  const skipCommentIds = Object.keys(commentedMap)
+    .filter((k) => k.startsWith(prefix))
+    .map((k) => k.slice(prefix.length))
+    .slice(0, 500);
+
+  let resp;
+  try {
+    resp = await driveTab(
+      homeUrlFor(platform),
+      {
+        type: 'RUN_HOME',
+        payload: {
+          platform,
+          like: hf.like,
+          // Auto-reply is Pro-only.
+          comment: hf.comment && pro,
+          follow: hf.follow,
+          keywords: hf.keywords,
+          freshnessHours: FRESH_WINDOW_HOURS,
+          maxLikes,
+          maxComments,
+          maxFollows,
+          totalBudget,
+          skipCommentIds,
+          minDelayMs: 3_000,
+          maxDelayMs: 7_000,
+        },
+      },
+      { settleMs: 3_500 },
+    );
+  } catch (err) {
+    return {
+      success: false,
+      errorMessage: err instanceof Error ? err.message : 'tab driver failed',
+    };
+  }
+
+  if (resp.type !== 'HOME_AUTOPILOT_RESULT') {
+    return {
+      success: false,
+      errorMessage: resp.type === 'ERROR' ? resp.payload.message : 'unexpected home response',
+    };
+  }
+
+  const { liked, commented, followed, scanned } = resp.payload;
+  const ts = (): string => new Date().toISOString();
+
+  for (const p of liked) {
+    if (p.postId) await markLiked(platform, p.postId);
+    await appendActionLog({
+      platform,
+      actionType: 'like',
+      targetUrl: p.postUrl,
+      success: true,
+      timestamp: ts(),
+    });
+    await incrementCounter(settings, platform, 'like');
+  }
+  for (const p of commented) {
+    if (p.postId) await markCommented(platform, p.postId);
+    if (p.draftId) await markDraft(p.draftId, 'posted');
+    await appendActionLog({
+      platform,
+      actionType: 'comment',
+      targetUrl: p.postUrl,
+      success: true,
+      timestamp: ts(),
+    });
+    await incrementCounter(settings, platform, 'comment');
+  }
+  for (const f of followed) {
+    await markFollowed(platform, f.handle);
+    await appendActionLog({
+      platform,
+      actionType: 'follow',
+      targetUrl: f.profileUrl ?? `https://x.com/${f.handle}`,
+      targetHandle: f.handle,
+      success: true,
+      timestamp: ts(),
+    });
+    await incrementCounter(settings, platform, 'follow');
+  }
+
+  // If replies were attempted but none landed, record the reason for the user.
+  if (resp.payload.commentError && commented.length === 0) {
+    await appendDiagnostic({
+      kind: 'network_error',
+      context: 'twitter:comment',
+      detail: resp.payload.commentError,
+    });
+  }
+
+  // Free tier: keep the local lifetime counter moving so the cap is enforced.
+  const performed = liked.length + commented.length + followed.length;
+  if (!pro && auth && performed > 0) {
+    await setAuth({
+      ...auth,
+      user: { ...auth.user, lifetimeActionCount: (auth.user.lifetimeActionCount ?? 0) + performed },
+    });
+  }
+
+  // Record scan time so the refill loop paces home scans.
+  const state = await getTargetState();
+  const key = `home:${platform}`;
+  state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastHomeScanAt: Date.now() };
+  await setTargetState(state);
+
+  return {
+    success: true,
+    errorMessage:
+      performed === 0
+        ? `home: no actions (scanned ${scanned})`
+        : `home: ${liked.length} likes · ${commented.length} replies · ${followed.length} follows`,
+  };
+};
+
+/**
+ * Home-feed autopilot. Twitter runs the inline session above; LinkedIn still
+ * uses the scan-then-enqueue flow below (separate action tabs).
+ */
+const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
+  if (task.platform === 'twitter') return runTwitterHomeAutopilot(task);
+  const settings = await getSettings();
+  const hf = settings.homeFeed;
+  const auth = await getAuth();
+  const pro = isPro(auth?.user.subscriptionStatus ?? 'free');
 
   let resp;
   try {
@@ -493,9 +669,16 @@ const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
       likes++;
     }
 
-    // Comment: generate a draft, then either auto-post it or leave it in the
-    // approval queue depending on the user's setting.
-    if (hf.comment && id && post.text && !(await isAlreadyDrafted(task.platform, id))) {
+    // Auto-reply (Pro only): generate a reply and enqueue it to post. The
+    // scheduler still gates this per daily caps and the free-tier rules.
+    if (
+      hf.comment &&
+      pro &&
+      id &&
+      post.text &&
+      !(await isAlreadyDrafted(task.platform, id)) &&
+      !(await isAlreadyCommented(task.platform, id))
+    ) {
       const tone = settings.tone;
       const draftResp = await apiFetch<{ id: string; draftText: string }>(
         `/api/comments/generate`,
@@ -507,14 +690,12 @@ const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
       if (draftResp.ok) {
         await markDrafted(task.platform, id);
         drafts++;
-        if (hf.autoPostComments && !(await isAlreadyCommented(task.platform, id))) {
-          await enqueue(task.platform, 'comment', {
-            draftId: draftResp.data.id,
-            postUrl: post.postUrl,
-            commentText: draftResp.data.draftText,
-            postId: id,
-          });
-        }
+        await enqueue(task.platform, 'comment', {
+          draftId: draftResp.data.id,
+          postUrl: post.postUrl,
+          commentText: draftResp.data.draftText,
+          postId: id,
+        });
       }
     }
 

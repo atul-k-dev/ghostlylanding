@@ -17,7 +17,7 @@ export const extractPostText = (article?: HTMLElement): string => {
  * surface — setting innerText or value doesn't trigger React. document.execCommand
  * still works on contenteditables and dispatches the right events.
  */
-const typeIntoComposer = async (composer: HTMLElement, text: string): Promise<void> => {
+export const typeIntoComposer = async (composer: HTMLElement, text: string): Promise<void> => {
   composer.focus();
   await sleep(150);
   // Select all and delete to clear any draft

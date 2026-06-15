@@ -11,9 +11,12 @@ import type { ScannedPost } from '../common/content-messages.js';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+/** Sleep helper, also used by the inline autopilot. */
+export const wait = sleep;
+
 /** Smoothly scroll the window by `distance` px over `duration` ms (eased), so
  *  the autopilot reads like a human scanning the feed rather than jumping. */
-const smoothScrollBy = (distance: number, duration = 850): Promise<void> =>
+export const smoothScrollBy = (distance: number, duration = 850): Promise<void> =>
   new Promise((resolve) => {
     const startY = window.scrollY;
     const startedAt = performance.now();

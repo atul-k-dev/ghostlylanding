@@ -45,7 +45,40 @@ export type ContentRequest =
   | {
       type: 'SCAN_HOME';
       payload: { max: number };
+    }
+  | {
+      type: 'RUN_HOME';
+      payload: HomeAutopilotOptions;
     };
+
+/** Inline home-feed autopilot — one tab smoothly scrolls and acts in place. */
+export interface HomeAutopilotOptions {
+  platform: 'twitter' | 'linkedin';
+  like: boolean;
+  /** Auto-reply: type + post a relevant reply inline (Pro-gated upstream). */
+  comment: boolean;
+  follow: boolean;
+  keywords: string[];
+  freshnessHours: number;
+  maxLikes: number;
+  maxComments: number;
+  maxFollows: number;
+  /** Overall action ceiling (free-tier lifetime cap; large for Pro). */
+  totalBudget: number;
+  /** Post IDs to skip for commenting (already replied to). */
+  skipCommentIds: string[];
+  minDelayMs: number;
+  maxDelayMs: number;
+}
+
+export interface HomeAutopilotResult {
+  liked: { postUrl: string; postId: string; authorHandle: string | null }[];
+  commented: { postUrl: string; postId: string; draftId?: string }[];
+  followed: { handle: string; profileUrl: string | null }[];
+  scanned: number;
+  /** Why replying didn't happen (server down, not Pro, DOM flow failed). */
+  commentError?: string;
+}
 
 export type ContentResponse =
   | {
@@ -55,6 +88,10 @@ export type ContentResponse =
   | {
       type: 'HOME_RESULT';
       payload: { posts: ScannedPost[] };
+    }
+  | {
+      type: 'HOME_AUTOPILOT_RESULT';
+      payload: HomeAutopilotResult;
     }
   | {
       type: 'LIKE_RESULT';

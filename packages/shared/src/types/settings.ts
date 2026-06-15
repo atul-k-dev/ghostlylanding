@@ -25,8 +25,7 @@ export interface AccountAge {
 /**
  * Home-feed autopilot: instead of (or alongside) visiting specific target
  * creators, Casper scrolls the user's own home timeline and engages with posts
- * that match the relevance keywords. Comments still route through the approval
- * queue — never auto-posted.
+ * that match the relevance keywords.
  */
 export interface HomeFeedSettings {
   enabled: boolean;
@@ -34,13 +33,12 @@ export interface HomeFeedSettings {
   platforms: Platform[];
   /** Like matching posts. */
   like: boolean;
-  /** Draft a comment for matching posts. */
-  comment: boolean;
   /**
-   * When commenting: true = generate + post the comment automatically (with
-   * moderation); false = leave it in the approval queue for one-tap posting.
+   * Auto-reply: generate and post a short, relevant reply automatically on
+   * matching posts (Casper Pro). Bounded by daily caps, per-session limits,
+   * relevance keywords, and dedupe — and gated behind the global Active switch.
    */
-  autoPostComments: boolean;
+  comment: boolean;
   /** Follow the authors of matching posts. */
   follow: boolean;
   /**

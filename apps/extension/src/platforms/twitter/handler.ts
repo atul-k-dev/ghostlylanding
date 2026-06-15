@@ -8,10 +8,9 @@ import type {
   ContentResponse,
 } from '../common/content-messages.js';
 import { scanProfile, scanHomeFeed, likeCurrentPost } from './dom.js';
-import { extractPostText, submitComment } from './comment.js';
+import { submitComment } from './comment.js';
 import { scanFollowers, followCurrentProfile } from './follow.js';
-import { installDraftButtonInjector } from '../common/draft-button.js';
-import { TWITTER_SELECTORS } from './selectors.js';
+import { runHomeAutopilot } from './autopilot.js';
 
 export const installTwitterHandler = (): void => {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -30,6 +29,12 @@ export const installTwitterHandler = (): void => {
         if (req.type === 'SCAN_HOME') {
           const posts = await scanHomeFeed(req.payload.max ?? 25);
           const resp: ContentResponse = { type: 'HOME_RESULT', payload: { posts } };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'RUN_HOME') {
+          const summary = await runHomeAutopilot(req.payload);
+          const resp: ContentResponse = { type: 'HOME_AUTOPILOT_RESULT', payload: summary };
           sendResponse(resp);
           return;
         }
@@ -69,14 +74,6 @@ export const installTwitterHandler = (): void => {
       }
     })();
     return true;
-  });
-
-  installDraftButtonInjector({
-    platform: 'twitter',
-    postSelector: TWITTER_SELECTORS.postArticle,
-    actionBarSelector: TWITTER_SELECTORS.actionBarRow,
-    permalinkSelector: TWITTER_SELECTORS.permalink,
-    extractPostText,
   });
 
   console.log('[casper] twitter handler installed');

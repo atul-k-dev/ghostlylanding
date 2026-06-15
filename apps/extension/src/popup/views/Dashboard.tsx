@@ -21,7 +21,7 @@ import {
   type DiagnosticEntry,
 } from '../../lib/storage.js';
 
-type Tab = 'dashboard' | 'queue' | 'activity' | 'settings';
+type Tab = 'dashboard' | 'activity' | 'settings';
 
 interface ActionLogEntry {
   id: string;
@@ -80,7 +80,6 @@ export const Dashboard = ({ user, onLogout }: Props) => {
       <Tabs tab={tab} onChange={setTab} />
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {tab === 'dashboard' && <DashboardTab settings={settings} />}
-        {tab === 'queue' && <QueueTab />}
         {tab === 'activity' && <ActivityTab />}
         {tab === 'settings' && settings && (
           <SettingsTab
@@ -139,7 +138,6 @@ const Header = ({
 const Tabs = ({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) => {
   const items: { id: Tab; label: string }[] = [
     { id: 'dashboard', label: 'Home' },
-    { id: 'queue', label: 'Queue' },
     { id: 'activity', label: 'Activity' },
     { id: 'settings', label: 'Settings' },
   ];
@@ -302,135 +300,6 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
   );
 };
 
-interface DraftRow {
-  id: string;
-  platform: Platform;
-  postUrl: string;
-  draftText: string;
-  tone: TonePreset;
-  status: string;
-  createdAt: string;
-}
-
-const QueueTab = () => {
-  const [drafts, setDrafts] = useState<DraftRow[] | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const refresh = async () => {
-    try {
-      const resp = await sendToBackground<
-        | { ok: true; data: { drafts: DraftRow[] } }
-        | { ok: false; error: { message: string } }
-      >({ type: 'LIST_DRAFTS', payload: { status: 'pending' } });
-      if (resp.ok) {
-        setDrafts(resp.data.drafts);
-        setError(null);
-      } else {
-        setError(resp.error.message);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'failed');
-    }
-  };
-
-  useEffect(() => {
-    void refresh();
-    const id = setInterval(refresh, 5_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const approve = async (draft: DraftRow) => {
-    setBusyId(draft.id);
-    try {
-      const resp = await sendToBackground<
-        { ok: true; data: { taskId: string } } | { ok: false; error: { message: string } }
-      >({ type: 'APPROVE_DRAFT', payload: { id: draft.id } });
-      if (!resp.ok) {
-        setError(resp.error.message);
-      } else {
-        setDrafts((prev) => prev?.filter((d) => d.id !== draft.id) ?? null);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'failed');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const reject = async (draft: DraftRow) => {
-    setBusyId(draft.id);
-    try {
-      await sendToBackground({ type: 'REJECT_DRAFT', payload: { id: draft.id } });
-      setDrafts((prev) => prev?.filter((d) => d.id !== draft.id) ?? null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'failed');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  if (drafts === null) {
-    return <p className="py-4 text-center text-xs text-casper-ink/40">Loading drafts…</p>;
-  }
-
-  return (
-    <div className="space-y-3">
-      {error && (
-        <div className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{error}</div>
-      )}
-      {drafts.length === 0 ? (
-        <div className="flex h-[280px] flex-col items-center justify-center text-center text-xs text-casper-ink/50">
-          <div className="mb-2 text-3xl" aria-hidden>
-            📭
-          </div>
-          <p>No drafts waiting.</p>
-          <p className="text-[10px] text-casper-ink/40">
-            Click ✨ Draft on any post to add one.
-          </p>
-        </div>
-      ) : (
-        drafts.map((d) => (
-          <div key={d.id} className="rounded-2xl bg-casper-surface p-3 text-xs border border-casper-border">
-            <div className="mb-2 flex items-center justify-between text-[10px] text-casper-ink/40">
-              <span className="capitalize">{d.platform} · {d.tone}</span>
-              <a
-                href={d.postUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-casper-violet hover:underline"
-              >
-                open post ↗
-              </a>
-            </div>
-            <p className="mb-3 whitespace-pre-wrap leading-relaxed text-casper-ink">
-              {d.draftText}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => approve(d)}
-                disabled={busyId === d.id}
-                className="flex-1 rounded-lg bg-casper-violet px-3 py-1.5 text-[11px] font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-              >
-                {busyId === d.id ? '…' : '✓ Approve'}
-              </button>
-              <button
-                type="button"
-                onClick={() => reject(d)}
-                disabled={busyId === d.id}
-                className="rounded-lg border border-casper-ink/10 px-3 py-1.5 text-[11px] text-casper-ink/60 transition hover:bg-white/5 disabled:opacity-50"
-              >
-                Skip
-              </button>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  );
-};
-
 const NumberField = ({
   label,
   value,
@@ -571,7 +440,7 @@ const SettingsTab = ({
         </p>
       </Section>
 
-      <Section title="Comment tone" subtitle="Used when you click ✨ Draft on a post.">
+      <Section title="Reply tone" subtitle="Voice Casper uses when it auto-replies to posts.">
         <select
           value={settings.tone}
           onChange={(e) => onChange({ ...settings, tone: e.target.value as TonePreset })}
@@ -1252,7 +1121,7 @@ const HomeFeedSection = ({
               <Check
                 checked={hf.comment}
                 onToggle={() => update({ comment: !hf.comment })}
-                label="Comment"
+                label="Auto-reply"
               />
               <Check
                 checked={hf.follow}
@@ -1261,18 +1130,11 @@ const HomeFeedSection = ({
               />
             </div>
             {hf.comment && (
-              <div className="mt-2">
-                <Check
-                  checked={hf.autoPostComments}
-                  onToggle={() => update({ autoPostComments: !hf.autoPostComments })}
-                  label="Auto-post comments (skip approval)"
-                />
-                <p className="mt-1 text-[10px] text-casper-ink/40">
-                  {hf.autoPostComments
-                    ? 'Comments are generated (with safety moderation) and posted automatically.'
-                    : 'Comments are drafted to your Queue for one-tap approval.'}
-                </p>
-              </div>
+              <p className="mt-2 text-[10px] text-casper-ink/40">
+                Casper posts a short, relevant reply automatically (Casper Pro). Likes & follows run
+                on the free plan. Bounded by your daily caps & relevance keywords — toggle the Active
+                pill to stop everything instantly.
+              </p>
             )}
           </div>
 
