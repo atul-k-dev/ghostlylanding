@@ -21,7 +21,14 @@ import { fetchGoogleIdToken } from './google-signin.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog } from '../scheduler/action-log.js';
 import { ensureToday } from '../scheduler/counters.js';
-import { getSettings, getTargetState, setTargetState, setQueue } from '../lib/storage.js';
+import {
+  getSettings,
+  getTargetState,
+  setTargetState,
+  setQueue,
+  getSchedulerState,
+  setSchedulerState,
+} from '../lib/storage.js';
 
 const BUILD_STAMP = 'casper-build-2026-06-05-homefeed-v2';
 console.log(`[casper] service worker booted — ${BUILD_STAMP}`);
@@ -405,12 +412,18 @@ async function handleScanHomeNow(payload: unknown) {
   if (!platform || !PLATFORMS.includes(platform)) {
     return { ok: false, error: 'invalid_payload' };
   }
-  // Reset the home-scan cooldown so the refill loop / this call runs immediately.
+  // Reset the home-scan cooldown so the refill loop won't think it just ran.
   const state = await getTargetState();
   const key = `home:${platform}`;
   state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastHomeScanAt: 0 };
   await setTargetState(state);
   const task = await enqueue(platform, 'scan-home-feed', {});
+  // Start it right now instead of waiting up to a minute for the next alarm tick:
+  // clear the action cooldown and kick a tick. Fire-and-forget so the popup
+  // returns immediately rather than blocking on the whole scrolling session.
+  const sched = await getSchedulerState();
+  await setSchedulerState({ ...sched, nextEligibleAt: 0 });
+  void handleTick();
   return { ok: true, data: { taskId: task.id } };
 }
 

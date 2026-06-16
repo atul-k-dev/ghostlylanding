@@ -473,8 +473,9 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
   // (the MV3 worker can't run forever); the next scan continues where this left.
   const maxLikes = hf.like ? Math.min(remaining('like'), 12) : 0;
   const maxFollows = hf.follow ? Math.min(remaining('follow'), 8) : 0;
-  // Auto-reply is Pro-only; free users still get likes & follows.
-  const maxComments = hf.comment && pro ? Math.min(remaining('comment'), 4) : 0;
+  const maxComments = hf.comment ? Math.min(remaining('comment'), 4) : 0;
+  // The only free-tier limit: a 30-action lifetime allowance (likes + replies +
+  // follows combined). Pro is uncapped. Every feature works for both.
   const lifetimeLeft = pro
     ? Number.MAX_SAFE_INTEGER
     : Math.max(0, FREE_TIER.lifetimeActions - (auth?.user.lifetimeActionCount ?? 0));
@@ -483,11 +484,9 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
   // Surface *why* auto-reply won't happen so it shows in Diagnostics.
   if (hf.comment && maxComments === 0) {
     await appendDiagnostic({
-      kind: 'auth_failure',
+      kind: 'rate_limited',
       context: 'twitter:comment',
-      detail: !pro
-        ? 'Auto-reply needs Casper Pro — likes & follows still run.'
-        : 'Daily reply cap reached for today.',
+      detail: 'Daily reply cap reached for today.',
     });
   }
 
@@ -508,8 +507,7 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
         payload: {
           platform,
           like: hf.like,
-          // Auto-reply is Pro-only.
-          comment: hf.comment && pro,
+          comment: hf.comment,
           follow: hf.follow,
           keywords: hf.keywords,
           freshnessHours: FRESH_WINDOW_HOURS,
@@ -618,8 +616,6 @@ const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
   if (task.platform === 'twitter') return runTwitterHomeAutopilot(task);
   const settings = await getSettings();
   const hf = settings.homeFeed;
-  const auth = await getAuth();
-  const pro = isPro(auth?.user.subscriptionStatus ?? 'free');
 
   let resp;
   try {
@@ -669,11 +665,10 @@ const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
       likes++;
     }
 
-    // Auto-reply (Pro only): generate a reply and enqueue it to post. The
-    // scheduler still gates this per daily caps and the free-tier rules.
+    // Auto-reply: generate a reply and enqueue it to post. The scheduler still
+    // gates this per daily caps and the 30-action lifetime allowance.
     if (
       hf.comment &&
-      pro &&
       id &&
       post.text &&
       !(await isAlreadyDrafted(task.platform, id)) &&

@@ -4,7 +4,6 @@ import { createHash } from 'node:crypto';
 import { ok, err, PLATFORMS, TONE_PRESETS } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requirePro } from '../middleware/require-pro.js';
 import { validate } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rate-limit.js';
 import { generateCommentDraft } from '../openai/generate-comment.js';
@@ -35,7 +34,8 @@ commentsRouter.post(
     max: 60,
     key: (req) => `gen:${req.auth?.sub ?? req.ip}`,
   }),
-  requirePro,
+  // Reply generation is available to everyone; the 30-action lifetime cap (free)
+  // is enforced where actions are actually performed, not at generation time.
   validate(generateSchema),
   asyncHandler(async (req, res) => {
     if (!hasOpenAI()) {

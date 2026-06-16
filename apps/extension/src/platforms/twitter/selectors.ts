@@ -24,8 +24,18 @@ export const TWITTER_SELECTORS = {
   replyComposer: 'div[data-testid="tweetTextarea_0"]',
   /** Reply submit button (Reply / Post). */
   replyButton: 'button[data-testid="tweetButton"], button[data-testid="tweetButtonInline"]',
+  /** The modal reply dialog opened when replying from the timeline. Scope the
+   *  composer + Send button to THIS — the home page also has a top-of-feed
+   *  composer with the same testids, which otherwise steals the query. */
+  replyDialog: '[role="dialog"][aria-modal="true"]',
+  /** Reply Send button *inside the modal* (always "tweetButton", not inline). */
+  replyDialogButton: 'button[data-testid="tweetButton"]',
   /** Action bar row inside an article (reply / retweet / like / share group). */
   actionBarRow: 'div[role="group"]',
+  /** The ••• "more" button on a tweet — opens the per-tweet dropdown menu. */
+  caret: 'button[data-testid="caret"]',
+  /** The dropdown menu portal opened by the caret (contains Follow/Unfollow). */
+  dropdownMenu: '[data-testid="Dropdown"], [role="menu"]',
   /** Cells on the followers list — each contains a UserCell. */
   userCell: '[data-testid="UserCell"]',
   /** Profile link inside a UserCell. */

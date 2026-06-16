@@ -134,7 +134,21 @@ const commentInArticle = async (
   await wait(400);
   replyBtn.click();
 
-  const composer = await waitFor<HTMLElement>(S.replyComposer, 8_000);
+  // The reply opens a MODAL. Scope the composer + Send button to it — the home
+  // timeline also has a top-of-feed composer with the same testid, so an
+  // unscoped query types into the wrong box and the modal's Send never enables.
+  const dialog = await waitFor<HTMLElement>(S.replyDialog, 8_000);
+  if (!dialog) {
+    dismissComposer();
+    return { posted: false, draftId: draft.id, error: 'reply dialog never opened' };
+  }
+
+  let composer: HTMLElement | null = null;
+  for (let i = 0; i < 20; i++) {
+    composer = dialog.querySelector<HTMLElement>(S.replyComposer);
+    if (composer) break;
+    await wait(200);
+  }
   if (!composer) {
     dismissComposer();
     return { posted: false, draftId: draft.id, error: 'reply composer never opened' };
@@ -143,21 +157,22 @@ const commentInArticle = async (
   await typeIntoComposer(composer, draft.draftText);
 
   let btn: HTMLButtonElement | null = null;
-  for (let i = 0; i < 12; i++) {
-    btn = document.querySelector<HTMLButtonElement>(S.replyButton);
+  for (let i = 0; i < 16; i++) {
+    btn = dialog.querySelector<HTMLButtonElement>(S.replyDialogButton);
     if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') break;
     await wait(220);
   }
   if (!btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
+    console.log('[casper] comment: Send stayed disabled — text may not have registered');
     dismissComposer();
     return { posted: false, draftId: draft.id, error: 'reply submit button never enabled' };
   }
   btn.click();
 
-  // Confirm the composer goes away (reply submitted, dialog closed).
+  // Confirm the modal goes away (reply submitted, dialog closed).
   for (let i = 0; i < 16; i++) {
     await wait(350);
-    if (!document.querySelector(S.replyComposer)) {
+    if (!document.querySelector(S.replyDialog)) {
       console.log('[casper] comment: posted ✓');
       return { posted: true, draftId: draft.id };
     }
@@ -166,28 +181,43 @@ const commentInArticle = async (
   return { posted: false, draftId: draft.id, error: 'composer did not clear after submit' };
 };
 
+/** Close any open dropdown menu (Escape is what X listens for). */
+const dismissMenu = (): void => {
+  document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+};
+
 /**
- * Best-effort inline follow via the author's hovercard. X has no per-tweet
- * follow button, so we hover the author link and click Follow in the card.
+ * Inline follow via the tweet's ••• menu. X has no per-tweet follow button, and
+ * the author hovercard won't open from synthetic hover events — but the caret
+ * menu is plain click-driven, so it's reliable. We open it and click the
+ * "Follow @handle" item (absent when already following, which shows "Unfollow").
  * Returns 'followed' on success, 'skip' otherwise (never throws).
  */
 const followAuthorInline = async (article: HTMLElement): Promise<'followed' | 'skip'> => {
-  const link = article.querySelector<HTMLAnchorElement>('a[role="link"][href^="/"]');
-  if (!link) return 'skip';
-  link.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  await wait(300);
-  for (const type of ['pointerover', 'mouseover', 'mouseenter']) {
-    link.dispatchEvent(new MouseEvent(type, { bubbles: true }));
+  const caret = article.querySelector<HTMLButtonElement>(S.caret);
+  if (!caret) {
+    console.log('[casper] follow: no ••• caret on post');
+    return 'skip';
   }
-  const card = await waitFor<HTMLElement>('[data-testid="HoverCard"]', 2_500);
-  if (!card) return 'skip';
-  if (card.querySelector(S.unfollowButton)) return 'skip'; // already following
-  const followBtn = card.querySelector<HTMLButtonElement>(S.followButton);
-  if (!followBtn) return 'skip';
-  followBtn.click();
+  caret.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await wait(300);
+  caret.click();
+
+  const menu = await waitFor<HTMLElement>(S.dropdownMenu, 3_000);
+  if (!menu) {
+    console.log('[casper] follow: caret menu never opened');
+    return 'skip';
+  }
+  const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+  // "Follow @x" starts with Follow; "Unfollow @x" (already following) does not.
+  const followItem = items.find((i) => /^\s*Follow\b/i.test(i.textContent ?? ''));
+  if (!followItem) {
+    dismissMenu();
+    return 'skip'; // already following, own tweet, or no follow option
+  }
+  followItem.click();
   await wait(700);
-  // Move the pointer away so the card dismisses.
-  document.body.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+  console.log('[casper] follow: followed ✓');
   return 'followed';
 };
 

@@ -41,7 +41,7 @@ import {
 } from './queue.js';
 import { executeTask } from './executor.js';
 import { appendActionLog, flushActionLog, shouldFlush } from './action-log.js';
-import { getTargetState } from '../lib/storage.js';
+import { getTargetState, setTargetState } from '../lib/storage.js';
 
 export const SCHEDULER_ALARM = 'casper.scheduler.tick';
 const TICK_PERIOD_MINUTES = 0.5; // 30 seconds
@@ -135,28 +135,10 @@ export const handleTick = async (): Promise<void> => {
       const auth = await getAuth();
       const status = auth?.user.subscriptionStatus ?? 'free';
       if (!isPro(status)) {
-        // 1) No AI comments for free users
-        if (task.taskType === 'comment') {
-          await updateTask(task.id, {
-            status: 'skipped',
-            lastError: 'AI comments require Casper Pro',
-          });
-          await maybeFlush();
-          return;
-        }
-        // 2) Only one platform — whichever has a target listed first
-        const allowedPlatform = settings.targetCreators[0]?.platform;
-        if (allowedPlatform && task.platform !== allowedPlatform) {
-          await updateTask(task.id, {
-            status: 'skipped',
-            lastError: `Free plan: only ${allowedPlatform} is active. Upgrade to Pro for both platforms.`,
-          });
-          await maybeFlush();
-          return;
-        }
-        // 3) 30 LIFETIME actions across the entire history of this account.
-        // Server's count is authoritative; pessimistic local += pending to avoid
-        // racing past the cap between server syncs.
+        // Every feature works for free users too. The ONLY free-tier limit is a
+        // 30-action lifetime allowance — likes + comments + follows combined,
+        // across this account's whole history. Server's count is authoritative;
+        // we bump locally after each action to avoid racing past it between syncs.
         const lifetime = auth?.user.lifetimeActionCount ?? 0;
         if (lifetime >= FREE_TIER.lifetimeActions) {
           await updateTask(task.id, {
@@ -271,7 +253,6 @@ const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
   }
 
   if (mutated) {
-    const { setTargetState } = await import('../lib/storage.js');
     await setTargetState(targetState);
   }
 };

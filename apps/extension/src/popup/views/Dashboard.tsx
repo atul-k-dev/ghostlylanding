@@ -719,8 +719,8 @@ const PlanSection = () => {
       title="Plan"
       subtitle={
         pro
-          ? 'Casper Pro · all features unlocked'
-          : `Free · ${lifetimeCap} lifetime actions, 1 platform, no AI comments`
+          ? 'Casper Pro · unlimited actions'
+          : `Free · all features, ${lifetimeCap} lifetime actions (likes + replies + follows)`
       }
     >
       <div className="flex items-center justify-between mb-3">
@@ -1045,7 +1045,11 @@ const HomeFeedSection = ({
     setScanStatus(`Scanning ${p} feed…`);
     try {
       await sendToBackground({ type: 'SCAN_HOME_NOW', payload: { platform: p } });
-      setScanStatus(`Queued ${p} home scan`);
+      setScanStatus(
+        settings.isPaused
+          ? `Queued — but the engine is Paused. Hit "● Active" so it runs.`
+          : `Scanning ${p} now — a tab will open and start scrolling.`,
+      );
     } catch (err) {
       setScanStatus(err instanceof Error ? err.message : 'failed');
     }
@@ -1131,9 +1135,9 @@ const HomeFeedSection = ({
             </div>
             {hf.comment && (
               <p className="mt-2 text-[10px] text-casper-ink/40">
-                Casper posts a short, relevant reply automatically (Casper Pro). Likes & follows run
-                on the free plan. Bounded by your daily caps & relevance keywords — toggle the Active
-                pill to stop everything instantly.
+                Casper posts a short, relevant reply automatically. Bounded by your daily caps &
+                relevance keywords — toggle the Active pill to stop everything instantly. Free plan:
+                30 actions total (likes + replies + follows). Needs your Casper server running.
               </p>
             )}
           </div>
