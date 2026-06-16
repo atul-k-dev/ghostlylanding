@@ -13,20 +13,37 @@ export const extractPostText = (article?: HTMLElement): string => {
 };
 
 /**
- * Type into a Twitter contenteditable. Twitter's editor is a draft.js-style
- * surface — setting innerText or value doesn't trigger React. document.execCommand
- * still works on contenteditables and dispatches the right events.
+ * Type into X's reply composer. X now uses a Lexical editor: setting innerText —
+ * and even document.execCommand('insertText') — can drop text into the DOM
+ * *without* updating Lexical's internal model, so the Send button stays disabled
+ * (the "Post your reply" placeholder lingers). Lexical's paste handler, however,
+ * reads clipboardData and updates the model properly, which enables Send. So we
+ * drive a real paste, then fall back to execCommand only if nothing landed.
  */
 export const typeIntoComposer = async (composer: HTMLElement, text: string): Promise<void> => {
   composer.focus();
   await sleep(150);
-  // Select all and delete to clear any draft
+  // Clear any existing draft.
   document.execCommand('selectAll', false);
   document.execCommand('delete', false);
   await sleep(80);
-  document.execCommand('insertText', false, text);
-  composer.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
-  await sleep(200);
+
+  // Primary path: simulate paste so Lexical ingests the text into its model.
+  const dt = new DataTransfer();
+  dt.setData('text/plain', text);
+  composer.dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
+  );
+  await sleep(250);
+
+  // Fallback: if the paste didn't register (composer still empty), try the
+  // legacy insertText path.
+  if ((composer.textContent ?? '').trim().length === 0) {
+    composer.focus();
+    document.execCommand('insertText', false, text);
+    await sleep(200);
+  }
+  await sleep(150);
 };
 
 export const submitComment = async (
