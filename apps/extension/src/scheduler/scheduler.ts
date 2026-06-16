@@ -16,7 +16,7 @@
  *
  * Scans go through 2–4 but not 6 — they're internal and feed real actions.
  */
-import type { ExtensionSettings } from '@casper/shared';
+import type { ExtensionSettings, Platform } from '@casper/shared';
 import { FREE_TIER, isPro } from '@casper/shared';
 import {
   getSettings,
@@ -48,10 +48,37 @@ const TICK_PERIOD_MINUTES = 0.5; // 30 seconds
 
 /** Auto-rescan a target if it hasn't been scanned in this long. */
 const RESCAN_INTERVAL_MS = 6 * 60 * 60 * 1000;
-/** Home feed refreshes more often than individual profiles. */
-const HOME_RESCAN_INTERVAL_MS = 2 * 60 * 60 * 1000;
+/**
+ * Home feed re-scans periodically while the engine is Active so it keeps working
+ * through the selected session — but only while there's daily/free budget left
+ * (see homeHasBudget), so it never churns tabs after the caps are reached. The
+ * session auto-pause stops it at the chosen duration.
+ */
+const HOME_RESCAN_INTERVAL_MS = 3 * 60 * 1000;
 /** Don't auto-refill if there are already this many pending tasks. */
 const REFILL_PENDING_THRESHOLD = 5;
+
+/**
+ * MV3 keep-alive. While the engine is Active, a long autopilot session leaves
+ * the service worker just *awaiting* a tab message — Chrome treats that as idle
+ * and evicts the worker after ~5 min, which kills the run ("extension closed").
+ * Pinging a chrome API every 20s (under the 30s idle timeout) keeps the worker
+ * alive for the whole session. Stopped the moment the engine pauses.
+ */
+let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+const startKeepAlive = (): void => {
+  if (keepAliveTimer !== null) return;
+  keepAliveTimer = setInterval(() => {
+    void chrome.runtime.getPlatformInfo();
+  }, 20_000);
+  console.log('[casper] keep-alive on');
+};
+const stopKeepAlive = (): void => {
+  if (keepAliveTimer === null) return;
+  clearInterval(keepAliveTimer);
+  keepAliveTimer = null;
+  console.log('[casper] keep-alive off');
+};
 
 export const installScheduler = async (): Promise<void> => {
   // Clear out dev stub tasks / stale history so they can't block real work.
@@ -77,6 +104,7 @@ export const handleTick = async (): Promise<void> => {
     // Paused → engine idle. Clear any running session timer.
     if (settings.isPaused) {
       console.log('[casper] tick: PAUSED — toggle the Active pill to start');
+      stopKeepAlive();
       if (schedState.activeSince !== null) {
         await setSchedulerState({ ...schedState, activeSince: null });
       }
@@ -84,6 +112,7 @@ export const handleTick = async (): Promise<void> => {
       return;
     }
     console.log('[casper] tick: active');
+    startKeepAlive();
 
     // Active → start the session clock on the first tick after arming.
     if (schedState.activeSince === null) {
@@ -96,6 +125,7 @@ export const handleTick = async (): Promise<void> => {
     if (Date.now() - startedAt >= sessionMs) {
       await setSettings({ ...settings, isPaused: true });
       await setSchedulerState({ ...schedState, activeSince: null });
+      stopKeepAlive();
       await appendDiagnostic({
         kind: 'auto_pause',
         context: 'safety',
@@ -243,18 +273,37 @@ const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
     for (const platform of settings.homeFeed.platforms) {
       const key = `home:${platform}`;
       const existing = targetState[key] ?? { lastScannedAt: 0 };
-      if (now - (existing.lastHomeScanAt ?? 0) >= HOME_RESCAN_INTERVAL_MS) {
-        await enqueue(platform, 'scan-home-feed', {});
-        existing.lastHomeScanAt = now;
-        targetState[key] = existing;
-        mutated = true;
-      }
+      if (now - (existing.lastHomeScanAt ?? 0) < HOME_RESCAN_INTERVAL_MS) continue;
+      // Don't re-open a tab that can do nothing: skip when the day's caps (or the
+      // free-tier allowance) are already used up. This is what stops the
+      // "tab keeps opening and closing" churn once limits are reached.
+      if (!(await homeHasBudget(settings, platform))) continue;
+      await enqueue(platform, 'scan-home-feed', {});
+      existing.lastHomeScanAt = now;
+      targetState[key] = existing;
+      mutated = true;
     }
   }
 
   if (mutated) {
     await setTargetState(targetState);
   }
+};
+
+/** True if there's still daily (and free-tier lifetime) budget to act on this
+ *  platform's home feed — used to avoid re-opening a tab that can do nothing. */
+const homeHasBudget = async (settings: ExtensionSettings, platform: Platform): Promise<boolean> => {
+  const auth = await getAuth();
+  if (!isPro(auth?.user.subscriptionStatus ?? 'free')) {
+    if ((auth?.user.lifetimeActionCount ?? 0) >= FREE_TIER.lifetimeActions) return false;
+  }
+  const counters = await ensureToday(settings);
+  const hf = settings.homeFeed;
+  return (
+    (hf.like && isUnderCap(counters, platform, 'like')) ||
+    (hf.comment && isUnderCap(counters, platform, 'comment')) ||
+    (hf.follow && isUnderCap(counters, platform, 'follow'))
+  );
 };
 
 const scheduleNext = async (): Promise<void> => {

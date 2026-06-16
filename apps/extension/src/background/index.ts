@@ -23,6 +23,7 @@ import { flushActionLog } from '../scheduler/action-log.js';
 import { ensureToday } from '../scheduler/counters.js';
 import {
   getSettings,
+  setSettings,
   getTargetState,
   setTargetState,
   setQueue,
@@ -72,6 +73,7 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   SCAN_TARGET_NOW: handleScanTargetNow as AsyncHandler<unknown, unknown>,
   SCAN_FOLLOWERS_NOW: handleScanFollowersNow as AsyncHandler<unknown, unknown>,
   SCAN_HOME_NOW: handleScanHomeNow as AsyncHandler<unknown, unknown>,
+  UPDATE_PREFERENCES: handleUpdatePreferences as AsyncHandler<unknown, unknown>,
   DRAFT_COMMENT: handleDraftComment as AsyncHandler<unknown, unknown>,
   LIST_DRAFTS: handleListDrafts as AsyncHandler<unknown, unknown>,
   APPROVE_DRAFT: handleApproveDraft as AsyncHandler<unknown, unknown>,
@@ -121,7 +123,44 @@ const storeAuth = async (data: { token: string; user: User }): Promise<void> => 
   };
   await setAuth(stored);
   console.log('[casper] auth stored for', stored.user.email);
+  // Seed the user's saved keywords from the server so they don't have to
+  // re-enter them after a reinstall or on a new device.
+  await seedKeywordsFromServer(data.user);
 };
+
+/** Copy the server-saved keywords into local home-feed settings (only when the
+ *  server has some and they differ), so the popup shows them ready to go. */
+const seedKeywordsFromServer = async (user: User): Promise<void> => {
+  const serverKeywords = user.preferences?.keywords ?? [];
+  if (serverKeywords.length === 0) return;
+  const settings = await getSettings();
+  const local = settings.homeFeed.keywords;
+  const same =
+    local.length === serverKeywords.length && local.every((k, i) => k === serverKeywords[i]);
+  if (same) return;
+  await setSettings({
+    ...settings,
+    homeFeed: { ...settings.homeFeed, keywords: serverKeywords },
+  });
+};
+
+async function handleUpdatePreferences(payload: unknown) {
+  const { keywords } = (payload ?? {}) as { keywords?: string[] };
+  const resp = await apiFetch<User>('/api/me/preferences', {
+    method: 'PATCH',
+    body: { keywords },
+  });
+  if (resp.ok) {
+    // Keep stored auth + local keywords in sync with what the server saved.
+    const auth = await getAuth();
+    if (auth) await setAuth({ ...auth, user: resp.data });
+    if (Array.isArray(keywords)) {
+      const settings = await getSettings();
+      await setSettings({ ...settings, homeFeed: { ...settings.homeFeed, keywords } });
+    }
+  }
+  return resp;
+}
 
 const authResult = (resp: { ok: false; error: { code: string; message: string } }) => {
   if (

@@ -5,7 +5,10 @@ import type { Platform, PlatformCaps, ExtensionSettings } from '@casper/shared';
  * platform rate-limits in the first months.
  */
 export const ageMultiplier = (months: number | null): number => {
-  if (months === null || months < 0) return 0.5; // unknown → conservative
+  // Unknown age → trust the configured caps as-is (full). Only reduce when the
+  // user explicitly tells us the account is young, since new accounts trip X's
+  // rate-limits faster.
+  if (months === null || months < 0) return 1.0;
   if (months < 6) return 0.5;
   if (months < 12) return 0.75;
   return 1.0;

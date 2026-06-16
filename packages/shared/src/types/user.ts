@@ -53,6 +53,9 @@ export interface UserPreferences {
     twitter: number | null;
     linkedin: number | null;
   };
+  /** Home-feed relevance keywords (the user's interested post types). Persisted
+   *  server-side so they survive reinstalls and sync across devices. */
+  keywords: string[];
 }
 
 export interface AuthResponse {

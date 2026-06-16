@@ -23,6 +23,8 @@ const preferencesSchema = new Schema(
       twitter: { type: Number, default: null },
       linkedin: { type: Number, default: null },
     },
+    /** Home-feed relevance keywords (the user's interested post types). */
+    keywords: { type: [String], default: [] },
   },
   { _id: false },
 );
@@ -93,6 +95,7 @@ export const toUserDTO = (
         twitter: ages.twitter ?? null,
         linkedin: ages.linkedin ?? null,
       },
+      keywords: prefs.keywords ?? [],
     },
   };
 };

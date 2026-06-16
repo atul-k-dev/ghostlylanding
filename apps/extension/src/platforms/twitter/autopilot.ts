@@ -200,7 +200,7 @@ const followAuthorInline = async (article: HTMLElement): Promise<'followed' | 's
     return 'skip';
   }
   caret.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  await wait(300);
+  await wait(400);
   caret.click();
 
   const menu = await waitFor<HTMLElement>(S.dropdownMenu, 3_000);
@@ -208,15 +208,28 @@ const followAuthorInline = async (article: HTMLElement): Promise<'followed' | 's
     console.log('[casper] follow: caret menu never opened');
     return 'skip';
   }
-  const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
-  // "Follow @x" starts with Follow; "Unfollow @x" (already following) does not.
-  const followItem = items.find((i) => /^\s*Follow\b/i.test(i.textContent ?? ''));
+
+  // The menu items render a beat after the menu container, so poll for them.
+  // "Follow @x" starts with Follow; "Unfollow @x"/"Following" (already
+  // following) do not — so we also detect that to stop polling early.
+  let followItem: HTMLElement | undefined;
+  for (let i = 0; i < 12; i++) {
+    const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    followItem = items.find((it) => /^\s*follow\b/i.test((it.textContent ?? '').trim()));
+    const alreadyFollowing = items.some((it) =>
+      /^\s*(unfollow|following)\b/i.test((it.textContent ?? '').trim()),
+    );
+    if (followItem || alreadyFollowing) break;
+    await wait(200);
+  }
   if (!followItem) {
     dismissMenu();
-    return 'skip'; // already following, own tweet, or no follow option
+    console.log('[casper] follow: no Follow option (already following or own post)');
+    return 'skip';
   }
   followItem.click();
   await wait(700);
+  dismissMenu();
   console.log('[casper] follow: followed ✓');
   return 'followed';
 };
@@ -240,7 +253,7 @@ export const runHomeAutopilot = async (
   const total = (): number => likes + comments + follows;
   const pause = (): Promise<void> => wait(randomInt(opts.minDelayMs, opts.maxDelayMs));
   const startedAt = Date.now();
-  const MAX_SESSION_MS = 200_000; // stay well under the MV3 worker lifetime
+  const MAX_SESSION_MS = 240_000; // ~4 min/tab; the SW keep-alive covers this
 
   for (let scrollPass = 0; scrollPass < 10; scrollPass++) {
     if (Date.now() - startedAt > MAX_SESSION_MS) break;

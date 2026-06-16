@@ -395,11 +395,11 @@ const SettingsTab = ({
       <PlanSection />
 
       <Section
-        title="Safety auto-pause"
-        subtitle="Casper pauses itself after this long, so it never runs unattended forever."
+        title="Run for"
+        subtitle="Casper runs for this long, then auto-pauses. Re-arm with the Active pill to go again."
       >
         <div className="flex flex-wrap gap-2">
-          {[15, 30, 60, 120].map((m) => (
+          {[15, 30, 45, 60].map((m) => (
             <button
               key={m}
               type="button"
@@ -1039,6 +1039,10 @@ const HomeFeedSection = ({
       .map((k) => k.trim())
       .filter(Boolean);
     update({ keywords: list });
+    // Persist to the DB so they survive reinstalls and sync across devices.
+    void sendToBackground({ type: 'UPDATE_PREFERENCES', payload: { keywords: list } }).catch(
+      () => {},
+    );
   };
 
   const scanNow = async (p: Platform) => {

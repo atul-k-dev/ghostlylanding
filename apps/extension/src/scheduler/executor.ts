@@ -469,11 +469,12 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
     return Math.max(0, cap - c.byActionType[action]);
   };
 
-  // Cap how much one session does so the tab stays open a sane amount of time
-  // (the MV3 worker can't run forever); the next scan continues where this left.
-  const maxLikes = hf.like ? Math.min(remaining('like'), 12) : 0;
-  const maxFollows = hf.follow ? Math.min(remaining('follow'), 8) : 0;
-  const maxComments = hf.comment ? Math.min(remaining('comment'), 4) : 0;
+  // One session drains most of the day's remaining budget in a single smooth
+  // pass (bounded so the tab doesn't stay open absurdly long). Daily caps still
+  // protect the account; the scheduler only re-scans while budget remains.
+  const maxLikes = hf.like ? Math.min(remaining('like'), 40) : 0;
+  const maxFollows = hf.follow ? Math.min(remaining('follow'), 20) : 0;
+  const maxComments = hf.comment ? Math.min(remaining('comment'), 10) : 0;
   // The only free-tier limit: a 30-action lifetime allowance (likes + replies +
   // follows combined). Pro is uncapped. Every feature works for both.
   const lifetimeLeft = pro

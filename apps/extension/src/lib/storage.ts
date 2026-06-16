@@ -49,8 +49,8 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   targetCreators: [],
   whitelist: [],
   caps: {
-    twitter: { likesPerDay: 80, commentsPerDay: 20, followsPerDay: 30 },
-    linkedin: { likesPerDay: 50, commentsPerDay: 15, followsPerDay: 15 },
+    twitter: { likesPerDay: 100, commentsPerDay: 30, followsPerDay: 50 },
+    linkedin: { likesPerDay: 60, commentsPerDay: 20, followsPerDay: 30 },
   },
   homeFeed: {
     enabled: false,
@@ -90,7 +90,9 @@ export const getSettings = async (): Promise<ExtensionSettings> => {
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
-    caps: { ...DEFAULT_SETTINGS.caps, ...stored.caps },
+    // Caps are code-managed (no UI editor), so always use the current defaults —
+    // otherwise a previously-persisted value would pin old, lower limits.
+    caps: DEFAULT_SETTINGS.caps,
     activeHours: { ...DEFAULT_SETTINGS.activeHours, ...stored.activeHours },
     accountAgeMonths: { ...DEFAULT_SETTINGS.accountAgeMonths, ...stored.accountAgeMonths },
     homeFeed: { ...DEFAULT_SETTINGS.homeFeed, ...stored.homeFeed },
