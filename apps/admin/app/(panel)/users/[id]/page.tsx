@@ -179,6 +179,26 @@ export default function UserDetailPage() {
         </Panel>
       </div>
 
+      {/* Recent activity — full width row */}
+      <Panel className="mt-4">
+        <div className="flex items-center gap-2.5 border-b border-line px-5 py-4">
+          <IconBadge tone="violet">{Icons.activity}</IconBadge>
+          <div>
+            <h3 className="text-sm font-semibold">Recent activity</h3>
+            <p className="text-[11px] text-iron-slate">Last {detail.recentActions.length} actions</p>
+          </div>
+        </div>
+        {detail.recentActions.length === 0 ? (
+          <EmptyState>No actions yet.</EmptyState>
+        ) : (
+          <div className="grid grid-cols-1 divide-y divide-line/60 md:grid-cols-2 md:divide-y-0">
+            {detail.recentActions.map((a) => (
+              <ActivityRow key={a.id} a={a} />
+            ))}
+          </div>
+        )}
+      </Panel>
+
       {/* Comments — full width row */}
       <Panel className="mt-4">
         <div className="flex items-center gap-2.5 border-b border-line px-5 py-4">
@@ -196,26 +216,6 @@ export default function UserDetailPage() {
           <div className="thin-scroll max-h-[460px] divide-y divide-line/60 overflow-y-auto">
             {detail.recentComments.map((c) => (
               <CommentRow key={c.id} c={c} />
-            ))}
-          </div>
-        )}
-      </Panel>
-
-      {/* Recent activity — full width row (likes + follows) */}
-      <Panel className="mt-4">
-        <div className="flex items-center gap-2.5 border-b border-line px-5 py-4">
-          <IconBadge tone="violet">{Icons.activity}</IconBadge>
-          <div>
-            <h3 className="text-sm font-semibold">Recent activity</h3>
-            <p className="text-[11px] text-iron-slate">Latest likes &amp; follows</p>
-          </div>
-        </div>
-        {detail.recentActions.length === 0 ? (
-          <EmptyState>No likes or follows yet.</EmptyState>
-        ) : (
-          <div className="grid grid-cols-1 divide-y divide-line/60 md:grid-cols-2 md:divide-y-0">
-            {detail.recentActions.map((a) => (
-              <ActivityRow key={a.id} a={a} />
             ))}
           </div>
         )}
