@@ -24,7 +24,9 @@ export const config = {
   jwtExpiresIn: required('JWT_EXPIRES_IN', '30d'),
   bcryptRounds: Number(required('BCRYPT_ROUNDS', '12')),
   googleClientId: optional('GOOGLE_CLIENT_ID'),
-  allowedOrigins: required('ALLOWED_ORIGINS', 'http://localhost:3000')
+  // Dev default allows the landing page (3000) and the admin panel (3100).
+  // In production set ALLOWED_ORIGINS to the deployed origins explicitly.
+  allowedOrigins: required('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3100')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),

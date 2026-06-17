@@ -75,6 +75,10 @@ authRouter.post(
       res.status(401).json(err('invalid_credentials', 'Email or password is incorrect.'));
       return;
     }
+    if (user.isBanned) {
+      res.status(403).json(err('account_suspended', 'This account has been suspended.'));
+      return;
+    }
     res.json(ok(issueAuth(user)));
   }),
 );
@@ -200,6 +204,10 @@ authRouter.post(
           googleId: verified.googleId,
         });
       }
+    }
+    if (user.isBanned) {
+      res.status(403).json(err('account_suspended', 'This account has been suspended.'));
+      return;
     }
     res.json(ok(issueAuth(user)));
   }),

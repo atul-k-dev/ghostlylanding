@@ -15,6 +15,8 @@ import { commentsRouter } from './routes/comments.js';
 import { billingRouter } from './routes/billing.js';
 import { billingWebhookRouter } from './routes/billing-webhook.js';
 import { returnPagesRouter } from './routes/return-pages.js';
+import { adminRouter } from './routes/admin.js';
+import { enforceBan } from './middleware/enforce-ban.js';
 
 export const createApp = (): Express => {
   const app = express();
@@ -61,11 +63,16 @@ export const createApp = (): Express => {
 
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);
+
+  // Block suspended accounts on every authenticated request, even with a still-valid JWT.
+  app.use(enforceBan);
+
   app.use('/api/me', meRouter);
   app.use('/api/account', accountRouter);
   app.use('/api/actions', actionsRouter);
   app.use('/api/comments', commentsRouter);
   app.use('/api/billing', billingRouter);
+  app.use('/api/admin', adminRouter);
 
   // Stripe checkout redirect targets — minimal HTML, no nav/marketing.
   app.use('/r', returnPagesRouter);

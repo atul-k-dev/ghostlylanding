@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  /* Midnight Command Center palette (shared with the landing page) */
+  --color-deep-space: #000000;
+  --color-ghost-white: #ffffff;
+  --color-iron-slate: #a6a6b0;
+  --color-halo-pale: #f4f0ff;
+  --color-shadow-tint: #020202;
+  --color-subtle-gray: #e5e5e5;
+  --color-iridescent-glow: #bbdef2;
+  --color-spectrum-flare: #d1aad7;
+  --color-vivid-crimson: #ff6467;
+  --color-goldenrod: #ffd600;
+  --color-emerald-green: #72ce7b;
+  --color-casper-red: #f44d60; /* brand mark + accents (matches the extension) */
+
+  /* Graphite surfaces — lifted off pure black for readability, layered light→dark */
+  --color-app: #141417;
+  --color-panel: #1b1b20;
+  --color-panel-2: #232329;
+  --color-line: #33333d;
+
+  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --radius-md: 3px;
+  --radius-lg: 5px;
+  --radius-xl: 7px;
+  --radius-2xl: 9px;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-app);
+  color: var(--color-ghost-white);
+  font-family: var(--font-inter);
+  -webkit-font-smoothing: antialiased;
+}
+
+.iridescent-text {
+  background: linear-gradient(100deg, #bbdef2, #d1aad7 55%, #f4f0ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.thin-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: #3a3a44;
+  border-radius: 9999px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}

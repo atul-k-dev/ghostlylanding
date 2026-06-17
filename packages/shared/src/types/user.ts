@@ -28,6 +28,10 @@ export interface User {
   currentPeriodEnd?: string | null;
   /** Lifetime successful-action count — once it hits FREE_TIER.lifetimeActions, free users must upgrade. */
   lifetimeActionCount?: number;
+  /** Grants access to the admin panel. */
+  isAdmin?: boolean;
+  /** When true the account is suspended — blocked from sign-in and all API use. */
+  isBanned?: boolean;
   preferences: UserPreferences;
 }
 

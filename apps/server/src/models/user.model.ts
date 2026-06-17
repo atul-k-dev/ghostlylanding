@@ -56,6 +56,12 @@ const userSchema = new Schema(
     currentPeriodEnd: { type: Date, default: null },
     /** Server-authoritative count of successful actions for free-tier enforcement. */
     lifetimeActionCount: { type: Number, default: 0 },
+    /** Grants access to the admin panel. Set via the set-admin script. */
+    isAdmin: { type: Boolean, default: false },
+    /** When true the account is suspended — blocked from sign-in and all API use. */
+    isBanned: { type: Boolean, default: false },
+    /** Timestamp of the most recent ban; null when not banned. */
+    bannedAt: { type: Date, default: null },
     preferences: { type: preferencesSchema, default: () => ({}) },
   },
   { timestamps: true },
@@ -83,6 +89,8 @@ export const toUserDTO = (
     subscriptionPlan: (doc.subscriptionPlan ?? 'free') as UserDTO['subscriptionPlan'],
     currentPeriodEnd: doc.currentPeriodEnd ? doc.currentPeriodEnd.toISOString() : null,
     lifetimeActionCount: doc.lifetimeActionCount ?? 0,
+    isAdmin: doc.isAdmin ?? false,
+    isBanned: doc.isBanned ?? false,
     preferences: {
       enabledPlatforms: prefs.enabledPlatforms,
       tone: prefs.tone,
