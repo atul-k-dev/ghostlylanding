@@ -65,6 +65,13 @@ export interface HomeAutopilotOptions {
   maxFollows: number;
   /** Overall action ceiling (free-tier lifetime cap; large for Pro). */
   totalBudget: number;
+  /**
+   * Wall-clock budget for this ONE continuous session (ms). The tab keeps
+   * scrolling + acting in place until this elapses, the caps run out, or the
+   * user pauses — set from the user's chosen session length, so we no longer
+   * churn a fresh tab every few minutes.
+   */
+  maxRunMs: number;
   /** Post IDs to skip for commenting (already replied to). */
   skipCommentIds: string[];
   minDelayMs: number;

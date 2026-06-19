@@ -243,7 +243,11 @@ export const runHomeAutopilot = async (
     followed: [],
     scanned: 0,
   };
-  await waitFor(S.postArticle, 12_000);
+  // If the timeline never renders (logged out / wrong page), don't sit here
+  // scrolling an empty page for the whole session — bail and let the executor
+  // report it. Otherwise we keep one tab open and working until time's up.
+  const firstArticle = await waitFor(S.postArticle, 12_000);
+  if (!firstArticle) return result;
 
   const processed = new Set<string>();
   const skip = new Set(opts.skipCommentIds);
@@ -252,26 +256,49 @@ export const runHomeAutopilot = async (
   let follows = 0;
   const total = (): number => likes + comments + follows;
   const pause = (): Promise<void> => wait(randomInt(opts.minDelayMs, opts.maxDelayMs));
-  const startedAt = Date.now();
-  const MAX_SESSION_MS = 240_000; // ~4 min/tab; the SW keep-alive covers this
 
-  for (let scrollPass = 0; scrollPass < 10; scrollPass++) {
-    if (Date.now() - startedAt > MAX_SESSION_MS) break;
+  const startedAt = Date.now();
+  const deadline = startedAt + Math.max(0, opts.maxRunMs);
+  const timeLeft = (): boolean => Date.now() < deadline;
+  // Stop once every enabled action type has spent its daily budget, or the
+  // overall (free-tier / combined) ceiling is hit.
+  const budgetLeft = (): boolean =>
+    total() < opts.totalBudget &&
+    !(likes >= opts.maxLikes && comments >= opts.maxComments && follows >= opts.maxFollows);
+
+  // The kill switch lives in storage: toggling the Active pill off flips
+  // settings.isPaused. Poll it so a long session stops within a couple seconds
+  // instead of running to its deadline. (Key mirrors STORAGE_KEYS.settings.)
+  const stopRequested = async (): Promise<boolean> => {
+    try {
+      const got = await chrome.storage.local.get('casper.settings');
+      return (got['casper.settings'] as { isPaused?: boolean } | undefined)?.isPaused === true;
+    } catch {
+      return false;
+    }
+  };
+
+  let emptyPasses = 0;
+  while (timeLeft() && budgetLeft()) {
+    if (await stopRequested()) break;
+
+    let seenNew = 0;
     const articles = Array.from(document.querySelectorAll<HTMLElement>(S.postArticle));
     for (const article of articles) {
-      if (total() >= opts.totalBudget) break;
-      if (Date.now() - startedAt > MAX_SESSION_MS) break;
-      const allDone =
-        likes >= opts.maxLikes && comments >= opts.maxComments && follows >= opts.maxFollows;
-      if (allDone) break;
+      if (!timeLeft() || !budgetLeft()) break;
 
       const meta = readArticle(article);
       if (!meta || processed.has(meta.postId)) continue;
       processed.add(meta.postId);
       result.scanned++;
+      seenNew++;
 
       if (!isFresh(meta.publishedAt, opts.freshnessHours)) continue;
       if (!isRelevant(meta.text, opts.keywords)) continue;
+
+      // Only check the kill switch for posts we're about to act on (these are
+      // what incur the real delays); skipped posts fly by in microseconds.
+      if (await stopRequested()) break;
 
       article.scrollIntoView({ behavior: 'smooth', block: 'center' });
       await wait(600);
@@ -340,10 +367,26 @@ export const runHomeAutopilot = async (
       }
     }
 
-    if (total() >= opts.totalBudget) break;
-    if (likes >= opts.maxLikes && comments >= opts.maxComments && follows >= opts.maxFollows) break;
+    if (!budgetLeft()) break;
+
+    // Keep scrolling so a long session keeps pulling in fresh posts. Twitter
+    // virtualizes the timeline, so the DOM stays bounded as we go.
     await smoothScrollBy(700);
     await wait(650);
+
+    // If several passes in a row surface nothing new, we've caught up to the
+    // feed — nudge harder and wait a beat before trying again, rather than
+    // spinning, then keep going until the session's time/budget is spent.
+    if (seenNew === 0) {
+      emptyPasses++;
+      if (emptyPasses >= 3) {
+        window.scrollBy({ top: 1600, behavior: 'instant' as ScrollBehavior });
+        await wait(2_000);
+        emptyPasses = 0;
+      }
+    } else {
+      emptyPasses = 0;
+    }
   }
 
   return result;

@@ -25,6 +25,7 @@ import {
   getTargetState,
   setTargetState,
   getSettings,
+  getSchedulerState,
   getAuth,
   setAuth,
   getCommentedPosts,
@@ -469,12 +470,26 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
     return Math.max(0, cap - c.byActionType[action]);
   };
 
-  // One session drains most of the day's remaining budget in a single smooth
-  // pass (bounded so the tab doesn't stay open absurdly long). Daily caps still
-  // protect the account; the scheduler only re-scans while budget remains.
-  const maxLikes = hf.like ? Math.min(remaining('like'), 40) : 0;
-  const maxFollows = hf.follow ? Math.min(remaining('follow'), 20) : 0;
-  const maxComments = hf.comment ? Math.min(remaining('comment'), 10) : 0;
+  // ONE continuous session keeps a single tab open and acts until the user's
+  // chosen session length elapses, the daily caps run out, or they hit Pause —
+  // instead of 4-minute tabs churning open and closed. Daily caps (age +
+  // variance) stay the real ceiling and the random per-action delays pace it,
+  // so we hand the content script the FULL remaining daily budget, not a slice.
+  const maxLikes = hf.like ? remaining('like') : 0;
+  const maxFollows = hf.follow ? remaining('follow') : 0;
+  const maxComments = hf.comment ? remaining('comment') : 0;
+
+  // Wall-clock budget for this tab = whatever is left of the active session,
+  // minus a small buffer so the tab finishes and closes itself a beat BEFORE
+  // the scheduler's session auto-pause tick fires (clean teardown, no SW race).
+  const sched = await getSchedulerState();
+  const sessionStartedAt = sched.activeSince ?? Date.now();
+  const sessionMs = Math.max(1, settings.sessionMinutes) * 60_000;
+  const SESSION_END_BUFFER_MS = 15_000;
+  const maxRunMs = Math.max(
+    30_000,
+    sessionMs - (Date.now() - sessionStartedAt) - SESSION_END_BUFFER_MS,
+  );
   // The only free-tier limit: a 30-action lifetime allowance (likes + replies +
   // follows combined). Pro is uncapped. Every feature works for both.
   const lifetimeLeft = pro
@@ -516,6 +531,7 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
           maxComments,
           maxFollows,
           totalBudget,
+          maxRunMs,
           skipCommentIds,
           minDelayMs: 3_000,
           maxDelayMs: 7_000,
