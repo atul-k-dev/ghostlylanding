@@ -9,7 +9,7 @@ import type {
   TonePreset,
   User,
 } from '@casper/shared';
-import { PLATFORMS, TONE_PRESETS, FREE_TIER, isPro } from '@casper/shared';
+import { TONE_PRESETS, FREE_TIER, isPro } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import {
   getSettings,
@@ -75,7 +75,7 @@ export const Dashboard = ({ user, onLogout }: Props) => {
   };
 
   return (
-    <div className="flex h-[480px] flex-col">
+    <div className="flex h-[480px] w-[480px] flex-col">
       <Header user={user} isPaused={settings?.isPaused ?? false} onTogglePause={togglePause} />
       <Tabs tab={tab} onChange={setTab} />
       <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -288,14 +288,12 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
           <p className="font-medium text-amber-200">Add your first creator to begin 👋</p>
           <p className="text-amber-200/70">
-            Open <strong>Settings</strong> and add a Twitter or LinkedIn handle. Casper visits
-            their profile, likes recent posts, and finds new accounts to follow — all on the
-            schedule you set.
+            Open <strong>Settings</strong> and add a Twitter handle. Casper visits their profile,
+            likes recent posts, and finds new accounts to follow — all on the schedule you set.
           </p>
         </div>
       )}
       <PlatformCounters platform="twitter" counter={counters?.twitter ?? null} />
-      <PlatformCounters platform="linkedin" counter={counters?.linkedin ?? null} />
     </div>
   );
 };
@@ -458,22 +456,13 @@ const SettingsTab = ({
         title="Account age (months)"
         subtitle="Newer accounts get safer caps. Leave blank if unsure."
       >
-        <div className="grid grid-cols-2 gap-2">
-          <NumberField
-            label="Twitter"
-            value={settings.accountAgeMonths.twitter ?? 0}
-            onChange={(n) => setAge('twitter', n > 0 ? n : null)}
-            min={0}
-            max={240}
-          />
-          <NumberField
-            label="LinkedIn"
-            value={settings.accountAgeMonths.linkedin ?? 0}
-            onChange={(n) => setAge('linkedin', n > 0 ? n : null)}
-            min={0}
-            max={240}
-          />
-        </div>
+        <NumberField
+          label="Twitter"
+          value={settings.accountAgeMonths.twitter ?? 0}
+          onChange={(n) => setAge('twitter', n > 0 ? n : null)}
+          min={0}
+          max={240}
+        />
       </Section>
 
       <HomeFeedSection settings={settings} onChange={onChange} />
@@ -958,11 +947,7 @@ const WhitelistSection = ({
           onChange={(e) => setPlatform(e.target.value as Platform)}
           className="rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs"
         >
-          {PLATFORMS.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
+          <option value="twitter">twitter</option>
         </select>
         <input
           type="text"
@@ -1025,13 +1010,6 @@ const HomeFeedSection = ({
 
   const update = (patch: Partial<typeof hf>) =>
     onChange({ ...settings, homeFeed: { ...hf, ...patch } });
-
-  const togglePlatform = (p: Platform) => {
-    const next = hf.platforms.includes(p)
-      ? hf.platforms.filter((x) => x !== p)
-      : [...hf.platforms, p];
-    update({ platforms: next });
-  };
 
   const commitKeywords = () => {
     const list = keywordText
@@ -1102,24 +1080,6 @@ const HomeFeedSection = ({
 
       {hf.enabled && (
         <div className="mt-3 space-y-3">
-          <div>
-            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
-              Platforms
-            </p>
-            <div className="flex gap-4">
-              <Check
-                checked={hf.platforms.includes('twitter')}
-                onToggle={() => togglePlatform('twitter')}
-                label="Twitter"
-              />
-              <Check
-                checked={hf.platforms.includes('linkedin')}
-                onToggle={() => togglePlatform('linkedin')}
-                label="LinkedIn"
-              />
-            </div>
-          </div>
-
           <div>
             <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
               Actions
@@ -1262,11 +1222,7 @@ const TargetsSection = ({
           onChange={(e) => setPlatform(e.target.value as Platform)}
           className="rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs"
         >
-          {PLATFORMS.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
+          <option value="twitter">twitter</option>
         </select>
         <input
           type="text"

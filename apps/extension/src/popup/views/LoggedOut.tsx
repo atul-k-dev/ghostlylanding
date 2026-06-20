@@ -8,9 +8,15 @@ type Status = 'idle' | 'submitting' | 'googling';
 const isValidEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const GOOGLE_CONFIGURED = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
-const inputCls =
-  'w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-3 py-1.5 text-sm text-casper-ink placeholder-casper-ink/30 focus:border-casper-violet focus:outline-none focus:ring-2 focus:ring-casper-violet/20';
-const labelCls = 'mb-0.5 block text-[11px] font-medium text-casper-ink/70';
+// Shared field styling — dark inset, hairline border, coral focus ring, room on
+// the left for the leading icon.
+export const fieldCls =
+  'h-10 w-full rounded-lg border border-casper-border bg-casper-surface-2 pl-10 pr-4 text-sm text-casper-ink placeholder-casper-ink/30 transition focus:border-casper-coral focus:outline-none focus:ring-2 focus:ring-casper-coral/25 disabled:opacity-60';
+export const labelCls = 'mb-1.5 block text-[13px] font-medium text-casper-ink';
+export const leadingIconCls =
+  'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-casper-ink/40';
+export const primaryBtnCls =
+  'h-10 w-full rounded-lg bg-casper-coral text-sm font-semibold text-white transition hover:bg-casper-coral-bright disabled:opacity-50';
 
 export const LoggedOut = () => {
   const [mode, setMode] = useState<Mode>('login');
@@ -85,31 +91,25 @@ export const LoggedOut = () => {
   const busy = status !== 'idle';
 
   return (
-    <div className="flex min-h-[300px] w-full">
-      {/* LEFT — brand panel */}
-      <aside className="flex w-[150px] flex-none flex-col justify-between border-r border-casper-border bg-casper-violet/5 p-4">
-        <div>
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-casper-violet text-xl text-white">
-            👻
-          </div>
-          <h1 className="text-base font-semibold leading-tight">
-            {mode === 'login' ? 'Welcome to Casper' : 'Create your account'}
-          </h1>
-          <p className="mt-1 text-[11px] leading-relaxed text-casper-ink/60">
-            {mode === 'login'
-              ? 'Sign in to pick up where you left off.'
-              : 'Free to start — no card needed.'}
+    <div className="flex w-[600px] min-h-[400px] bg-casper-bg">
+      <BrandPanel
+        title={mode === 'login' ? 'Welcome to Casper' : 'Create your account'}
+        subtitle={
+          mode === 'login'
+            ? 'Sign in to pick up where you left off.'
+            : 'Free to start — no card needed.'
+        }
+        footer={
+          <p className="font-mono text-[10px] tracking-[0.12em] text-casper-muted">
+            v0.0.1 • SAFE BY DEFAULT
           </p>
-        </div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
-          v0.0.1 · safe by default
-        </p>
-      </aside>
+        }
+      />
 
       {/* RIGHT — auth controls */}
-      <div className="flex flex-1 flex-col p-4">
-        {/* Mode tabs */}
-        <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-casper-ink/5 p-1">
+      <div className="flex flex-1 flex-col justify-center px-7 py-6">
+        {/* Underline tabs */}
+        <div className="mb-5 flex border-b border-casper-border">
           {(['login', 'signup'] as Mode[]).map((m) => (
             <button
               key={m}
@@ -121,10 +121,10 @@ export const LoggedOut = () => {
                 }
               }}
               disabled={busy}
-              className={`rounded-lg px-3 py-1 text-[11px] font-medium transition ${
+              className={`-mb-px flex-1 border-b-2 pb-2.5 text-center text-sm transition disabled:opacity-60 ${
                 mode === m
-                  ? 'bg-white/10 text-casper-ink'
-                  : 'text-casper-ink/60 hover:text-casper-ink'
+                  ? 'border-casper-coral font-semibold text-casper-ink'
+                  : 'border-transparent font-medium text-casper-muted hover:text-casper-ink'
               }`}
             >
               {m === 'login' ? 'Sign in' : 'Sign up'}
@@ -132,46 +132,59 @@ export const LoggedOut = () => {
           ))}
         </div>
 
-        <form onSubmit={submit} className="flex flex-col gap-2">
+        <form onSubmit={submit} className="flex flex-col gap-3.5">
           {mode === 'signup' && (
             <div>
               <label htmlFor="name" className={labelCls}>
                 Name
               </label>
-              <input
-                id="name"
-                type="text"
-                autoComplete="name"
-                required
-                disabled={busy}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                className={inputCls}
-              />
+              <div className="relative">
+                <span className={leadingIconCls}>
+                  <UserIcon />
+                </span>
+                <input
+                  id="name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  disabled={busy}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  className={fieldCls}
+                />
+              </div>
             </div>
           )}
           <div>
             <label htmlFor="email" className={labelCls}>
               Email
             </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete={mode === 'signup' ? 'email' : 'username'}
-              required
-              disabled={busy}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className={inputCls}
-            />
+            <div className="relative">
+              <span className={leadingIconCls}>
+                <MailIcon />
+              </span>
+              <input
+                id="email"
+                type="email"
+                autoComplete={mode === 'signup' ? 'email' : 'username'}
+                required
+                disabled={busy}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className={fieldCls}
+              />
+            </div>
           </div>
           <div>
             <label htmlFor="password" className={labelCls}>
               Password
             </label>
             <div className="relative">
+              <span className={leadingIconCls}>
+                <LockIcon />
+              </span>
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
@@ -182,7 +195,7 @@ export const LoggedOut = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'}
-                className={`${inputCls} pr-10`}
+                className={`${fieldCls} pr-11`}
               />
               <button
                 type="button"
@@ -191,50 +204,44 @@ export const LoggedOut = () => {
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 aria-pressed={showPassword}
                 tabIndex={-1}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-casper-ink/40 transition hover:text-casper-ink/70 disabled:opacity-50"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-casper-ink/40 transition hover:text-casper-ink/80 disabled:opacity-50"
               >
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             </div>
+            {mode === 'login' && (
+              <div className="mt-1.5 text-right">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setError(null);
+                    setView('forgot');
+                  }}
+                  className="text-sm font-medium text-casper-coral transition hover:text-casper-coral-bright disabled:opacity-50"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
           </div>
-          {mode === 'login' && (
-            <div className="-mt-1 text-right">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  setError(null);
-                  setView('forgot');
-                }}
-                className="text-[11px] text-casper-violet hover:underline disabled:opacity-50"
-              >
-                Forgot password?
-              </button>
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-lg bg-casper-violet px-3 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-          >
+          <button type="submit" disabled={busy} className={primaryBtnCls}>
             {status === 'submitting'
               ? mode === 'signup'
                 ? 'Creating account…'
                 : 'Signing in…'
               : mode === 'signup'
-                ? 'Create account'
+                ? 'Sign up'
                 : 'Sign in'}
           </button>
-          {error && <p className="text-xs text-rose-400">✗ {error}</p>}
+          {error && <p className="text-sm text-rose-400">✗ {error}</p>}
         </form>
 
         {/* OR divider */}
-        <div className="my-2 flex items-center gap-3">
-          <div className="h-px flex-1 bg-casper-ink/10" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
-            or
-          </span>
-          <div className="h-px flex-1 bg-casper-ink/10" />
+        <div className="my-3.5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-casper-border" />
+          <span className="text-xs font-medium tracking-wide text-casper-muted">OR</span>
+          <div className="h-px flex-1 bg-casper-border" />
         </div>
 
         <button
@@ -242,7 +249,7 @@ export const LoggedOut = () => {
           onClick={continueWithGoogle}
           disabled={busy || !GOOGLE_CONFIGURED}
           title={!GOOGLE_CONFIGURED ? 'VITE_GOOGLE_CLIENT_ID is not set' : undefined}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-casper-ink/10 bg-casper-surface px-3 py-2 text-sm font-medium text-casper-ink transition hover:bg-white/5 disabled:opacity-50"
+          className="flex h-10 w-full items-center justify-center gap-2.5 rounded-lg border border-casper-border bg-casper-surface text-sm font-semibold text-casper-ink transition hover:bg-white/5 disabled:opacity-50"
         >
           <GoogleIcon />
           {status === 'googling' ? 'Opening Google…' : 'Continue with Google'}
@@ -251,6 +258,101 @@ export const LoggedOut = () => {
     </div>
   );
 };
+
+/**
+ * Left brand panel — coral ghost, headline, and a nighttime scene (moon, hills,
+ * pines, stars) rendered as inline SVG so it needs no image asset. Shared by the
+ * sign-in and reset views.
+ */
+export const BrandPanel = ({
+  title,
+  subtitle,
+  footer,
+}: {
+  title: string;
+  subtitle: string;
+  footer: React.ReactNode;
+}) => (
+  <aside
+    className="relative w-[208px] flex-none overflow-hidden border-r border-casper-border"
+    style={{ background: 'linear-gradient(165deg, #2c1117 0%, #1a0b10 46%, #0e0e0e 100%)' }}
+  >
+    <NightScene />
+    <div className="relative z-10 flex h-full flex-col justify-between p-5">
+      <div>
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-casper-coral text-2xl shadow-lg shadow-casper-coral/30">
+          👻
+        </div>
+        <h1 className="text-xl font-bold leading-tight text-white">{title}</h1>
+        <p className="mt-1.5 text-xs leading-relaxed text-casper-muted">{subtitle}</p>
+      </div>
+      {footer}
+    </div>
+  </aside>
+);
+
+/** Decorative nighttime scene for the brand panel. */
+const NightScene = () => (
+  <svg
+    className="pointer-events-none absolute inset-0 h-full w-full"
+    viewBox="0 0 224 520"
+    preserveAspectRatio="xMidYMax slice"
+    aria-hidden="true"
+  >
+    <defs>
+      <radialGradient id="casper-moon" cx="50%" cy="42%" r="60%">
+        <stop offset="0%" stopColor="#ffe2e5" />
+        <stop offset="55%" stopColor="#f87f8a" />
+        <stop offset="100%" stopColor="#f44d60" stopOpacity="0" />
+      </radialGradient>
+    </defs>
+    {/* stars */}
+    <g fill="#ffffff">
+      <circle cx="150" cy="70" r="1.4" opacity="0.7" />
+      <circle cx="188" cy="128" r="1" opacity="0.5" />
+      <circle cx="58" cy="150" r="1" opacity="0.45" />
+      <circle cx="120" cy="44" r="1.1" opacity="0.6" />
+      <circle cx="196" cy="210" r="1" opacity="0.4" />
+    </g>
+    {/* sparkles */}
+    <g fill="#f8b3ba" opacity="0.85">
+      <path d="M172 96 l2 5.5 l5.5 2 l-5.5 2 l-2 5.5 l-2 -5.5 l-5.5 -2 l5.5 -2 z" />
+      <path d="M96 120 l1.6 4.4 l4.4 1.6 l-4.4 1.6 l-1.6 4.4 l-1.6 -4.4 l-4.4 -1.6 l4.4 -1.6 z" />
+    </g>
+    {/* moon */}
+    <circle cx="74" cy="362" r="36" fill="url(#casper-moon)" />
+    {/* hills */}
+    <path d="M0 404 Q56 362 122 392 T224 376 L224 520 L0 520 Z" fill="#7a2230" opacity="0.5" />
+    <path d="M0 446 Q72 408 152 436 T224 428 L224 520 L0 520 Z" fill="#3f1219" opacity="0.96" />
+    {/* pine trees */}
+    <g fill="#23090e">
+      <path d="M34 476 l10 -30 l10 30 z" />
+      <path d="M50 476 l7 -20 l7 20 z" />
+      <path d="M150 470 l9 -25 l9 25 z" />
+    </g>
+  </svg>
+);
+
+export const MailIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+    <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const LockIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+export const UserIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="8" r="3.6" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M5 20a7 7 0 0 1 14 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
 
 export const EyeIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">

@@ -44,9 +44,11 @@ export const Popup = () => {
   }, []);
 
   return (
-    <main className="casper-app w-[480px] text-casper-ink">
+    // No fixed width here — each view sets its own (the auth screen is wider
+    // than the dashboard), so the popup sizes to whichever is showing.
+    <main className="casper-app w-fit text-casper-ink">
       {state.kind === 'loading' && (
-        <div className="flex h-[300px] items-center justify-center text-sm text-casper-ink/60">
+        <div className="flex h-[300px] w-[480px] items-center justify-center text-sm text-casper-ink/60">
           <span>Loading…</span>
         </div>
       )}

@@ -85,6 +85,10 @@ export interface HomeAutopilotResult {
   scanned: number;
   /** Why replying didn't happen (server down, not Pro, DOM flow failed). */
   commentError?: string;
+  /** Diagnostic: candidate-selector match counts, reported to the (clean)
+   *  service-worker console when a run finds nothing — so we can pinpoint a
+   *  DOM-selector drift without relying on the page console. */
+  debug?: string;
 }
 
 export type ContentResponse =

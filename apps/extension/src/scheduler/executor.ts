@@ -20,14 +20,11 @@ import {
   markCommented,
   isAlreadyFollowed,
   markFollowed,
-  isAlreadyDrafted,
-  markDrafted,
   getTargetState,
   setTargetState,
   getSettings,
   getSchedulerState,
   getAuth,
-  setAuth,
   getCommentedPosts,
   appendDiagnostic,
 } from '../lib/storage.js';
@@ -35,37 +32,15 @@ import {
   buildProfileUrl as twitterProfileUrl,
   buildFollowersUrl as twitterFollowersUrl,
 } from '../platforms/twitter/selectors.js';
-import {
-  buildProfileFeedUrl as linkedinProfileUrl,
-  buildFollowersUrl as linkedinFollowersUrl,
-  buildProfileFromHandle as linkedinProfileFromHandle,
-} from '../platforms/linkedin/selectors.js';
 import { enqueue } from './queue.js';
 import { apiFetch } from '../lib/api.js';
-import { ensureToday, incrementCounter } from './counters.js';
-import { appendActionLog } from './action-log.js';
+import { ensureToday } from './counters.js';
 
-const profileUrlFor = (platform: Platform, handle: string): string =>
-  platform === 'twitter' ? twitterProfileUrl(handle) : linkedinProfileUrl(handle);
-
-const followersUrlFor = (platform: Platform, handle: string): string =>
-  platform === 'twitter' ? twitterFollowersUrl(handle) : linkedinFollowersUrl(handle);
-
-const candidateProfileUrl = (platform: Platform, handle: string): string =>
-  platform === 'twitter' ? twitterProfileUrl(handle) : linkedinProfileFromHandle(handle);
-
-const homeUrlFor = (platform: Platform): string =>
-  platform === 'twitter' ? 'https://x.com/home' : 'https://www.linkedin.com/feed/';
-
-/** True if the post text matches the relevance keywords (empty = match all). */
-const isRelevant = (text: string, keywords: string[]): boolean => {
-  if (keywords.length === 0) return true;
-  const hay = text.toLowerCase();
-  return keywords.some((k) => {
-    const needle = k.trim().toLowerCase();
-    return needle.length > 0 && hay.includes(needle);
-  });
-};
+// Twitter/X is the only automated platform. (LinkedIn automation was removed.)
+const profileUrlFor = (handle: string): string => twitterProfileUrl(handle);
+const followersUrlFor = (handle: string): string => twitterFollowersUrl(handle);
+const candidateProfileUrl = (handle: string): string => twitterProfileUrl(handle);
+const HOME_URL = 'https://x.com/home';
 
 const executeLike = async (task: QueuedTask): Promise<ExecutorResult> => {
   const postUrl = task.payload.postUrl as string | undefined;
@@ -143,7 +118,7 @@ const executeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
   const handle = task.payload.handle as string | undefined;
   if (!handle) return { success: false, errorMessage: 'missing handle' };
 
-  const profileUrl = profileUrlFor(task.platform, handle);
+  const profileUrl = profileUrlFor(handle);
 
   let resp;
   try {
@@ -299,7 +274,7 @@ const executeFollowScan = async (task: QueuedTask): Promise<ExecutorResult> => {
   const handle = task.payload.handle as string | undefined;
   if (!handle) return { success: false, errorMessage: 'missing handle' };
 
-  const url = followersUrlFor(task.platform, handle);
+  const url = followersUrlFor(handle);
 
   let resp;
   try {
@@ -361,7 +336,7 @@ const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
   const handle = task.payload.handle as string | undefined;
   const profileUrl =
     (task.payload.profileUrl as string | undefined) ??
-    (handle ? candidateProfileUrl(task.platform, handle) : undefined);
+    (handle ? candidateProfileUrl(handle) : undefined);
   if (!handle || !profileUrl) {
     return { success: false, errorMessage: 'missing handle/profileUrl' };
   }
@@ -444,12 +419,13 @@ const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
 };
 
 /**
- * Twitter inline home-feed autopilot — ONE tab smoothly scrolls the timeline
- * and likes / comments / follows in place (no per-action tabs). Daily caps and
- * the free-tier lifetime cap are enforced via budgets passed to the content
- * script; the results come back here and are logged + counted + de-duped.
+ * Inline home-feed autopilot (Twitter/X) — ONE tab smoothly scrolls the
+ * timeline and likes / comments / follows in place (no per-action tabs). Daily
+ * caps, the free-tier lifetime cap, and the session length are enforced via
+ * budgets passed to the content script; results come back here and are logged +
+ * counted + de-duped.
  */
-const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult> => {
+const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult> => {
   const settings = await getSettings();
   const hf = settings.homeFeed;
   const platform = task.platform;
@@ -497,11 +473,31 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
     : Math.max(0, FREE_TIER.lifetimeActions - (auth?.user.lifetimeActionCount ?? 0));
   const totalBudget = Math.min(lifetimeLeft, maxLikes + maxComments + maxFollows);
 
+  // Pre-flight: if a run can't do anything, say WHY in Diagnostics rather than
+  // opening a tab that silently sits there (no scroll, no actions, no error).
+  // These are the usual "nothing happened" causes.
+  if (!hf.like && !hf.comment && !hf.follow) {
+    await appendDiagnostic({
+      kind: 'selector_miss',
+      context: `${platform}:home`,
+      detail: 'No actions enabled — turn on Like / Auto-reply / Follow in Home feed autopilot.',
+    });
+    return { success: true, errorMessage: 'home: no actions enabled' };
+  }
+  if (totalBudget === 0) {
+    const detail =
+      !pro && lifetimeLeft === 0
+        ? `Free plan: ${FREE_TIER.lifetimeActions}-action lifetime allowance used. Upgrade to Pro to keep going.`
+        : 'Daily caps already reached for every enabled action — resets at your local midnight.';
+    await appendDiagnostic({ kind: 'rate_limited', context: `${platform}:home`, detail });
+    return { success: true, errorMessage: `home: ${detail}` };
+  }
+
   // Surface *why* auto-reply won't happen so it shows in Diagnostics.
   if (hf.comment && maxComments === 0) {
     await appendDiagnostic({
       kind: 'rate_limited',
-      context: 'twitter:comment',
+      context: `${platform}:comment`,
       detail: 'Daily reply cap reached for today.',
     });
   }
@@ -514,10 +510,15 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
     .map((k) => k.slice(prefix.length))
     .slice(0, 500);
 
+  console.log(
+    `[casper] home ${platform}: opening tab — like=${hf.like} comment=${hf.comment} ` +
+      `follow=${hf.follow} budget=${totalBudget} caps(${maxLikes}/${maxComments}/${maxFollows}) ` +
+      `runMs=${maxRunMs} keywords=[${hf.keywords.join(',')}]`,
+  );
   let resp;
   try {
     resp = await driveTab(
-      homeUrlFor(platform),
+      HOME_URL,
       {
         type: 'RUN_HOME',
         payload: {
@@ -540,6 +541,7 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
       { settleMs: 3_500 },
     );
   } catch (err) {
+    console.warn(`[casper] home ${platform}: tab driver failed —`, err);
     return {
       success: false,
       errorMessage: err instanceof Error ? err.message : 'tab driver failed',
@@ -547,6 +549,7 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
   }
 
   if (resp.type !== 'HOME_AUTOPILOT_RESULT') {
+    console.warn(`[casper] home ${platform}: unexpected response`, resp);
     return {
       success: false,
       errorMessage: resp.type === 'ERROR' ? resp.payload.message : 'unexpected home response',
@@ -554,59 +557,28 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
   }
 
   const { liked, commented, followed, scanned } = resp.payload;
-  const ts = (): string => new Date().toISOString();
-
-  for (const p of liked) {
-    if (p.postId) await markLiked(platform, p.postId);
-    await appendActionLog({
-      platform,
-      actionType: 'like',
-      targetUrl: p.postUrl,
-      success: true,
-      timestamp: ts(),
-    });
-    await incrementCounter(settings, platform, 'like');
+  console.log(
+    `[casper] home ${platform}: result — scanned=${scanned} liked=${liked.length} ` +
+      `commented=${commented.length} followed=${followed.length}` +
+      (resp.payload.commentError ? ` commentError="${resp.payload.commentError}"` : ''),
+  );
+  // DOM selector probe — logged to the (clean) SW console always; folded into
+  // the Diagnostics entry below when a run does nothing.
+  if (resp.payload.debug) {
+    console.log(`[casper] home ${platform}: dom probe ${resp.payload.debug}`);
   }
-  for (const p of commented) {
-    if (p.postId) await markCommented(platform, p.postId);
-    if (p.draftId) await markDraft(p.draftId, 'posted');
-    await appendActionLog({
-      platform,
-      actionType: 'comment',
-      targetUrl: p.postUrl,
-      success: true,
-      timestamp: ts(),
-    });
-    await incrementCounter(settings, platform, 'comment');
-  }
-  for (const f of followed) {
-    await markFollowed(platform, f.handle);
-    await appendActionLog({
-      platform,
-      actionType: 'follow',
-      targetUrl: f.profileUrl ?? `https://x.com/${f.handle}`,
-      targetHandle: f.handle,
-      success: true,
-      timestamp: ts(),
-    });
-    await incrementCounter(settings, platform, 'follow');
-  }
+  // Each like/comment/follow was counted, logged, de-duped, and lifetime-bumped
+  // LIVE during the session — the content script fires a RECORD_ACTION message
+  // per action (handled in the background) so the dashboard updates as it goes,
+  // not only when the (possibly hour-long) session ends. Here we just summarize.
+  const performed = liked.length + commented.length + followed.length;
 
   // If replies were attempted but none landed, record the reason for the user.
   if (resp.payload.commentError && commented.length === 0) {
     await appendDiagnostic({
       kind: 'network_error',
-      context: 'twitter:comment',
+      context: `${platform}:comment`,
       detail: resp.payload.commentError,
-    });
-  }
-
-  // Free tier: keep the local lifetime counter moving so the cap is enforced.
-  const performed = liked.length + commented.length + followed.length;
-  if (!pro && auth && performed > 0) {
-    await setAuth({
-      ...auth,
-      user: { ...auth.user, lifetimeActionCount: (auth.user.lifetimeActionCount ?? 0) + performed },
     });
   }
 
@@ -615,6 +587,21 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
   const key = `home:${platform}`;
   state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastHomeScanAt: Date.now() };
   await setTargetState(state);
+
+  // Surface a 0-action pass in Diagnostics so selector/feed problems are
+  // visible: "saw posts but couldn't act" points at action selectors, while
+  // "0 posts" points at the feed not rendering / post-container selector.
+  if (performed === 0) {
+    const reason =
+      scanned === 0
+        ? 'No posts detected in the feed.'
+        : `Saw ${scanned} posts but completed no actions.`;
+    await appendDiagnostic({
+      kind: 'selector_miss',
+      context: `${platform}:home`,
+      detail: resp.payload.debug ? `${reason} probe=${resp.payload.debug}` : reason,
+    });
+  }
 
   return {
     success: true,
@@ -625,125 +612,17 @@ const runTwitterHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult
   };
 };
 
-/**
- * Home-feed autopilot. Twitter runs the inline session above; LinkedIn still
- * uses the scan-then-enqueue flow below (separate action tabs).
- */
-const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
-  if (task.platform === 'twitter') return runTwitterHomeAutopilot(task);
-  const settings = await getSettings();
-  const hf = settings.homeFeed;
-
-  let resp;
-  try {
-    resp = await driveTab(
-      homeUrlFor(task.platform),
-      { type: 'SCAN_HOME', payload: { max: 25 } },
-      { settleMs: 3_500 },
-    );
-  } catch (err) {
-    return {
-      success: false,
-      errorMessage: err instanceof Error ? err.message : 'tab driver failed',
-    };
-  }
-
-  if (resp.type !== 'HOME_RESULT') {
-    return {
-      success: false,
-      errorMessage: resp.type === 'ERROR' ? resp.payload.message : 'unexpected home response',
-    };
-  }
-
-  if (resp.payload.posts.length === 0) {
-    await appendDiagnostic({
-      kind: 'selector_miss',
-      context: `${task.platform}:scan-home-feed`,
-      detail: '0 posts found on home feed',
-    });
-  }
-
-  const fresh = resp.payload.posts.filter((p) => isFresh(p.publishedAt));
-  let likes = 0;
-  let follows = 0;
-  let drafts = 0;
-
-  for (const post of fresh) {
-    if (!isRelevant(post.text ?? '', hf.keywords)) continue;
-    const id = post.postId || extractPostId(task.platform, post.postUrl);
-
-    // Like
-    if (hf.like && id && !(await isAlreadyLiked(task.platform, id))) {
-      await enqueue(task.platform, 'like', {
-        postUrl: post.postUrl,
-        postId: id,
-        sourceHandle: post.authorHandle ?? 'home',
-      });
-      likes++;
-    }
-
-    // Auto-reply: generate a reply and enqueue it to post. The scheduler still
-    // gates this per daily caps and the 30-action lifetime allowance.
-    if (
-      hf.comment &&
-      id &&
-      post.text &&
-      !(await isAlreadyDrafted(task.platform, id)) &&
-      !(await isAlreadyCommented(task.platform, id))
-    ) {
-      const tone = settings.tone;
-      const draftResp = await apiFetch<{ id: string; draftText: string }>(
-        `/api/comments/generate`,
-        {
-          method: 'POST',
-          body: { platform: task.platform, postText: post.text, postUrl: post.postUrl, tone },
-        },
-      );
-      if (draftResp.ok) {
-        await markDrafted(task.platform, id);
-        drafts++;
-        await enqueue(task.platform, 'comment', {
-          draftId: draftResp.data.id,
-          postUrl: post.postUrl,
-          commentText: draftResp.data.draftText,
-          postId: id,
-        });
-      }
-    }
-
-    // Follow the author
-    if (hf.follow && post.authorHandle) {
-      const handle = post.authorHandle;
-      if (
-        !inWhitelist(settings.whitelist, task.platform, handle) &&
-        !(await isAlreadyFollowed(task.platform, handle))
-      ) {
-        await enqueue(task.platform, 'follow', {
-          handle,
-          profileUrl: post.profileUrl ?? candidateProfileUrl(task.platform, handle),
-          sourceHandle: 'home',
-        });
-        follows++;
-      }
-    }
-  }
-
-  // Record scan time so the refill loop paces home scans.
-  const state = await getTargetState();
-  const key = `home:${task.platform}`;
-  state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastHomeScanAt: Date.now() };
-  await setTargetState(state);
-
-  return {
-    success: true,
-    errorMessage:
-      likes + follows + drafts === 0
-        ? `home scan ok: no matches (saw ${resp.payload.posts.length})`
-        : undefined,
-  };
-};
+/** Home-feed autopilot — runs the inline single-tab session (see
+ *  runInlineHomeAutopilot). */
+const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> =>
+  runInlineHomeAutopilot(task);
 
 export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => {
+  // Twitter/X only. Any stray non-Twitter task (e.g. left in the queue from a
+  // previous build) completes as a no-op so it never opens a tab or retries.
+  if (task.platform !== 'twitter') {
+    return { success: true, errorMessage: 'LinkedIn automation removed' };
+  }
   switch (task.taskType) {
     case 'like':
       return executeLike(task);

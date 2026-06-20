@@ -8,19 +8,22 @@ import type {
   Platform,
   TonePreset,
 } from '@casper/shared';
-import { PLATFORMS, TONE_PRESETS } from '@casper/shared';
+import { PLATFORMS, TONE_PRESETS, isPro } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
 import {
   getAuth,
   setAuth,
   appendDiagnostic,
+  markLiked,
+  markCommented,
+  markFollowed,
   type StoredAuth,
 } from '../lib/storage.js';
 import { installScheduler, handleTick, SCHEDULER_ALARM } from '../scheduler/scheduler.js';
 import { fetchGoogleIdToken } from './google-signin.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
-import { flushActionLog } from '../scheduler/action-log.js';
-import { ensureToday } from '../scheduler/counters.js';
+import { flushActionLog, appendActionLog } from '../scheduler/action-log.js';
+import { ensureToday, incrementCounter } from '../scheduler/counters.js';
 import {
   getSettings,
   setSettings,
@@ -73,6 +76,7 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   SCAN_TARGET_NOW: handleScanTargetNow as AsyncHandler<unknown, unknown>,
   SCAN_FOLLOWERS_NOW: handleScanFollowersNow as AsyncHandler<unknown, unknown>,
   SCAN_HOME_NOW: handleScanHomeNow as AsyncHandler<unknown, unknown>,
+  RECORD_ACTION: handleRecordAction as AsyncHandler<unknown, unknown>,
   UPDATE_PREFERENCES: handleUpdatePreferences as AsyncHandler<unknown, unknown>,
   DRAFT_COMMENT: handleDraftComment as AsyncHandler<unknown, unknown>,
   LIST_DRAFTS: handleListDrafts as AsyncHandler<unknown, unknown>,
@@ -143,6 +147,71 @@ const seedKeywordsFromServer = async (user: User): Promise<void> => {
     homeFeed: { ...settings.homeFeed, keywords: serverKeywords },
   });
 };
+
+/**
+ * Record ONE autopilot action the moment it lands (sent by the home-feed content
+ * script during a long session) — so the dashboard counters move live instead of
+ * only when the whole session ends. Marks de-dupe, buffers the action log,
+ * increments today's counter, and bumps the free-tier lifetime count.
+ */
+async function handleRecordAction(payload: unknown) {
+  const { platform, actionType, postUrl, postId, handle, profileUrl, draftId } = (payload ??
+    {}) as {
+    platform?: Platform;
+    actionType?: 'like' | 'comment' | 'follow';
+    postUrl?: string;
+    postId?: string;
+    handle?: string;
+    profileUrl?: string;
+    draftId?: string;
+  };
+  if (
+    !platform ||
+    !PLATFORMS.includes(platform) ||
+    (actionType !== 'like' && actionType !== 'comment' && actionType !== 'follow')
+  ) {
+    return { ok: false, error: 'invalid_payload' };
+  }
+
+  // De-dupe marks so the same post/handle isn't acted on again.
+  if (actionType === 'like' && postId) await markLiked(platform, postId);
+  if (actionType === 'comment' && postId) await markCommented(platform, postId);
+  if (actionType === 'follow' && handle) await markFollowed(platform, handle);
+  if (actionType === 'comment' && draftId) {
+    try {
+      await apiFetch(`/api/comments/drafts/${encodeURIComponent(draftId)}/posted`, {
+        method: 'POST',
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  // Action log (buffered; the scheduler flushes it to the server periodically).
+  await appendActionLog({
+    platform,
+    actionType,
+    targetUrl: postUrl ?? profileUrl ?? (handle ? `https://x.com/${handle}` : ''),
+    ...(handle ? { targetHandle: handle } : {}),
+    success: true,
+    timestamp: new Date().toISOString(),
+  });
+
+  // Live daily counter — this is what the dashboard polls every 2s.
+  const settings = await getSettings();
+  await incrementCounter(settings, platform, actionType);
+
+  // Free tier: keep the local lifetime count moving so the cap stays enforced.
+  const auth = await getAuth();
+  if (auth && !isPro(auth.user.subscriptionStatus ?? 'free')) {
+    await setAuth({
+      ...auth,
+      user: { ...auth.user, lifetimeActionCount: (auth.user.lifetimeActionCount ?? 0) + 1 },
+    });
+  }
+
+  return { ok: true };
+}
 
 async function handleUpdatePreferences(payload: unknown) {
   const { keywords } = (payload ?? {}) as { keywords?: string[] };

@@ -53,8 +53,9 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
     linkedin: { likesPerDay: 60, commentsPerDay: 20, followsPerDay: 30 },
   },
   homeFeed: {
+    // Twitter/X only — LinkedIn automation was removed.
     enabled: false,
-    platforms: ['twitter', 'linkedin'],
+    platforms: ['twitter'],
     like: true,
     comment: false,
     follow: false,
@@ -86,6 +87,10 @@ export const getSettings = async (): Promise<ExtensionSettings> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.settings);
   const stored = got[STORAGE_KEYS.settings] as ExtensionSettings | undefined;
   if (!stored) return DEFAULT_SETTINGS;
+  // Twitter/X only now — drop any LinkedIn entries a previous version persisted
+  // so the scheduler never opens a LinkedIn tab for stale targets/home scans.
+  const onlyTwitter = <T extends { platform: string }>(xs: T[] | undefined): T[] =>
+    (xs ?? []).filter((x) => x.platform === 'twitter');
   // Fill in fields a previous version may not have written.
   return {
     ...DEFAULT_SETTINGS,
@@ -95,7 +100,15 @@ export const getSettings = async (): Promise<ExtensionSettings> => {
     caps: DEFAULT_SETTINGS.caps,
     activeHours: { ...DEFAULT_SETTINGS.activeHours, ...stored.activeHours },
     accountAgeMonths: { ...DEFAULT_SETTINGS.accountAgeMonths, ...stored.accountAgeMonths },
-    homeFeed: { ...DEFAULT_SETTINGS.homeFeed, ...stored.homeFeed },
+    targetCreators: onlyTwitter(stored.targetCreators),
+    whitelist: onlyTwitter(stored.whitelist),
+    homeFeed: {
+      ...DEFAULT_SETTINGS.homeFeed,
+      ...stored.homeFeed,
+      platforms: (stored.homeFeed?.platforms ?? DEFAULT_SETTINGS.homeFeed.platforms).filter(
+        (p) => p === 'twitter',
+      ),
+    },
   };
 };
 

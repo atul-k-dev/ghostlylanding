@@ -20,17 +20,11 @@ export default defineManifest({
       js: ['src/content/twitter.ts'],
       run_at: 'document_idle',
     },
-    {
-      matches: ['https://www.linkedin.com/*'],
-      js: ['src/content/linkedin.ts'],
-      run_at: 'document_idle',
-    },
   ],
   permissions: ['storage', 'alarms', 'scripting', 'activeTab', 'identity'],
   host_permissions: [
     'https://x.com/*',
     'https://twitter.com/*',
-    'https://www.linkedin.com/*',
     'http://localhost:4000/*',
   ],
 });

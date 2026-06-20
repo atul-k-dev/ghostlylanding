@@ -15,20 +15,21 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 export const wait = sleep;
 
 /** Smoothly scroll the window by `distance` px over `duration` ms (eased), so
- *  the autopilot reads like a human scanning the feed rather than jumping. */
-export const smoothScrollBy = (distance: number, duration = 850): Promise<void> =>
-  new Promise((resolve) => {
-    const startY = window.scrollY;
-    const startedAt = performance.now();
-    const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
-    const tick = (now: number): void => {
-      const t = Math.min(1, (now - startedAt) / duration);
-      window.scrollTo(0, startY + distance * easeOutCubic(t));
-      if (t < 1) requestAnimationFrame(tick);
-      else resolve();
-    };
-    requestAnimationFrame(tick);
-  });
+ *  the autopilot reads like a human scanning the feed rather than jumping.
+ *
+ *  Uses setTimeout stepping (NOT requestAnimationFrame): rAF callbacks are
+ *  frozen while a tab is in the background, which would hang the whole autopilot
+ *  the moment the user looks at another tab. setTimeout + scrollTo keep working
+ *  (throttled, but never frozen) in background tabs. */
+export const smoothScrollBy = async (distance: number, duration = 850): Promise<void> => {
+  const steps = Math.max(6, Math.round(duration / 60));
+  const startY = window.scrollY;
+  const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
+  for (let i = 1; i <= steps; i++) {
+    window.scrollTo(0, startY + distance * easeOutCubic(i / steps));
+    await new Promise((r) => setTimeout(r, duration / steps));
+  }
+};
 
 export const waitFor = async <E extends Element = Element>(
   selector: string,

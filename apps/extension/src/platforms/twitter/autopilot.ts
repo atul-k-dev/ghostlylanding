@@ -17,6 +17,21 @@ import type { HomeAutopilotOptions, HomeAutopilotResult } from '../common/conten
 const randomInt = (min: number, max: number): number =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 
+/** Report one completed action to the background the instant it lands, so the
+ *  dashboard counters update live during a long session (instead of only when
+ *  the whole session returns). Best-effort — a dropped message just undercounts. */
+const recordAction = async (
+  platform: string,
+  actionType: 'like' | 'comment' | 'follow',
+  data: { postUrl?: string; postId?: string; handle?: string; profileUrl?: string; draftId?: string },
+): Promise<void> => {
+  try {
+    await chrome.runtime.sendMessage({ type: 'RECORD_ACTION', payload: { platform, actionType, ...data } });
+  } catch {
+    /* background unreachable — ignore */
+  }
+};
+
 interface PostMeta {
   postId: string;
   postUrl: string;
@@ -314,6 +329,10 @@ export const runHomeAutopilot = async (
               authorHandle: meta.authorHandle,
             });
             likes++;
+            await recordAction(opts.platform, 'like', {
+              postUrl: meta.postUrl,
+              postId: meta.postId,
+            });
             await pause();
           }
         } catch {
@@ -339,6 +358,11 @@ export const runHomeAutopilot = async (
             });
             comments++;
             skip.add(meta.postId);
+            await recordAction(opts.platform, 'comment', {
+              postUrl: meta.postUrl,
+              postId: meta.postId,
+              ...(r.draftId ? { draftId: r.draftId } : {}),
+            });
             await pause();
           } else if (r.error) {
             result.commentError = r.error;
@@ -359,6 +383,10 @@ export const runHomeAutopilot = async (
               profileUrl: `https://x.com/${meta.authorHandle}`,
             });
             follows++;
+            await recordAction(opts.platform, 'follow', {
+              handle: meta.authorHandle,
+              profileUrl: `https://x.com/${meta.authorHandle}`,
+            });
             await pause();
           }
         } catch {

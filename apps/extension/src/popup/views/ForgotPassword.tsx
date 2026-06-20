@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { sendToBackground } from '../../lib/messages.js';
-import { EyeIcon, EyeOffIcon } from './LoggedOut.js';
+import {
+  BrandPanel,
+  EyeIcon,
+  EyeOffIcon,
+  LockIcon,
+  MailIcon,
+  fieldCls,
+  labelCls,
+  leadingIconCls,
+  primaryBtnCls,
+} from './LoggedOut.js';
 
 type Step = 'request' | 'reset';
 type Status = 'idle' | 'submitting';
@@ -11,10 +21,6 @@ interface Props {
   initialEmail?: string;
   onBack: () => void;
 }
-
-const inputCls =
-  'w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-3 py-1.5 text-sm text-casper-ink placeholder-casper-ink/30 focus:border-casper-violet focus:outline-none focus:ring-2 focus:ring-casper-violet/20';
-const labelCls = 'mb-0.5 block text-[11px] font-medium text-casper-ink/70';
 
 /**
  * In-extension password reset. Step 1 requests a 6-digit code by email; step 2
@@ -92,67 +98,64 @@ export const ForgotPassword = ({ initialEmail = '', onBack }: Props) => {
   };
 
   return (
-    <div className="flex min-h-[300px] w-full">
-      {/* LEFT — brand panel */}
-      <aside className="flex w-[150px] flex-none flex-col justify-between border-r border-casper-border bg-casper-violet/5 p-4">
-        <div>
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-casper-violet text-xl text-white">
-            👻
-          </div>
-          <h1 className="text-base font-semibold leading-tight">Reset password</h1>
-          <p className="mt-1 text-[11px] leading-relaxed text-casper-ink/60">
-            {step === 'request'
-              ? 'We’ll email you a reset code.'
-              : 'Enter the code and your new password.'}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={busy}
-          className="text-left text-[11px] text-casper-violet hover:underline disabled:opacity-50"
-        >
-          ← Back to sign in
-        </button>
-      </aside>
+    <div className="flex w-[600px] min-h-[400px] bg-casper-bg">
+      <BrandPanel
+        title="Reset password"
+        subtitle={
+          step === 'request'
+            ? 'We’ll email you a reset code.'
+            : 'Enter the code and your new password.'
+        }
+        footer={
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={busy}
+            className="text-left text-sm font-medium text-casper-coral transition hover:text-casper-coral-bright disabled:opacity-50"
+          >
+            ← Back to sign in
+          </button>
+        }
+      />
 
       {/* RIGHT — reset form */}
-      <div className="flex flex-1 flex-col justify-center p-4">
+      <div className="flex flex-1 flex-col justify-center px-7 py-6">
         {notice && (
-          <div className="mb-3 rounded-lg bg-casper-violet/5 px-3 py-2 text-[11px] text-casper-ink/70">
+          <div className="mb-4 rounded-lg border border-casper-coral/20 bg-casper-coral/5 px-3.5 py-2.5 text-xs leading-relaxed text-casper-ink/80">
             {notice}
           </div>
         )}
 
         {step === 'request' ? (
-          <form onSubmit={requestCode} className="flex flex-col gap-2">
+          <form onSubmit={requestCode} className="flex flex-col gap-3.5">
             <div>
               <label htmlFor="reset-email" className={labelCls}>
                 Email
               </label>
-              <input
-                id="reset-email"
-                type="email"
-                autoComplete="email"
-                required
-                disabled={busy}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className={inputCls}
-              />
+              <div className="relative">
+                <span className={leadingIconCls}>
+                  <MailIcon />
+                </span>
+                <input
+                  id="reset-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  disabled={busy}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className={fieldCls}
+                />
+              </div>
             </div>
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full rounded-lg bg-casper-violet px-3 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-            >
+            <button type="submit" disabled={busy} className={primaryBtnCls}>
               {busy ? 'Sending code…' : 'Send reset code'}
             </button>
-            {error && <p className="text-xs text-rose-400">✗ {error}</p>}
+            {error && <p className="text-sm text-rose-400">✗ {error}</p>}
           </form>
         ) : (
-          <form onSubmit={submitReset} className="flex flex-col gap-2">
+          <form onSubmit={submitReset} className="flex flex-col gap-3.5">
             <div>
               <label htmlFor="reset-code" className={labelCls}>
                 Reset code
@@ -168,7 +171,7 @@ export const ForgotPassword = ({ initialEmail = '', onBack }: Props) => {
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                 placeholder="123456"
-                className={`${inputCls} tracking-[0.4em]`}
+                className="h-10 w-full rounded-lg border border-casper-border bg-casper-surface-2 px-4 text-center text-base tracking-[0.5em] text-casper-ink placeholder-casper-ink/30 transition focus:border-casper-coral focus:outline-none focus:ring-2 focus:ring-casper-coral/25 disabled:opacity-60"
               />
             </div>
             <div>
@@ -176,6 +179,9 @@ export const ForgotPassword = ({ initialEmail = '', onBack }: Props) => {
                 New password
               </label>
               <div className="relative">
+                <span className={leadingIconCls}>
+                  <LockIcon />
+                </span>
                 <input
                   id="reset-password"
                   type={showPassword ? 'text' : 'password'}
@@ -186,7 +192,7 @@ export const ForgotPassword = ({ initialEmail = '', onBack }: Props) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
-                  className={`${inputCls} pr-10`}
+                  className={`${fieldCls} pr-11`}
                 />
                 <button
                   type="button"
@@ -195,17 +201,13 @@ export const ForgotPassword = ({ initialEmail = '', onBack }: Props) => {
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
                   tabIndex={-1}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-casper-ink/40 transition hover:text-casper-ink/70 disabled:opacity-50"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-casper-ink/40 transition hover:text-casper-ink/80 disabled:opacity-50"
                 >
                   {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
             </div>
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full rounded-lg bg-casper-violet px-3 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-            >
+            <button type="submit" disabled={busy} className={primaryBtnCls}>
               {busy ? 'Resetting…' : 'Reset password & sign in'}
             </button>
             <button
@@ -216,11 +218,11 @@ export const ForgotPassword = ({ initialEmail = '', onBack }: Props) => {
                 setError(null);
                 setNotice(null);
               }}
-              className="text-center text-[11px] text-casper-ink/50 hover:text-casper-ink disabled:opacity-50"
+              className="text-center text-sm text-casper-muted transition hover:text-casper-ink disabled:opacity-50"
             >
               Didn’t get a code? Send again
             </button>
-            {error && <p className="text-xs text-rose-400">✗ {error}</p>}
+            {error && <p className="text-sm text-rose-400">✗ {error}</p>}
           </form>
         )}
       </div>

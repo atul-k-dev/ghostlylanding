@@ -1,23 +1,12 @@
 import type { Platform } from '@casper/shared';
 import { isAlreadyLiked } from '../../lib/storage.js';
 
-/** Extract a stable post identifier from a platform URL. */
-export const extractPostId = (platform: Platform, url: string): string | null => {
+/** Extract a stable post identifier from a Twitter/X status URL. */
+export const extractPostId = (_platform: Platform, url: string): string | null => {
   try {
-    const u = new URL(url);
-    if (platform === 'twitter') {
-      // /<handle>/status/<id> — id can be followed by /photo/1 etc.
-      const m = u.pathname.match(/\/status\/(\d+)/);
-      return m?.[1] ?? null;
-    }
-    if (platform === 'linkedin') {
-      // /feed/update/urn:li:activity:1234… OR /posts/<handle>_<slug>-activity-<id>-<hash>
-      const activity = u.pathname.match(/urn:li:activity:(\d+)/);
-      if (activity?.[1]) return activity[1];
-      const inSlug = u.pathname.match(/-activity-(\d+)-/);
-      return inSlug?.[1] ?? null;
-    }
-    return null;
+    // /<handle>/status/<id> — id can be followed by /photo/1 etc.
+    const m = new URL(url).pathname.match(/\/status\/(\d+)/);
+    return m?.[1] ?? null;
   } catch {
     return null;
   }

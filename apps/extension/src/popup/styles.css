@@ -51,19 +51,14 @@ body {
 }
 
 /*
- * Popup canvas — solid near-black with a faint top coral glow and a subtle
- * dot grid, echoing the landing page's hero (bg-hero / pattern-dots). Cards
- * are opaque, so the texture only reads through the gaps between them.
+ * Popup canvas — solid near-black with a faint top coral glow (the dot grid was
+ * removed). Cards are opaque, so the glow only reads through the gaps.
  */
 .casper-app {
   background-color: var(--color-casper-bg);
-  background-image:
-    radial-gradient(ellipse 70% 24% at 50% 0%, rgba(244, 77, 96, 0.1), transparent 72%),
-    radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1.4px);
-  background-size:
-    100% 100%,
-    22px 22px;
-  background-repeat: no-repeat, repeat;
+  background-image: radial-gradient(ellipse 70% 24% at 50% 0%, rgba(244, 77, 96, 0.1), transparent 72%);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 }
 
 ::selection {
