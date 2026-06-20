@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { sendToBackground } from '../../lib/messages.js';
+import { getPendingReset } from '../../lib/storage.js';
 import { ForgotPassword } from './ForgotPassword.js';
 
 type Mode = 'login' | 'signup';
@@ -27,9 +28,37 @@ export const LoggedOut = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [resumeReset, setResumeReset] = useState(false);
+  const [booted, setBooted] = useState(false);
+
+  // If the popup was closed mid-reset (e.g. while fetching the OTP from email),
+  // reopen straight at the code-entry step instead of the sign-in screen.
+  useEffect(() => {
+    void getPendingReset().then((p) => {
+      if (p) {
+        setEmail(p.email);
+        setResumeReset(true);
+        setView('forgot');
+      }
+      setBooted(true);
+    });
+  }, []);
+
+  // Hold the first paint until the pending-reset check resolves, so we never
+  // flash the sign-in form before flipping to the reset step.
+  if (!booted) return <div className="w-[600px] min-h-[400px] bg-casper-bg" />;
 
   if (view === 'forgot') {
-    return <ForgotPassword initialEmail={email} onBack={() => setView('auth')} />;
+    return (
+      <ForgotPassword
+        initialEmail={email}
+        resume={resumeReset}
+        onBack={() => {
+          setResumeReset(false);
+          setView('auth');
+        }}
+      />
+    );
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -93,7 +122,7 @@ export const LoggedOut = () => {
   return (
     <div className="flex w-[600px] min-h-[400px] bg-casper-bg">
       <BrandPanel
-        title={mode === 'login' ? 'Welcome to Casper' : 'Create your account'}
+        title={mode === 'login' ? 'Welcome to Ghostly247' : 'Create your account'}
         subtitle={
           mode === 'login'
             ? 'Sign in to pick up where you left off.'
@@ -280,7 +309,7 @@ export const BrandPanel = ({
     <NightScene />
     <div className="relative z-10 flex h-full flex-col justify-between p-5">
       <div>
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-casper-coral text-2xl shadow-lg shadow-casper-coral/30">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-casper-coral text-[34px] leading-none shadow-lg shadow-casper-coral/30">
           👻
         </div>
         <h1 className="text-xl font-bold leading-tight text-white">{title}</h1>

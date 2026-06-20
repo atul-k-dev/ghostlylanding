@@ -1,5 +1,5 @@
 /**
- * Casper background service worker.
+ * Ghostly247 background service worker.
  * Owns auth state, scheduler alarm, and message routing.
  */
 import type {
@@ -509,7 +509,7 @@ async function handleDeleteAccount() {
   }
   const resp = await apiFetch('/api/account', { method: 'DELETE' });
   if (resp.ok) {
-    // Wipe ALL local Casper state.
+    // Wipe ALL local Ghostly247 state.
     await chrome.storage.local.clear();
   }
   return resp;

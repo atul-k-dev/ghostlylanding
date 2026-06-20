@@ -24,7 +24,7 @@ export const requirePro = async (
     res.status(402).json(
       err(
         'pro_required',
-        'This feature is part of Casper Pro. Upgrade to unlock AI comments.',
+        'This feature is part of Ghostly247 Pro. Upgrade to unlock AI comments.',
       ),
     );
     return;

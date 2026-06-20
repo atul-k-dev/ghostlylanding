@@ -54,7 +54,7 @@ export class ErrorBoundary extends React.Component<
             👻
           </div>
           <div>
-            <h1 className="text-lg font-semibold">Casper hit a snag</h1>
+            <h1 className="text-lg font-semibold">Ghostly247 hit a snag</h1>
             <p className="text-xs text-casper-ink/60">
               The popup crashed. Your data is safe.
             </p>

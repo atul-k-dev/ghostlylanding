@@ -1,5 +1,5 @@
 /**
- * The Casper scheduler.
+ * The Ghostly247 scheduler.
  *
  * Alarm-driven (chrome.alarms — survives service-worker eviction). On each
  * tick we walk an ordered safety gate:

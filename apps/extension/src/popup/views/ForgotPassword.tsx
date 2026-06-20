@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { sendToBackground } from '../../lib/messages.js';
+import { clearPendingReset, setPendingReset } from '../../lib/storage.js';
 import {
   BrandPanel,
   EyeIcon,
@@ -19,6 +20,9 @@ const isValidEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
 interface Props {
   initialEmail?: string;
+  /** True when reopening into an in-progress reset (popup was closed while the
+   *  user fetched the OTP) — jump straight to code entry. */
+  resume?: boolean;
   onBack: () => void;
 }
 
@@ -27,18 +31,28 @@ interface Props {
  * sets a new password with that code. On success the backend auto-logs the user
  * in (auth is stored), so the popup flips to the dashboard via the storage
  * listener in Popup.tsx — no extra navigation needed here.
+ *
+ * Because the popup closes when it loses focus, the pending reset is persisted
+ * (see setPendingReset) so reopening resumes at code entry rather than losing it.
  */
-export const ForgotPassword = ({ initialEmail = '', onBack }: Props) => {
-  const [step, setStep] = useState<Step>('request');
+export const ForgotPassword = ({ initialEmail = '', resume = false, onBack }: Props) => {
+  const [step, setStep] = useState<Step>(resume ? 'reset' : 'request');
   const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(
+    resume ? `Enter the 6-digit code we emailed to ${initialEmail}.` : null,
+  );
 
   const busy = status !== 'idle';
+
+  const goBack = async () => {
+    await clearPendingReset();
+    onBack();
+  };
 
   const requestCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +73,9 @@ export const ForgotPassword = ({ initialEmail = '', onBack }: Props) => {
         return;
       }
       const mins = resp.payload.ttlMinutes ?? 15;
+      // Persist so reopening the popup (after the user leaves to grab the OTP)
+      // resumes here at code entry instead of dropping back to sign-in.
+      await setPendingReset(email, mins);
       setNotice(`If an account exists for ${email}, we sent a 6-digit code. It expires in ${mins} minutes.`);
       setStep('reset');
       setStatus('idle');
@@ -90,7 +107,9 @@ export const ForgotPassword = ({ initialEmail = '', onBack }: Props) => {
         setStatus('idle');
         return;
       }
-      // Success → auth stored → Popup auto-flips to dashboard.
+      // Success → auth stored → Popup auto-flips to dashboard. Clear the pending
+      // reset so a future popup open doesn't resume this finished flow.
+      await clearPendingReset();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error');
       setStatus('idle');
@@ -109,7 +128,7 @@ export const ForgotPassword = ({ initialEmail = '', onBack }: Props) => {
         footer={
           <button
             type="button"
-            onClick={onBack}
+            onClick={goBack}
             disabled={busy}
             className="text-left text-sm font-medium text-casper-coral transition hover:text-casper-coral-bright disabled:opacity-50"
           >

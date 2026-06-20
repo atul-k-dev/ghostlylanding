@@ -13,7 +13,7 @@ const main = async (): Promise<void> => {
   const app = createApp();
 
   const server = app.listen(config.port, () => {
-    logger.info({ port: config.port, env: config.env }, 'Casper API listening');
+    logger.info({ port: config.port, env: config.env }, 'Ghostly247 API listening');
   });
 
   const shutdown = async (signal: string): Promise<void> => {

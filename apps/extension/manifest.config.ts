@@ -2,13 +2,25 @@ import { defineManifest } from '@crxjs/vite-plugin';
 
 export default defineManifest({
   manifest_version: 3,
-  name: 'Casper AI',
+  name: 'Ghostly247',
   description:
-    'The friendly little ghost that grows your Twitter & LinkedIn while you sleep.',
+    'The friendly little ghost that grows your Twitter/X presence while you sleep.',
   version: '0.0.1',
+  icons: {
+    16: 'icons/icon-16.png',
+    32: 'icons/icon-32.png',
+    48: 'icons/icon-48.png',
+    128: 'icons/icon-128.png',
+  },
   action: {
     default_popup: 'src/popup/index.html',
-    default_title: 'Casper AI',
+    default_title: 'Ghostly247',
+    default_icon: {
+      16: 'icons/icon-16.png',
+      32: 'icons/icon-32.png',
+      48: 'icons/icon-48.png',
+      128: 'icons/icon-128.png',
+    },
   },
   background: {
     service_worker: 'src/background/index.ts',

@@ -50,16 +50,16 @@ export const sendPasswordResetCode = async (
   code: string,
   ttlMinutes: number,
 ): Promise<void> => {
-  const subject = 'Your Casper password reset code 👻';
-  const text = `Your Casper password reset code is ${code}. It expires in ${ttlMinutes} minutes. If you didn't request this, you can safely ignore this email.`;
+  const subject = 'Your Ghostly247 password reset code 👻';
+  const text = `Your Ghostly247 password reset code is ${code}. It expires in ${ttlMinutes} minutes. If you didn't request this, you can safely ignore this email.`;
   const html = `
   <div style="font-family:system-ui,-apple-system,sans-serif;max-width:440px;margin:0 auto;padding:24px;color:#1f2333">
     <div style="font-size:28px">👻</div>
-    <h1 style="font-size:18px;margin:12px 0 8px">Reset your Casper password</h1>
+    <h1 style="font-size:18px;margin:12px 0 8px">Reset your Ghostly247 password</h1>
     <p style="font-size:14px;color:#4b5066;line-height:1.5;margin:0 0 16px">
       Use this code to set a new password. It expires in ${ttlMinutes} minutes.
     </p>
-    <div style="font-size:32px;font-weight:700;letter-spacing:8px;background:#f3f1fb;color:#7c5cff;border-radius:12px;padding:16px;text-align:center">
+    <div style="font-size:32px;font-weight:700;letter-spacing:8px;background:#fdecee;color:#f44d60;border-radius:12px;padding:16px;text-align:center">
       ${code}
     </div>
     <p style="font-size:12px;color:#8a8fa3;line-height:1.5;margin:16px 0 0">

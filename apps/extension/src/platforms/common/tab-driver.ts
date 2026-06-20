@@ -1,7 +1,7 @@
 /**
  * Service-worker-side tab driver.
  *
- * One Casper task at a time opens a background tab, gives the page a chance to
+ * One Ghostly247 task at a time opens a background tab, gives the page a chance to
  * settle, sends a single message to the content script, awaits the reply, then
  * closes the tab. Errors are normalized so the executor sees structured failures.
  */

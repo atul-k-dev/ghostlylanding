@@ -107,7 +107,7 @@ const Header = ({
   <header className="border-b border-casper-ink/5 px-5 py-4">
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-casper-violet text-white text-lg">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-casper-violet text-white text-[26px] leading-none">
           👻
         </div>
         <div className="min-w-0">
@@ -288,7 +288,7 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
           <p className="font-medium text-amber-200">Add your first creator to begin 👋</p>
           <p className="text-amber-200/70">
-            Open <strong>Settings</strong> and add a Twitter handle. Casper visits their profile,
+            Open <strong>Settings</strong> and add a Twitter handle. Ghostly247 visits their profile,
             likes recent posts, and finds new accounts to follow — all on the schedule you set.
           </p>
         </div>
@@ -394,7 +394,7 @@ const SettingsTab = ({
 
       <Section
         title="Run for"
-        subtitle="Casper runs for this long, then auto-pauses. Re-arm with the Active pill to go again."
+        subtitle="Ghostly247 runs for this long, then auto-pauses. Re-arm with the Active pill to go again."
       >
         <div className="flex flex-wrap gap-2">
           {[15, 30, 45, 60].map((m) => (
@@ -416,7 +416,7 @@ const SettingsTab = ({
 
       <Section
         title="Watch it work"
-        subtitle="Open the tabs Casper acts in so you can see scrolling, likes, comments & follows."
+        subtitle="Open the tabs Ghostly247 acts in so you can see scrolling, likes, comments & follows."
       >
         <label className="flex items-center justify-between">
           <span className="text-xs font-medium text-casper-ink">Show activity on screen</span>
@@ -434,11 +434,11 @@ const SettingsTab = ({
           </button>
         </label>
         <p className="mt-1.5 text-[10px] text-casper-ink/40">
-          Turn off to let Casper work quietly in the background.
+          Turn off to let Ghostly247 work quietly in the background.
         </p>
       </Section>
 
-      <Section title="Reply tone" subtitle="Voice Casper uses when it auto-replies to posts.">
+      <Section title="Reply tone" subtitle="Voice Ghostly247 uses when it auto-replies to posts.">
         <select
           value={settings.tone}
           onChange={(e) => onChange({ ...settings, tone: e.target.value as TonePreset })}
@@ -475,7 +475,7 @@ const SettingsTab = ({
 
       <Section
         title="Maintenance"
-        subtitle="Clear the action queue if Casper seems stuck on old tasks."
+        subtitle="Clear the action queue if Ghostly247 seems stuck on old tasks."
       >
         <button
           type="button"
@@ -583,7 +583,7 @@ const ActivityTab = () => {
           </div>
           <p>No activity yet.</p>
           <p className="text-[10px] text-casper-ink/40">
-            Once Casper acts on your behalf, you'll see it here.
+            Once Ghostly247 acts on your behalf, you'll see it here.
           </p>
         </div>
       ) : (
@@ -708,7 +708,7 @@ const PlanSection = () => {
       title="Plan"
       subtitle={
         pro
-          ? 'Casper Pro · unlimited actions'
+          ? 'Ghostly247 Pro · unlimited actions'
           : `Free · all features, ${lifetimeCap} lifetime actions (likes + replies + follows)`
       }
     >
@@ -939,7 +939,7 @@ const WhitelistSection = ({
   return (
     <Section
       title="Whitelist"
-      subtitle="Casper will never follow accounts on this list."
+      subtitle="Ghostly247 will never follow accounts on this list."
     >
       <div className="flex gap-2">
         <select
@@ -1060,7 +1060,7 @@ const HomeFeedSection = ({
   return (
     <Section
       title="Home feed autopilot"
-      subtitle="Casper scrolls your own timeline and engages with relevant posts."
+      subtitle="Ghostly247 scrolls your own timeline and engages with relevant posts."
     >
       <label className="flex items-center justify-between">
         <span className="text-xs font-medium text-casper-ink">Enable autopilot</span>
@@ -1099,9 +1099,9 @@ const HomeFeedSection = ({
             </div>
             {hf.comment && (
               <p className="mt-2 text-[10px] text-casper-ink/40">
-                Casper posts a short, relevant reply automatically. Bounded by your daily caps &
+                Ghostly247 posts a short, relevant reply automatically. Bounded by your daily caps &
                 relevance keywords — toggle the Active pill to stop everything instantly. Free plan:
-                30 actions total (likes + replies + follows). Needs your Casper server running.
+                30 actions total (likes + replies + follows). Needs your Ghostly247 server running.
               </p>
             )}
           </div>
@@ -1214,7 +1214,7 @@ const TargetsSection = ({
   return (
     <Section
       title="Target creators"
-      subtitle="Casper visits these profiles, finds fresh posts, and likes them."
+      subtitle="Ghostly247 visits these profiles, finds fresh posts, and likes them."
     >
       <div className="flex gap-2">
         <select

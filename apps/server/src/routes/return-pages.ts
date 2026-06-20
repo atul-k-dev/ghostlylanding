@@ -44,7 +44,7 @@ returnPagesRouter.get('/success', (_req, res) => {
     page(
       '🎉',
       "You're Pro!",
-      'AI comments and both platforms are unlocked. You can close this tab and return to the Casper extension — it updates automatically.',
+      'AI comments and both platforms are unlocked. You can close this tab and return to the Ghostly247 extension — it updates automatically.',
       'Need a receipt or want to change your subscription? Open the extension → Settings → Plan → Manage.',
     ),
   );

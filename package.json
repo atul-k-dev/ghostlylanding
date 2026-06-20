@@ -2,7 +2,7 @@
   "name": "casper-ai",
   "version": "0.0.1",
   "private": true,
-  "description": "Casper AI — friendly browser extension that grows solo creators' Twitter & LinkedIn presence.",
+  "description": "Ghostly247 — friendly browser extension that grows solo creators' Twitter/X presence.",
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=10.0.0"

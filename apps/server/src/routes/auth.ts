@@ -9,6 +9,7 @@ import { signJwt } from '../auth/jwt.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { hasGoogle, verifyGoogleIdToken } from '../auth/google.js';
 import { sendPasswordResetCode } from '../email/resend.js';
+import { isProd } from '../config.js';
 import type { HydratedDocument } from 'mongoose';
 import { UserModel, toUserDTO } from '../models/user.model.js';
 
@@ -107,6 +108,10 @@ authRouter.post(
         await sendPasswordResetCode(user.email, code, RESET_CODE_TTL_MINUTES);
       } catch (e) {
         req.log.error({ err: e }, 'failed to send password reset email');
+        // Dev safety net: surface the code in logs so the reset flow stays
+        // testable even when the email provider rejects the send (e.g. Resend
+        // test mode only delivers to the account owner's address).
+        if (!isProd) req.log.warn({ email: user.email, code }, '[dev] password reset code');
       }
     }
 

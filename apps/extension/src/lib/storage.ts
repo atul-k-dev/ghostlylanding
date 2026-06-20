@@ -19,6 +19,7 @@ export const STORAGE_KEYS = {
   draftedPosts: 'casper.draftedPosts',
   followedHandles: 'casper.followedHandles',
   diagnostics: 'casper.diagnostics',
+  pendingReset: 'casper.pendingReset',
 } as const;
 
 export interface StoredAuth {
@@ -325,4 +326,34 @@ export const appendDiagnostic = async (entry: Omit<DiagnosticEntry, 'at'>): Prom
 
 export const clearDiagnostics = async (): Promise<void> => {
   await chrome.storage.local.set({ [STORAGE_KEYS.diagnostics]: [] });
+};
+
+// -- pending password reset -------------------------------------------------
+// A browser-action popup closes the instant it loses focus (e.g. when the user
+// switches to their email to copy the OTP), which destroys the React state. We
+// persist the in-progress reset here so reopening the popup resumes at the code
+// entry step instead of dropping back to sign-in.
+export interface PendingReset {
+  email: string;
+  expiresAt: number; // ms epoch — mirrors the server's code TTL
+}
+
+export const getPendingReset = async (): Promise<PendingReset | null> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.pendingReset);
+  const p = got[STORAGE_KEYS.pendingReset] as PendingReset | undefined;
+  if (!p) return null;
+  if (Date.now() >= p.expiresAt) {
+    await chrome.storage.local.remove(STORAGE_KEYS.pendingReset);
+    return null;
+  }
+  return p;
+};
+
+export const setPendingReset = async (email: string, ttlMinutes = 15): Promise<void> => {
+  const entry: PendingReset = { email, expiresAt: Date.now() + ttlMinutes * 60_000 };
+  await chrome.storage.local.set({ [STORAGE_KEYS.pendingReset]: entry });
+};
+
+export const clearPendingReset = async (): Promise<void> => {
+  await chrome.storage.local.remove(STORAGE_KEYS.pendingReset);
 };

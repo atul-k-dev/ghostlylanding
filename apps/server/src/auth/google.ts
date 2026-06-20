@@ -38,6 +38,6 @@ export const verifyGoogleIdToken = async (idToken: string): Promise<VerifiedGoog
     googleId: payload.sub,
     email: payload.email.toLowerCase(),
     emailVerified: payload.email_verified === true,
-    name: payload.name?.trim() || payload.email.split('@')[0] || 'Casper user',
+    name: payload.name?.trim() || payload.email.split('@')[0] || 'Ghostly247 user',
   };
 };
