@@ -346,6 +346,21 @@ const SettingsTab = ({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [followBackStatus, setFollowBackStatus] = useState<string | null>(null);
+
+  const runFollowBackNow = async () => {
+    setFollowBackStatus('Starting…');
+    try {
+      await sendToBackground({ type: 'FOLLOW_BACK_NOW', payload: {} });
+      setFollowBackStatus(
+        settings.isPaused
+          ? 'Queued — but the engine is Paused. Hit "● Active" up top so it runs.'
+          : 'Opening your followers list and following everyone back…',
+      );
+    } catch (err) {
+      setFollowBackStatus(err instanceof Error ? err.message : 'failed');
+    }
+  };
 
   const setAge = (platform: Platform, months: number | null) =>
     onChange({
@@ -474,10 +489,10 @@ const SettingsTab = ({
 
       <Section
         title="Auto follow-back"
-        subtitle="Periodically follow back people who follow you on Twitter/X."
+        subtitle="Follow back people who follow you on Twitter/X — scrolls your Followers list and taps every 'Follow back' for you."
       >
         <label className="flex items-center justify-between">
-          <span className="text-xs font-medium text-casper-ink">Follow back new followers</span>
+          <span className="text-xs font-medium text-casper-ink">Follow back automatically</span>
           <button
             type="button"
             onClick={() => onChange({ ...settings, followBack: !settings.followBack })}
@@ -492,9 +507,18 @@ const SettingsTab = ({
           </button>
         </label>
         <p className="mt-1.5 text-[10px] text-casper-ink/40">
-          Opens your followers list and follows back, bounded by your daily follow cap & whitelist.
-          Toggle the Active pill to run it.
+          When On, runs every ~30 min while Active. Bounded by your daily follow cap & whitelist.
         </p>
+        <button
+          type="button"
+          onClick={runFollowBackNow}
+          className="mt-2 w-full rounded-lg bg-casper-violet/10 px-3 py-2 text-[11px] font-medium text-casper-violet transition hover:bg-casper-violet/20"
+        >
+          Follow back now
+        </button>
+        {followBackStatus && (
+          <p className="mt-2 text-[10px] text-casper-ink/50">{followBackStatus}</p>
+        )}
       </Section>
 
       <TargetsSection settings={settings} onChange={onChange} />

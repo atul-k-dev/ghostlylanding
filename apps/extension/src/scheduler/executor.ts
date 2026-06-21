@@ -7,7 +7,7 @@
  *                                   enqueues `like` tasks for non-duplicates
  *   - 'comment', 'follow' → stub for now (M5/M6)
  */
-import type { ActionType, Platform } from '@casper/shared';
+import type { ActionType } from '@casper/shared';
 import { FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
 import type { ExecutorResult, QueuedTask } from './types.js';
 import { driveTab } from '../platforms/common/tab-driver.js';
@@ -29,13 +29,13 @@ import {
   setOwnHandle,
   getCommentedPosts,
   getQuotedPosts,
+  getFollowedHandles,
   appendDiagnostic,
 } from '../lib/storage.js';
 import {
   buildProfileUrl as twitterProfileUrl,
   buildFollowersUrl as twitterFollowersUrl,
 } from '../platforms/twitter/selectors.js';
-import { enqueue } from './queue.js';
 import { apiFetch } from '../lib/api.js';
 import { ensureToday } from './counters.js';
 
@@ -214,77 +214,103 @@ const markDraft = async (id: string, state: 'posted' | 'failed'): Promise<void> 
   }
 };
 
-const inWhitelist = (
-  whitelist: { platform: Platform; handle: string }[],
-  platform: Platform,
-  handle: string,
-): boolean => {
-  const target = handle.replace(/^@/, '').toLowerCase();
-  return whitelist.some(
-    (w) => w.platform === platform && w.handle.replace(/^@/, '').toLowerCase() === target,
-  );
-};
+type FollowListOutcome =
+  | { kind: 'ok'; followed: number }
+  | { kind: 'budget' }
+  | { kind: 'error'; message: string };
 
-const executeFollowScan = async (task: QueuedTask): Promise<ExecutorResult> => {
-  const handle = task.payload.handle as string | undefined;
-  if (!handle) return { success: false, errorMessage: 'missing handle' };
+/**
+ * Shared inline follow-list runner. Opens a followers list — your own (auto
+ * follow-back) or a creator's (the "Followers" button) — scrolls it, and follows
+ * people IN PLACE: clicks the Follow button on each cell in ONE tab, paced, and
+ * records each follow live (RECORD_ACTION → caps + monthly count + log). Honors
+ * the follow daily cap, the free-tier monthly cap, the whitelist, and anyone
+ * already followed. No more per-candidate tabs.
+ */
+const runInlineFollowList = async (
+  task: QueuedTask,
+  url: string,
+): Promise<FollowListOutcome> => {
+  const settings = await getSettings();
+  const auth = await getAuth();
+  const pro = isPro(auth?.user.subscriptionStatus ?? 'free');
+  const counters = await ensureToday(settings);
+  const c = counters[task.platform];
+  const remainingFollows = c ? Math.max(0, c.effectiveCap.followsPerDay - c.byActionType.follow) : 0;
+  const monthlyLeft = pro
+    ? Number.MAX_SAFE_INTEGER
+    : Math.max(0, FREE_TIER.monthlyActions - monthlyActionsUsed(auth?.user));
+  const max = Math.min(remainingFollows, monthlyLeft, 30);
+  if (max <= 0) return { kind: 'budget' };
 
-  const url = followersUrlFor(handle);
+  // Never re-follow: skip the whitelist + anyone we've already followed.
+  const prefix = `${task.platform}:`;
+  const wl = settings.whitelist
+    .filter((w) => w.platform === task.platform)
+    .map((w) => w.handle.replace(/^@/, '').toLowerCase());
+  const followedMap = await getFollowedHandles();
+  const already = Object.keys(followedMap)
+    .filter((k) => k.startsWith(prefix))
+    .map((k) => k.slice(prefix.length));
+  const skipHandles = [...new Set([...wl, ...already])].slice(0, 2_000);
 
   let resp;
   try {
     resp = await driveTab(
       url,
-      { type: 'SCAN_FOLLOWERS', payload: { handle, max: 20 } },
+      { type: 'FOLLOW_BACK', payload: { max, minDelayMs: 3_000, maxDelayMs: 7_000, skipHandles } },
       { settleMs: 3_500 },
     );
   } catch (err) {
+    return { kind: 'error', message: err instanceof Error ? err.message : 'tab driver failed' };
+  }
+  if (resp.type !== 'FOLLOW_BACK_RESULT') {
     return {
-      success: false,
-      errorMessage: err instanceof Error ? err.message : 'tab driver failed',
+      kind: 'error',
+      message: resp.type === 'ERROR' ? resp.payload.message : 'unexpected follow-list response',
     };
   }
+  return { kind: 'ok', followed: resp.payload.followed.length };
+};
 
-  if (resp.type !== 'FOLLOWERS_RESULT') {
-    return {
-      success: false,
-      errorMessage:
-        resp.type === 'ERROR' ? resp.payload.message : 'unexpected followers response',
-    };
-  }
-
-  if (resp.payload.followers.length === 0) {
-    await appendDiagnostic({
-      kind: 'selector_miss',
-      context: `${task.platform}:scan-profile-followers`,
-      detail: `0 candidates on @${handle}`,
-    });
-  }
-  const settings = await getSettings();
-  let enqueued = 0;
-  for (const candidate of resp.payload.followers) {
-    if (inWhitelist(settings.whitelist, task.platform, candidate.handle)) continue;
-    if (await isAlreadyFollowed(task.platform, candidate.handle)) continue;
-    await enqueue(task.platform, 'follow', {
-      handle: candidate.handle,
-      profileUrl: candidate.profileUrl,
-      sourceHandle: handle,
-    });
-    enqueued++;
-  }
-
-  const state = await getTargetState();
-  const key = `${task.platform}:${handle.replace(/^@/, '')}`;
-  state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastFollowScanAt: Date.now() };
-  await setTargetState(state);
-
+/** Turn a follow-list outcome into an ExecutorResult with a human label. */
+const followOutcomeResult = (o: FollowListOutcome, label: string): ExecutorResult => {
+  if (o.kind === 'error') return { success: false, errorMessage: o.message };
+  if (o.kind === 'budget') return { success: true, errorMessage: `${label}: no follow budget left` };
   return {
     success: true,
     errorMessage:
-      enqueued === 0
-        ? `follow scan ok: 0 candidates (saw ${resp.payload.followers.length})`
-        : undefined,
+      o.followed === 0 ? `${label}: nobody new to follow` : `${label}: ${o.followed} followed`,
   };
+};
+
+/**
+ * "Followers" button (and the periodic auto-rescan) — visit a creator's
+ * followers list and follow them INLINE in one tab. Same engine as auto
+ * follow-back, just pointed at the target creator's followers page.
+ */
+const executeFollowScan = async (task: QueuedTask): Promise<ExecutorResult> => {
+  const handle = task.payload.handle as string | undefined;
+  if (!handle) return { success: false, errorMessage: 'missing handle' };
+  const clean = handle.replace(/^@/, '');
+
+  const outcome = await runInlineFollowList(task, followersUrlFor(handle));
+
+  if (outcome.kind === 'ok' && outcome.followed === 0) {
+    await appendDiagnostic({
+      kind: 'selector_miss',
+      context: `${task.platform}:profile-followers`,
+      detail: `Followed nobody new on @${clean}'s followers (already followed / private / DOM changed).`,
+    });
+  }
+
+  // Pace re-scans (matches the refill loop's per-target key).
+  const state = await getTargetState();
+  const key = `${task.platform}:${clean}`;
+  state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastFollowScanAt: Date.now() };
+  await setTargetState(state);
+
+  return followOutcomeResult(outcome, `followers @${clean}`);
 };
 
 const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
@@ -643,19 +669,6 @@ const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> =>
  * records each one live (RECORD_ACTION → caps + monthly count + log).
  */
 const runFollowBack = async (task: QueuedTask): Promise<ExecutorResult> => {
-  const platform = task.platform; // twitter only
-  const settings = await getSettings();
-  const auth = await getAuth();
-  const pro = isPro(auth?.user.subscriptionStatus ?? 'free');
-  const counters = await ensureToday(settings);
-  const c = counters[platform];
-  const remainingFollows = c ? Math.max(0, c.effectiveCap.followsPerDay - c.byActionType.follow) : 0;
-  const monthlyLeft = pro
-    ? Number.MAX_SAFE_INTEGER
-    : Math.max(0, FREE_TIER.monthlyActions - monthlyActionsUsed(auth?.user));
-  const max = Math.min(remainingFollows, monthlyLeft, 30);
-  if (max <= 0) return { success: true, errorMessage: 'follow-back: no follow budget left' };
-
   // Find the user's own handle (cached, else detect from x.com once).
   let handle = await getOwnHandle();
   if (!handle) {
@@ -682,27 +695,7 @@ const runFollowBack = async (task: QueuedTask): Promise<ExecutorResult> => {
     }
   }
 
-  const skipHandles = settings.whitelist
-    .filter((w) => w.platform === 'twitter')
-    .map((w) => w.handle.replace(/^@/, '').toLowerCase());
-
-  let resp;
-  try {
-    resp = await driveTab(
-      `https://x.com/${handle}/followers`,
-      { type: 'FOLLOW_BACK', payload: { max, minDelayMs: 3_000, maxDelayMs: 7_000, skipHandles } },
-      { settleMs: 3_500 },
-    );
-  } catch (err) {
-    return { success: false, errorMessage: err instanceof Error ? err.message : 'tab driver failed' };
-  }
-  if (resp.type !== 'FOLLOW_BACK_RESULT') {
-    return {
-      success: false,
-      errorMessage: resp.type === 'ERROR' ? resp.payload.message : 'unexpected follow-back response',
-    };
-  }
-  const n = resp.payload.followed.length; // counted live via RECORD_ACTION
+  const outcome = await runInlineFollowList(task, `https://x.com/${handle}/followers`);
 
   // Pace follow-back runs.
   const state = await getTargetState();
@@ -712,10 +705,7 @@ const runFollowBack = async (task: QueuedTask): Promise<ExecutorResult> => {
   };
   await setTargetState(state);
 
-  return {
-    success: true,
-    errorMessage: n === 0 ? 'follow-back: nobody new to follow' : `follow-back: ${n} followed`,
-  };
+  return followOutcomeResult(outcome, 'follow-back');
 };
 
 export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => {

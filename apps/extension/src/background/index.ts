@@ -78,6 +78,7 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   SCAN_TARGET_NOW: handleScanTargetNow as AsyncHandler<unknown, unknown>,
   SCAN_FOLLOWERS_NOW: handleScanFollowersNow as AsyncHandler<unknown, unknown>,
   SCAN_HOME_NOW: handleScanHomeNow as AsyncHandler<unknown, unknown>,
+  FOLLOW_BACK_NOW: handleFollowBackNow as AsyncHandler<unknown, unknown>,
   RECORD_ACTION: handleRecordAction as AsyncHandler<unknown, unknown>,
   UPDATE_PREFERENCES: handleUpdatePreferences as AsyncHandler<unknown, unknown>,
   DRAFT_COMMENT: handleDraftComment as AsyncHandler<unknown, unknown>,
@@ -560,6 +561,24 @@ async function handleScanFollowersNow(payload: unknown) {
     await setTargetState(state);
   }
   const task = await enqueue(platform, 'scan-profile-followers', { handle });
+  return { ok: true, data: { taskId: task.id } };
+}
+
+/**
+ * Manual "Follow back now" — open YOUR followers list and follow back everyone
+ * inline, on demand (vs. the ~30-min automatic cadence). Resets the follow-back
+ * cooldown, enqueues the task, and kicks a tick so it starts immediately when
+ * the engine is Active.
+ */
+async function handleFollowBackNow() {
+  const state = await getTargetState();
+  const key = 'followback:twitter';
+  state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastFollowScanAt: 0 };
+  await setTargetState(state);
+  const task = await enqueue('twitter', 'scan-followback', {});
+  const sched = await getSchedulerState();
+  await setSchedulerState({ ...sched, nextEligibleAt: 0 });
+  void handleTick();
   return { ok: true, data: { taskId: task.id } };
 }
 
