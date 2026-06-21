@@ -424,8 +424,14 @@ export const runHomeAutopilot = async (
     }
   };
 
+  // Profile visits set stopAfterStaleRun > 0: once we've scrolled past a run of
+  // posts older than the freshness window, the (reverse-chronological) profile
+  // has no more fresh posts, so we stop instead of scrolling its whole history.
+  let staleStreak = 0;
+  let staleStop = false;
+
   let emptyPasses = 0;
-  while (timeLeft() && budgetLeft()) {
+  while (timeLeft() && budgetLeft() && !staleStop) {
     if (await stopRequested()) break;
 
     let seenNew = 0;
@@ -439,7 +445,14 @@ export const runHomeAutopilot = async (
       result.scanned++;
       seenNew++;
 
-      if (!isFresh(meta.publishedAt, opts.freshnessHours)) continue;
+      if (!isFresh(meta.publishedAt, opts.freshnessHours)) {
+        if (opts.stopAfterStaleRun > 0 && ++staleStreak >= opts.stopAfterStaleRun) {
+          staleStop = true;
+          break;
+        }
+        continue;
+      }
+      staleStreak = 0;
       if (!isRelevant(meta.text, opts.keywords)) continue;
       if (isExcluded(meta.text, opts.excludeKeywords)) continue;
 

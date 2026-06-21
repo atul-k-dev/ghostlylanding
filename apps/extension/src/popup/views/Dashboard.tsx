@@ -1293,26 +1293,34 @@ const TargetsSection = ({
   };
 
   const scanNow = async (target: TargetCreator) => {
-    setScanStatus(`Scanning ${target.handle}…`);
+    setScanStatus(`Visiting @${target.handle}…`);
     try {
       await sendToBackground({
         type: 'SCAN_TARGET_NOW',
         payload: { platform: target.platform, handle: target.handle },
       });
-      setScanStatus(`Queued scan for ${target.handle}`);
+      setScanStatus(
+        settings.isPaused
+          ? `Queued — but the engine is Paused. Hit "● Active" up top so it runs.`
+          : `Visiting @${target.handle} now — a tab opens and likes their recent posts.`,
+      );
     } catch (err) {
       setScanStatus(err instanceof Error ? err.message : 'failed');
     }
   };
 
   const scanFollowersNow = async (target: TargetCreator) => {
-    setScanStatus(`Scanning followers of ${target.handle}…`);
+    setScanStatus(`Scanning @${target.handle}'s followers…`);
     try {
       await sendToBackground({
         type: 'SCAN_FOLLOWERS_NOW',
         payload: { platform: target.platform, handle: target.handle },
       });
-      setScanStatus(`Queued follow scan for ${target.handle}`);
+      setScanStatus(
+        settings.isPaused
+          ? `Queued — but the engine is Paused. Hit "● Active" up top so it runs.`
+          : `Finding @${target.handle}'s followers to follow…`,
+      );
     } catch (err) {
       setScanStatus(err instanceof Error ? err.message : 'failed');
     }
@@ -1321,7 +1329,7 @@ const TargetsSection = ({
   return (
     <Section
       title="Target creators"
-      subtitle="Ghostly247 visits these profiles, finds fresh posts, and likes them."
+      subtitle='Add a creator, make sure the engine is "● Active", then tap Like posts — Ghostly247 visits their profile and likes their recent posts in one tab.'
     >
       <div className="flex gap-2">
         <select
@@ -1363,20 +1371,20 @@ const TargetsSection = ({
                 <span className="text-casper-ink/40">{t.platform[0]?.toUpperCase()}</span>{' '}
                 <span>@{t.handle}</span>
               </span>
-              <span className="flex gap-1">
+              <span className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => scanNow(t)}
-                  className="rounded px-2 py-0.5 text-[10px] text-casper-violet hover:bg-casper-violet/10"
-                  title="Scan recent posts and like them"
+                  className="rounded-md border border-casper-violet/30 bg-casper-violet/10 px-2 py-0.5 text-[10px] font-medium text-casper-violet transition hover:bg-casper-violet/20"
+                  title="Visit this profile and like their recent posts"
                 >
-                  Posts
+                  Like posts
                 </button>
                 <button
                   type="button"
                   onClick={() => scanFollowersNow(t)}
-                  className="rounded px-2 py-0.5 text-[10px] text-casper-violet hover:bg-casper-violet/10"
-                  title="Scan followers and follow them"
+                  className="rounded-md border border-casper-ink/10 px-2 py-0.5 text-[10px] text-casper-ink/70 transition hover:bg-white/5"
+                  title="Find this creator's followers and follow them"
                 >
                   Followers
                 </button>
@@ -1384,7 +1392,7 @@ const TargetsSection = ({
                   type="button"
                   onClick={() => remove(t)}
                   aria-label="Remove"
-                  className="rounded px-2 py-0.5 text-[10px] text-rose-400 hover:bg-rose-500/10"
+                  className="rounded px-1.5 py-0.5 text-[12px] text-rose-400 hover:bg-rose-500/10"
                 >
                   ×
                 </button>

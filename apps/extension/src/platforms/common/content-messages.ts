@@ -95,6 +95,12 @@ export interface HomeAutopilotOptions {
    * churn a fresh tab every few minutes.
    */
   maxRunMs: number;
+  /**
+   * Stop after this many consecutive posts older than the freshness window
+   * (a reverse-chronological profile is exhausted of fresh posts). 0 = never
+   * stop on staleness (the home feed is infinite + fresh).
+   */
+  stopAfterStaleRun: number;
   /** Post IDs to skip for commenting (already replied to). */
   skipCommentIds: string[];
   /** Post IDs to skip for quote-tweeting (already quoted). */

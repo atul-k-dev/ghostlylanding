@@ -11,7 +11,7 @@ import type { ActionType, Platform } from '@casper/shared';
 import { FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
 import type { ExecutorResult, QueuedTask } from './types.js';
 import { driveTab } from '../platforms/common/tab-driver.js';
-import { isFresh, FRESH_WINDOW_HOURS } from '../platforms/common/freshness.js';
+import { FRESH_WINDOW_HOURS } from '../platforms/common/freshness.js';
 import { extractPostId } from '../platforms/common/dedupe.js';
 import {
   isAlreadyLiked,
@@ -117,64 +117,16 @@ const executeLike = async (task: QueuedTask): Promise<ExecutorResult> => {
   };
 };
 
+/**
+ * Profile visit — runs the inline autopilot ON the creator's profile: ONE tab
+ * smoothly scrolls their timeline and likes their recent posts in place (plus
+ * any other enabled content actions), then stops once it's past their fresh
+ * posts. No more "scan a few posts, close, then like in separate tabs."
+ */
 const executeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
   const handle = task.payload.handle as string | undefined;
   if (!handle) return { success: false, errorMessage: 'missing handle' };
-
-  const profileUrl = profileUrlFor(handle);
-
-  let resp;
-  try {
-    resp = await driveTab(
-      profileUrl,
-      { type: 'SCAN_PROFILE', payload: { handle } },
-      { settleMs: 3_500 },
-    );
-  } catch (err) {
-    return {
-      success: false,
-      errorMessage: err instanceof Error ? err.message : 'tab driver failed',
-    };
-  }
-
-  if (resp.type !== 'SCAN_RESULT') {
-    return {
-      success: false,
-      errorMessage: resp.type === 'ERROR' ? resp.payload.message : 'unexpected scan response',
-    };
-  }
-
-  if (resp.payload.posts.length === 0) {
-    await appendDiagnostic({
-      kind: 'selector_miss',
-      context: `${task.platform}:scan-profile-likes`,
-      detail: `0 posts found on @${handle}`,
-    });
-  }
-  const fresh = resp.payload.posts.filter((p) => isFresh(p.publishedAt));
-  let enqueued = 0;
-  for (const post of fresh) {
-    const id = post.postId || extractPostId(task.platform, post.postUrl);
-    if (id && (await isAlreadyLiked(task.platform, id))) continue;
-    await enqueue(task.platform, 'like', {
-      postUrl: post.postUrl,
-      postId: id ?? null,
-      sourceHandle: handle,
-    });
-    enqueued++;
-  }
-
-  // Record successful scan time for the auto-refill loop
-  const state = await getTargetState();
-  const key = `${task.platform}:${handle.replace(/^@/, '')}`;
-  state[key] = { lastScannedAt: Date.now() };
-  await setTargetState(state);
-
-  return {
-    success: true,
-    errorMessage:
-      enqueued === 0 ? `scan ok: 0 fresh posts (scanned ${resp.payload.posts.length})` : undefined,
-  };
+  return runInlineAutopilot(task, { kind: 'profile', handle });
 };
 
 const executeComment = async (task: QueuedTask): Promise<ExecutorResult> => {
@@ -421,17 +373,47 @@ const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
   };
 };
 
+/** Where the inline autopilot runs: the user's home timeline, or one creator's
+ *  profile (the "Posts" button / auto-rescan). */
+type AutopilotSource = { kind: 'home' } | { kind: 'profile'; handle: string };
+
 /**
- * Inline home-feed autopilot (Twitter/X) — ONE tab smoothly scrolls the
- * timeline and likes / comments / follows in place (no per-action tabs). Daily
- * caps, the free-tier monthly cap, and the session length are enforced via
- * budgets passed to the content script; results come back here and are logged +
- * counted + de-duped.
+ * Inline autopilot (Twitter/X) — ONE tab smoothly scrolls the timeline (home OR
+ * a creator's profile) and likes / comments / follows / bookmarks / reposts /
+ * quotes IN PLACE (no per-action tabs). Daily caps, the free-tier monthly cap,
+ * and the session length are enforced via budgets passed to the content script;
+ * results come back here and are logged + counted + de-duped.
+ *
+ * Profile visits differ from home: we always Like (that's the promise), never
+ * Follow (it's a single author), ignore relevance keywords (the user explicitly
+ * targeted this creator), and STOP once we've scrolled past their fresh posts —
+ * so the tab doesn't sit open scrolling an old timeline for the whole session.
  */
-const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult> => {
+const runInlineAutopilot = async (
+  task: QueuedTask,
+  source: AutopilotSource = { kind: 'home' },
+): Promise<ExecutorResult> => {
   const settings = await getSettings();
   const hf = settings.homeFeed;
   const platform = task.platform;
+  const isProfile = source.kind === 'profile';
+  const targetUrl = isProfile ? profileUrlFor(source.handle) : HOME_URL;
+  const label = isProfile ? `profile @${source.handle.replace(/^@/, '')}` : 'home';
+
+  // What to do. Home mirrors the home-feed toggles; a profile visit always Likes
+  // (and mirrors the other content toggles) but never Follows the single author.
+  const doLike = isProfile ? true : hf.like;
+  const doComment = hf.comment;
+  const doFollow = isProfile ? false : hf.follow;
+  const doBookmark = hf.bookmark;
+  const doRepost = hf.repost;
+  const doQuote = hf.quote;
+  // On a profile the user already chose this creator → engage all their posts;
+  // on home, filter by relevance. The blocklist applies either way.
+  const keywords = isProfile ? [] : hf.keywords;
+  // A profile is reverse-chronological: once we pass a run of older-than-fresh
+  // posts we've left the fresh zone, so stop. 0 = never (home is infinite/fresh).
+  const stopAfterStaleRun = isProfile ? 8 : 0;
 
   const auth = await getAuth();
   const pro = isPro(auth?.user.subscriptionStatus ?? 'free');
@@ -456,13 +438,13 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
   // instead of 4-minute tabs churning open and closed. Daily caps (age +
   // variance) stay the real ceiling and the random per-action delays pace it,
   // so we hand the content script the FULL remaining daily budget, not a slice.
-  const maxLikes = hf.like ? remaining('like') : 0;
-  const maxFollows = hf.follow ? remaining('follow') : 0;
-  const maxComments = hf.comment ? remaining('comment') : 0;
-  const maxBookmarks = hf.bookmark ? remaining('bookmark') : 0;
-  const maxReposts = hf.repost ? remaining('repost') : 0;
-  const maxQuotes = hf.quote ? remaining('quote') : 0;
-  const anyActionEnabled = hf.like || hf.comment || hf.follow || hf.bookmark || hf.repost || hf.quote;
+  const maxLikes = doLike ? remaining('like') : 0;
+  const maxFollows = doFollow ? remaining('follow') : 0;
+  const maxComments = doComment ? remaining('comment') : 0;
+  const maxBookmarks = doBookmark ? remaining('bookmark') : 0;
+  const maxReposts = doRepost ? remaining('repost') : 0;
+  const maxQuotes = doQuote ? remaining('quote') : 0;
+  const anyActionEnabled = doLike || doComment || doFollow || doBookmark || doRepost || doQuote;
 
   // Wall-clock budget for this tab = whatever is left of the active session,
   // minus a small buffer so the tab finishes and closes itself a beat BEFORE
@@ -491,18 +473,18 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
   if (!anyActionEnabled) {
     await appendDiagnostic({
       kind: 'selector_miss',
-      context: `${platform}:home`,
+      context: `${platform}:${label}`,
       detail: 'No actions enabled — turn on an action in Home feed autopilot.',
     });
-    return { success: true, errorMessage: 'home: no actions enabled' };
+    return { success: true, errorMessage: `${label}: no actions enabled` };
   }
   if (totalBudget === 0) {
     const detail =
       !pro && monthlyLeft === 0
         ? `Free plan: ${FREE_TIER.monthlyActions} actions/month used. Upgrade to Pro to keep going.`
         : 'Daily caps already reached for every enabled action — resets at your local midnight.';
-    await appendDiagnostic({ kind: 'rate_limited', context: `${platform}:home`, detail });
-    return { success: true, errorMessage: `home: ${detail}` };
+    await appendDiagnostic({ kind: 'rate_limited', context: `${platform}:${label}`, detail });
+    return { success: true, errorMessage: `${label}: ${detail}` };
   }
 
   // Surface *why* auto-reply won't happen so it shows in Diagnostics.
@@ -525,26 +507,26 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
   const skipQuoteIds = stripPrefix(await getQuotedPosts());
 
   console.log(
-    `[casper] home ${platform}: opening tab — like=${hf.like} comment=${hf.comment} ` +
-      `follow=${hf.follow} bookmark=${hf.bookmark} repost=${hf.repost} quote=${hf.quote} ` +
+    `[casper] ${label} ${platform}: opening tab — like=${doLike} comment=${doComment} ` +
+      `follow=${doFollow} bookmark=${doBookmark} repost=${doRepost} quote=${doQuote} ` +
       `budget=${totalBudget} caps(L${maxLikes}/C${maxComments}/F${maxFollows}/B${maxBookmarks}/R${maxReposts}/Q${maxQuotes}) ` +
-      `runMs=${maxRunMs} keywords=[${hf.keywords.join(',')}]`,
+      `runMs=${maxRunMs} keywords=[${keywords.join(',')}]`,
   );
   let resp;
   try {
     resp = await driveTab(
-      HOME_URL,
+      targetUrl,
       {
         type: 'RUN_HOME',
         payload: {
           platform,
-          like: hf.like,
-          comment: hf.comment,
-          follow: hf.follow,
-          bookmark: hf.bookmark,
-          repost: hf.repost,
-          quote: hf.quote,
-          keywords: hf.keywords,
+          like: doLike,
+          comment: doComment,
+          follow: doFollow,
+          bookmark: doBookmark,
+          repost: doRepost,
+          quote: doQuote,
+          keywords,
           excludeKeywords: hf.excludeKeywords,
           freshnessHours: FRESH_WINDOW_HOURS,
           maxLikes,
@@ -555,6 +537,7 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
           maxQuotes,
           totalBudget,
           maxRunMs,
+          stopAfterStaleRun,
           skipCommentIds,
           skipQuoteIds,
           minDelayMs: 3_000,
@@ -564,7 +547,7 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
       { settleMs: 3_500 },
     );
   } catch (err) {
-    console.warn(`[casper] home ${platform}: tab driver failed —`, err);
+    console.warn(`[casper] ${label} ${platform}: tab driver failed —`, err);
     return {
       success: false,
       errorMessage: err instanceof Error ? err.message : 'tab driver failed',
@@ -572,7 +555,7 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
   }
 
   if (resp.type !== 'HOME_AUTOPILOT_RESULT') {
-    console.warn(`[casper] home ${platform}: unexpected response`, resp);
+    console.warn(`[casper] ${label} ${platform}: unexpected response`, resp);
     return {
       success: false,
       errorMessage: resp.type === 'ERROR' ? resp.payload.message : 'unexpected home response',
@@ -581,7 +564,7 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
 
   const { liked, commented, followed, bookmarked, reposted, quoted, scanned } = resp.payload;
   console.log(
-    `[casper] home ${platform}: result — scanned=${scanned} liked=${liked.length} ` +
+    `[casper] ${label} ${platform}: result — scanned=${scanned} liked=${liked.length} ` +
       `commented=${commented.length} followed=${followed.length} bookmarked=${bookmarked.length} ` +
       `reposted=${reposted.length} quoted=${quoted.length}` +
       (resp.payload.commentError ? ` commentError="${resp.payload.commentError}"` : ''),
@@ -589,7 +572,7 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
   // DOM selector probe — logged to the (clean) SW console always; folded into
   // the Diagnostics entry below when a run does nothing.
   if (resp.payload.debug) {
-    console.log(`[casper] home ${platform}: dom probe ${resp.payload.debug}`);
+    console.log(`[casper] ${label} ${platform}: dom probe ${resp.payload.debug}`);
   }
   // Every action was counted, logged, de-duped, and monthly-bumped LIVE during
   // the session — the content script fires a RECORD_ACTION message per action
@@ -612,10 +595,16 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
     });
   }
 
-  // Record scan time so the refill loop paces home scans.
+  // Record scan time so the refill loop paces re-scans. Home keys on the feed;
+  // a profile keys on its handle (matches the refill loop's per-target key).
   const state = await getTargetState();
-  const key = `home:${platform}`;
-  state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastHomeScanAt: Date.now() };
+  if (isProfile) {
+    const key = `${platform}:${source.handle.replace(/^@/, '')}`;
+    state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastScannedAt: Date.now() };
+  } else {
+    const key = `home:${platform}`;
+    state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastHomeScanAt: Date.now() };
+  }
   await setTargetState(state);
 
   // Surface a 0-action pass in Diagnostics so selector/feed problems are
@@ -624,11 +613,11 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
   if (performed === 0) {
     const reason =
       scanned === 0
-        ? 'No posts detected in the feed.'
+        ? `No posts detected on ${label}.`
         : `Saw ${scanned} posts but completed no actions.`;
     await appendDiagnostic({
       kind: 'selector_miss',
-      context: `${platform}:home`,
+      context: `${platform}:${label}`,
       detail: resp.payload.debug ? `${reason} probe=${resp.payload.debug}` : reason,
     });
   }
@@ -637,16 +626,15 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
     success: true,
     errorMessage:
       performed === 0
-        ? `home: no actions (scanned ${scanned})`
-        : `home: ${liked.length} likes · ${commented.length} replies · ${followed.length} follows · ` +
+        ? `${label}: no actions (scanned ${scanned})`
+        : `${label}: ${liked.length} likes · ${commented.length} replies · ${followed.length} follows · ` +
           `${bookmarked.length} bookmarks · ${reposted.length} reposts · ${quoted.length} quotes`,
   };
 };
 
-/** Home-feed autopilot — runs the inline single-tab session (see
- *  runInlineHomeAutopilot). */
+/** Home-feed autopilot — runs the inline single-tab session on the home feed. */
 const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> =>
-  runInlineHomeAutopilot(task);
+  runInlineAutopilot(task, { kind: 'home' });
 
 /**
  * Auto follow-back — open the user's own followers list and follow back people

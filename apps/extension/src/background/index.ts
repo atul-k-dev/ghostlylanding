@@ -463,6 +463,12 @@ async function handleScanTargetNow(payload: unknown) {
     await setTargetState(state);
   }
   const task = await enqueue(platform, 'scan-profile-likes', { handle });
+  // Start it now (if Active) instead of waiting up to a minute for the next
+  // alarm tick: clear the action cooldown and kick a tick. Fire-and-forget so
+  // the popup returns immediately rather than blocking on the whole visit.
+  const sched = await getSchedulerState();
+  await setSchedulerState({ ...sched, nextEligibleAt: 0 });
+  void handleTick();
   return { ok: true, data: { taskId: task.id } };
 }
 
