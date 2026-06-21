@@ -17,7 +17,7 @@
  * Scans go through 2–4 but not 6 — they're internal and feed real actions.
  */
 import type { ExtensionSettings, Platform } from '@casper/shared';
-import { FREE_TIER, isPro } from '@casper/shared';
+import { FREE_TIER, isPro, monthlyActionsUsed, bumpMonthly } from '@casper/shared';
 import {
   getSettings,
   setSettings,
@@ -55,6 +55,8 @@ const RESCAN_INTERVAL_MS = 6 * 60 * 60 * 1000;
  * session auto-pause stops it at the chosen duration.
  */
 const HOME_RESCAN_INTERVAL_MS = 3 * 60 * 1000;
+/** How often to run auto follow-back (open your followers list and follow back). */
+const FOLLOWBACK_INTERVAL_MS = 30 * 60 * 1000;
 /** Don't auto-refill if there are already this many pending tasks. */
 const REFILL_PENDING_THRESHOLD = 5;
 
@@ -166,14 +168,13 @@ export const handleTick = async (): Promise<void> => {
       const status = auth?.user.subscriptionStatus ?? 'free';
       if (!isPro(status)) {
         // Every feature works for free users too. The ONLY free-tier limit is a
-        // 30-action lifetime allowance — likes + comments + follows combined,
-        // across this account's whole history. Server's count is authoritative;
-        // we bump locally after each action to avoid racing past it between syncs.
-        const lifetime = auth?.user.lifetimeActionCount ?? 0;
-        if (lifetime >= FREE_TIER.lifetimeActions) {
+        // 5-actions-per-month allowance — likes + comments + follows combined.
+        // The server's count is authoritative (and resets monthly); we bump
+        // locally after each action to avoid racing past it between syncs.
+        if (monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions) {
           await updateTask(task.id, {
             status: 'skipped',
-            lastError: `Free plan: ${FREE_TIER.lifetimeActions}-action lifetime allowance used. Upgrade to Pro.`,
+            lastError: `Free plan: ${FREE_TIER.monthlyActions} actions/month used. Upgrade to Pro.`,
           });
           await maybeFlush();
           return;
@@ -224,13 +225,12 @@ export const handleTick = async (): Promise<void> => {
         task.platform,
         task.taskType as Parameters<typeof incrementCounter>[2],
       );
-      // For free users approaching the lifetime cap, optimistically bump local
-      // count + flush eagerly so the server's authoritative count comes back
-      // before the next dispatch.
+      // For free users approaching the monthly cap, optimistically bump the
+      // local count (rolling over at month boundaries) so the server's
+      // authoritative count comes back before the next dispatch.
       const auth = await getAuth();
       if (!isPro(auth?.user.subscriptionStatus ?? 'free') && auth) {
-        const next = (auth.user.lifetimeActionCount ?? 0) + 1;
-        await setAuth({ ...auth, user: { ...auth.user, lifetimeActionCount: next } });
+        await setAuth({ ...auth, user: { ...auth.user, ...bumpMonthly(auth.user) } });
       }
     }
     await scheduleNext();
@@ -244,7 +244,7 @@ export const handleTick = async (): Promise<void> => {
 const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
   const hasTargets = settings.targetCreators.length > 0;
   const homeEnabled = settings.homeFeed.enabled && settings.homeFeed.platforms.length > 0;
-  if (!hasTargets && !homeEnabled) return;
+  if (!hasTargets && !homeEnabled && !settings.followBack) return;
 
   const s = await queueStats();
   if (s.pending + s.running >= REFILL_PENDING_THRESHOLD) return;
@@ -285,24 +285,52 @@ const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
     }
   }
 
+  // Auto follow-back (Twitter/X) — paced, and only while there's follow budget.
+  if (settings.followBack) {
+    const key = 'followback:twitter';
+    const existing = targetState[key] ?? { lastScannedAt: 0 };
+    if (
+      now - (existing.lastFollowScanAt ?? 0) >= FOLLOWBACK_INTERVAL_MS &&
+      (await followBackHasBudget(settings))
+    ) {
+      await enqueue('twitter', 'scan-followback', {});
+      existing.lastFollowScanAt = now;
+      targetState[key] = existing;
+      mutated = true;
+    }
+  }
+
   if (mutated) {
     await setTargetState(targetState);
   }
 };
 
-/** True if there's still daily (and free-tier lifetime) budget to act on this
+/** True if there's still daily + free-tier follow budget for auto follow-back. */
+const followBackHasBudget = async (settings: ExtensionSettings): Promise<boolean> => {
+  const auth = await getAuth();
+  if (!isPro(auth?.user.subscriptionStatus ?? 'free')) {
+    if (monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions) return false;
+  }
+  const counters = await ensureToday(settings);
+  return isUnderCap(counters, 'twitter', 'follow');
+};
+
+/** True if there's still daily (and free-tier monthly) budget to act on this
  *  platform's home feed — used to avoid re-opening a tab that can do nothing. */
 const homeHasBudget = async (settings: ExtensionSettings, platform: Platform): Promise<boolean> => {
   const auth = await getAuth();
   if (!isPro(auth?.user.subscriptionStatus ?? 'free')) {
-    if ((auth?.user.lifetimeActionCount ?? 0) >= FREE_TIER.lifetimeActions) return false;
+    if (monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions) return false;
   }
   const counters = await ensureToday(settings);
   const hf = settings.homeFeed;
   return (
     (hf.like && isUnderCap(counters, platform, 'like')) ||
     (hf.comment && isUnderCap(counters, platform, 'comment')) ||
-    (hf.follow && isUnderCap(counters, platform, 'follow'))
+    (hf.follow && isUnderCap(counters, platform, 'follow')) ||
+    (hf.bookmark && isUnderCap(counters, platform, 'bookmark')) ||
+    (hf.repost && isUnderCap(counters, platform, 'repost')) ||
+    (hf.quote && isUnderCap(counters, platform, 'quote'))
   );
 };
 

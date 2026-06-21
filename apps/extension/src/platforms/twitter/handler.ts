@@ -9,7 +9,7 @@ import type {
 } from '../common/content-messages.js';
 import { scanProfile, scanHomeFeed, likeCurrentPost } from './dom.js';
 import { submitComment } from './comment.js';
-import { scanFollowers, followCurrentProfile } from './follow.js';
+import { scanFollowers, followCurrentProfile, getOwnHandle, followBackInList } from './follow.js';
 import { runHomeAutopilot } from './autopilot.js';
 
 export const installTwitterHandler = (): void => {
@@ -62,6 +62,25 @@ export const installTwitterHandler = (): void => {
         if (req.type === 'FOLLOW_HANDLE') {
           const result = await followCurrentProfile();
           const resp: ContentResponse = { type: 'FOLLOW_RESULT', payload: result };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'GET_OWN_HANDLE') {
+          const resp: ContentResponse = {
+            type: 'OWN_HANDLE_RESULT',
+            payload: { handle: getOwnHandle() },
+          };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'FOLLOW_BACK') {
+          const followed = await followBackInList(
+            req.payload.max,
+            req.payload.minDelayMs,
+            req.payload.maxDelayMs,
+            req.payload.skipHandles,
+          );
+          const resp: ContentResponse = { type: 'FOLLOW_BACK_RESULT', payload: { followed } };
           sendResponse(resp);
           return;
         }

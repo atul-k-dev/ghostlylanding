@@ -10,6 +10,9 @@ export interface PlatformCaps {
   likesPerDay: number;
   commentsPerDay: number;
   followsPerDay: number;
+  bookmarksPerDay: number;
+  repostsPerDay: number;
+  quotesPerDay: number;
 }
 
 export interface ActiveHours {
@@ -41,11 +44,22 @@ export interface HomeFeedSettings {
   comment: boolean;
   /** Follow the authors of matching posts. */
   follow: boolean;
+  /** Bookmark matching posts (private save-for-later). */
+  bookmark: boolean;
+  /** Repost / retweet matching posts. */
+  repost: boolean;
+  /** Quote-tweet matching posts with a short AI-generated commentary. */
+  quote: boolean;
   /**
    * Case-insensitive keywords a post must contain to be "relevant".
    * Empty = engage with everything in the feed.
    */
   keywords: string[];
+  /**
+   * Case-insensitive blocklist — a post containing ANY of these is skipped
+   * outright (politics, NSFW, spam…), even if it matches the relevance keywords.
+   */
+  excludeKeywords: string[];
 }
 
 export interface ExtensionSettings {
@@ -70,6 +84,9 @@ export interface ExtensionSettings {
   whitelist: { platform: Platform; handle: string }[];
   caps: Record<Platform, PlatformCaps>;
   homeFeed: HomeFeedSettings;
+  /** Auto follow-back: periodically follow people who follow you (Twitter/X).
+   *  Uses the follow daily cap + whitelist; counts toward the free-tier limit. */
+  followBack: boolean;
 }
 
 /**
@@ -82,6 +99,9 @@ export interface DailyCounter {
     like: number;
     comment: number;
     follow: number;
+    bookmark: number;
+    repost: number;
+    quote: number;
   };
   effectiveCap: PlatformCaps; // frozen for the day with ±15% variance
 }

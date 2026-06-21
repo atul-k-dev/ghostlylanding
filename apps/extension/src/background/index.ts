@@ -7,8 +7,9 @@ import type {
   User,
   Platform,
   TonePreset,
+  ActionType,
 } from '@casper/shared';
-import { PLATFORMS, TONE_PRESETS, isPro } from '@casper/shared';
+import { PLATFORMS, ACTION_TYPES, TONE_PRESETS, isPro, bumpMonthly } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
 import {
   getAuth,
@@ -17,6 +18,7 @@ import {
   markLiked,
   markCommented,
   markFollowed,
+  markQuoted,
   type StoredAuth,
 } from '../lib/storage.js';
 import { installScheduler, handleTick, SCHEDULER_ALARM } from '../scheduler/scheduler.js';
@@ -152,13 +154,13 @@ const seedKeywordsFromServer = async (user: User): Promise<void> => {
  * Record ONE autopilot action the moment it lands (sent by the home-feed content
  * script during a long session) — so the dashboard counters move live instead of
  * only when the whole session ends. Marks de-dupe, buffers the action log,
- * increments today's counter, and bumps the free-tier lifetime count.
+ * increments today's counter, and bumps the free-tier monthly count.
  */
 async function handleRecordAction(payload: unknown) {
   const { platform, actionType, postUrl, postId, handle, profileUrl, draftId } = (payload ??
     {}) as {
     platform?: Platform;
-    actionType?: 'like' | 'comment' | 'follow';
+    actionType?: ActionType;
     postUrl?: string;
     postId?: string;
     handle?: string;
@@ -168,7 +170,8 @@ async function handleRecordAction(payload: unknown) {
   if (
     !platform ||
     !PLATFORMS.includes(platform) ||
-    (actionType !== 'like' && actionType !== 'comment' && actionType !== 'follow')
+    !actionType ||
+    !ACTION_TYPES.includes(actionType)
   ) {
     return { ok: false, error: 'invalid_payload' };
   }
@@ -177,7 +180,8 @@ async function handleRecordAction(payload: unknown) {
   if (actionType === 'like' && postId) await markLiked(platform, postId);
   if (actionType === 'comment' && postId) await markCommented(platform, postId);
   if (actionType === 'follow' && handle) await markFollowed(platform, handle);
-  if (actionType === 'comment' && draftId) {
+  if (actionType === 'quote' && postId) await markQuoted(platform, postId);
+  if ((actionType === 'comment' || actionType === 'quote') && draftId) {
     try {
       await apiFetch(`/api/comments/drafts/${encodeURIComponent(draftId)}/posted`, {
         method: 'POST',
@@ -201,12 +205,13 @@ async function handleRecordAction(payload: unknown) {
   const settings = await getSettings();
   await incrementCounter(settings, platform, actionType);
 
-  // Free tier: keep the local lifetime count moving so the cap stays enforced.
+  // Free tier: keep the local monthly count moving (rolling over at the month
+  // boundary) so the cap stays enforced between server syncs.
   const auth = await getAuth();
   if (auth && !isPro(auth.user.subscriptionStatus ?? 'free')) {
     await setAuth({
       ...auth,
-      user: { ...auth.user, lifetimeActionCount: (auth.user.lifetimeActionCount ?? 0) + 1 },
+      user: { ...auth.user, ...bumpMonthly(auth.user) },
     });
   }
 

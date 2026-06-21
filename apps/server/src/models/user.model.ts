@@ -54,8 +54,11 @@ const userSchema = new Schema(
       default: 'free',
     },
     currentPeriodEnd: { type: Date, default: null },
-    /** Server-authoritative count of successful actions for free-tier enforcement. */
-    lifetimeActionCount: { type: Number, default: 0 },
+    /** Server-authoritative count of successful actions in the current month —
+     *  free-tier enforcement. Reset when actionPeriodKey rolls to a new month. */
+    monthlyActionCount: { type: Number, default: 0 },
+    /** "YYYY-MM" (UTC) window that monthlyActionCount belongs to. */
+    actionPeriodKey: { type: String, default: null },
     /** Grants access to the admin panel. Set via the set-admin script. */
     isAdmin: { type: Boolean, default: false },
     /** When true the account is suspended — blocked from sign-in and all API use. */
@@ -88,7 +91,8 @@ export const toUserDTO = (
     subscriptionStatus: doc.subscriptionStatus ?? null,
     subscriptionPlan: (doc.subscriptionPlan ?? 'free') as UserDTO['subscriptionPlan'],
     currentPeriodEnd: doc.currentPeriodEnd ? doc.currentPeriodEnd.toISOString() : null,
-    lifetimeActionCount: doc.lifetimeActionCount ?? 0,
+    monthlyActionCount: doc.monthlyActionCount ?? 0,
+    actionPeriodKey: doc.actionPeriodKey ?? null,
     isAdmin: doc.isAdmin ?? false,
     isBanned: doc.isBanned ?? false,
     preferences: {

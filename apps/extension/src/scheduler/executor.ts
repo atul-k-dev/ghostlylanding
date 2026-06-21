@@ -7,8 +7,8 @@
  *                                   enqueues `like` tasks for non-duplicates
  *   - 'comment', 'follow' → stub for now (M5/M6)
  */
-import type { Platform } from '@casper/shared';
-import { FREE_TIER, isPro } from '@casper/shared';
+import type { ActionType, Platform } from '@casper/shared';
+import { FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
 import type { ExecutorResult, QueuedTask } from './types.js';
 import { driveTab } from '../platforms/common/tab-driver.js';
 import { isFresh, FRESH_WINDOW_HOURS } from '../platforms/common/freshness.js';
@@ -25,7 +25,10 @@ import {
   getSettings,
   getSchedulerState,
   getAuth,
+  getOwnHandle,
+  setOwnHandle,
   getCommentedPosts,
+  getQuotedPosts,
   appendDiagnostic,
 } from '../lib/storage.js';
 import {
@@ -421,7 +424,7 @@ const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
 /**
  * Inline home-feed autopilot (Twitter/X) — ONE tab smoothly scrolls the
  * timeline and likes / comments / follows in place (no per-action tabs). Daily
- * caps, the free-tier lifetime cap, and the session length are enforced via
+ * caps, the free-tier monthly cap, and the session length are enforced via
  * budgets passed to the content script; results come back here and are logged +
  * counted + de-duped.
  */
@@ -435,15 +438,17 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
 
   const counters = await ensureToday(settings);
   const c = counters[platform];
-  const remaining = (action: 'like' | 'comment' | 'follow'): number => {
+  const remaining = (action: ActionType): number => {
     if (!c) return 0;
-    const cap =
-      action === 'like'
-        ? c.effectiveCap.likesPerDay
-        : action === 'comment'
-          ? c.effectiveCap.commentsPerDay
-          : c.effectiveCap.followsPerDay;
-    return Math.max(0, cap - c.byActionType[action]);
+    const caps: Record<ActionType, number> = {
+      like: c.effectiveCap.likesPerDay,
+      comment: c.effectiveCap.commentsPerDay,
+      follow: c.effectiveCap.followsPerDay,
+      bookmark: c.effectiveCap.bookmarksPerDay,
+      repost: c.effectiveCap.repostsPerDay,
+      quote: c.effectiveCap.quotesPerDay,
+    };
+    return Math.max(0, caps[action] - c.byActionType[action]);
   };
 
   // ONE continuous session keeps a single tab open and acts until the user's
@@ -454,6 +459,10 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
   const maxLikes = hf.like ? remaining('like') : 0;
   const maxFollows = hf.follow ? remaining('follow') : 0;
   const maxComments = hf.comment ? remaining('comment') : 0;
+  const maxBookmarks = hf.bookmark ? remaining('bookmark') : 0;
+  const maxReposts = hf.repost ? remaining('repost') : 0;
+  const maxQuotes = hf.quote ? remaining('quote') : 0;
+  const anyActionEnabled = hf.like || hf.comment || hf.follow || hf.bookmark || hf.repost || hf.quote;
 
   // Wall-clock budget for this tab = whatever is left of the active session,
   // minus a small buffer so the tab finishes and closes itself a beat BEFORE
@@ -466,28 +475,31 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
     30_000,
     sessionMs - (Date.now() - sessionStartedAt) - SESSION_END_BUFFER_MS,
   );
-  // The only free-tier limit: a 30-action lifetime allowance (likes + replies +
-  // follows combined). Pro is uncapped. Every feature works for both.
-  const lifetimeLeft = pro
+  // The only free-tier limit: 5 actions per month (likes + replies + follows
+  // combined). Pro is uncapped. Every feature works for both.
+  const monthlyLeft = pro
     ? Number.MAX_SAFE_INTEGER
-    : Math.max(0, FREE_TIER.lifetimeActions - (auth?.user.lifetimeActionCount ?? 0));
-  const totalBudget = Math.min(lifetimeLeft, maxLikes + maxComments + maxFollows);
+    : Math.max(0, FREE_TIER.monthlyActions - monthlyActionsUsed(auth?.user));
+  const totalBudget = Math.min(
+    monthlyLeft,
+    maxLikes + maxComments + maxFollows + maxBookmarks + maxReposts + maxQuotes,
+  );
 
   // Pre-flight: if a run can't do anything, say WHY in Diagnostics rather than
   // opening a tab that silently sits there (no scroll, no actions, no error).
   // These are the usual "nothing happened" causes.
-  if (!hf.like && !hf.comment && !hf.follow) {
+  if (!anyActionEnabled) {
     await appendDiagnostic({
       kind: 'selector_miss',
       context: `${platform}:home`,
-      detail: 'No actions enabled — turn on Like / Auto-reply / Follow in Home feed autopilot.',
+      detail: 'No actions enabled — turn on an action in Home feed autopilot.',
     });
     return { success: true, errorMessage: 'home: no actions enabled' };
   }
   if (totalBudget === 0) {
     const detail =
-      !pro && lifetimeLeft === 0
-        ? `Free plan: ${FREE_TIER.lifetimeActions}-action lifetime allowance used. Upgrade to Pro to keep going.`
+      !pro && monthlyLeft === 0
+        ? `Free plan: ${FREE_TIER.monthlyActions} actions/month used. Upgrade to Pro to keep going.`
         : 'Daily caps already reached for every enabled action — resets at your local midnight.';
     await appendDiagnostic({ kind: 'rate_limited', context: `${platform}:home`, detail });
     return { success: true, errorMessage: `home: ${detail}` };
@@ -502,17 +514,20 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
     });
   }
 
-  // Skip posts we've already replied to (recent slice is enough).
+  // Skip posts we've already replied to / quoted (recent slice is enough).
   const prefix = `${platform}:`;
-  const commentedMap = await getCommentedPosts();
-  const skipCommentIds = Object.keys(commentedMap)
-    .filter((k) => k.startsWith(prefix))
-    .map((k) => k.slice(prefix.length))
-    .slice(0, 500);
+  const stripPrefix = (map: Record<string, number>): string[] =>
+    Object.keys(map)
+      .filter((k) => k.startsWith(prefix))
+      .map((k) => k.slice(prefix.length))
+      .slice(0, 500);
+  const skipCommentIds = stripPrefix(await getCommentedPosts());
+  const skipQuoteIds = stripPrefix(await getQuotedPosts());
 
   console.log(
     `[casper] home ${platform}: opening tab — like=${hf.like} comment=${hf.comment} ` +
-      `follow=${hf.follow} budget=${totalBudget} caps(${maxLikes}/${maxComments}/${maxFollows}) ` +
+      `follow=${hf.follow} bookmark=${hf.bookmark} repost=${hf.repost} quote=${hf.quote} ` +
+      `budget=${totalBudget} caps(L${maxLikes}/C${maxComments}/F${maxFollows}/B${maxBookmarks}/R${maxReposts}/Q${maxQuotes}) ` +
       `runMs=${maxRunMs} keywords=[${hf.keywords.join(',')}]`,
   );
   let resp;
@@ -526,14 +541,22 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
           like: hf.like,
           comment: hf.comment,
           follow: hf.follow,
+          bookmark: hf.bookmark,
+          repost: hf.repost,
+          quote: hf.quote,
           keywords: hf.keywords,
+          excludeKeywords: hf.excludeKeywords,
           freshnessHours: FRESH_WINDOW_HOURS,
           maxLikes,
           maxComments,
           maxFollows,
+          maxBookmarks,
+          maxReposts,
+          maxQuotes,
           totalBudget,
           maxRunMs,
           skipCommentIds,
+          skipQuoteIds,
           minDelayMs: 3_000,
           maxDelayMs: 7_000,
         },
@@ -556,10 +579,11 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
     };
   }
 
-  const { liked, commented, followed, scanned } = resp.payload;
+  const { liked, commented, followed, bookmarked, reposted, quoted, scanned } = resp.payload;
   console.log(
     `[casper] home ${platform}: result — scanned=${scanned} liked=${liked.length} ` +
-      `commented=${commented.length} followed=${followed.length}` +
+      `commented=${commented.length} followed=${followed.length} bookmarked=${bookmarked.length} ` +
+      `reposted=${reposted.length} quoted=${quoted.length}` +
       (resp.payload.commentError ? ` commentError="${resp.payload.commentError}"` : ''),
   );
   // DOM selector probe — logged to the (clean) SW console always; folded into
@@ -567,11 +591,17 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
   if (resp.payload.debug) {
     console.log(`[casper] home ${platform}: dom probe ${resp.payload.debug}`);
   }
-  // Each like/comment/follow was counted, logged, de-duped, and lifetime-bumped
-  // LIVE during the session — the content script fires a RECORD_ACTION message
-  // per action (handled in the background) so the dashboard updates as it goes,
-  // not only when the (possibly hour-long) session ends. Here we just summarize.
-  const performed = liked.length + commented.length + followed.length;
+  // Every action was counted, logged, de-duped, and monthly-bumped LIVE during
+  // the session — the content script fires a RECORD_ACTION message per action
+  // (handled in the background) so the dashboard updates as it goes, not only
+  // when the (possibly hour-long) session ends. Here we just summarize.
+  const performed =
+    liked.length +
+    commented.length +
+    followed.length +
+    bookmarked.length +
+    reposted.length +
+    quoted.length;
 
   // If replies were attempted but none landed, record the reason for the user.
   if (resp.payload.commentError && commented.length === 0) {
@@ -608,7 +638,8 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
     errorMessage:
       performed === 0
         ? `home: no actions (scanned ${scanned})`
-        : `home: ${liked.length} likes · ${commented.length} replies · ${followed.length} follows`,
+        : `home: ${liked.length} likes · ${commented.length} replies · ${followed.length} follows · ` +
+          `${bookmarked.length} bookmarks · ${reposted.length} reposts · ${quoted.length} quotes`,
   };
 };
 
@@ -616,6 +647,88 @@ const runInlineHomeAutopilot = async (task: QueuedTask): Promise<ExecutorResult>
  *  runInlineHomeAutopilot). */
 const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> =>
   runInlineHomeAutopilot(task);
+
+/**
+ * Auto follow-back — open the user's own followers list and follow back people
+ * who aren't followed yet. Detects the user's @handle once (cached), then drives
+ * a tab to their followers page; the content script follows back inline and
+ * records each one live (RECORD_ACTION → caps + monthly count + log).
+ */
+const runFollowBack = async (task: QueuedTask): Promise<ExecutorResult> => {
+  const platform = task.platform; // twitter only
+  const settings = await getSettings();
+  const auth = await getAuth();
+  const pro = isPro(auth?.user.subscriptionStatus ?? 'free');
+  const counters = await ensureToday(settings);
+  const c = counters[platform];
+  const remainingFollows = c ? Math.max(0, c.effectiveCap.followsPerDay - c.byActionType.follow) : 0;
+  const monthlyLeft = pro
+    ? Number.MAX_SAFE_INTEGER
+    : Math.max(0, FREE_TIER.monthlyActions - monthlyActionsUsed(auth?.user));
+  const max = Math.min(remainingFollows, monthlyLeft, 30);
+  if (max <= 0) return { success: true, errorMessage: 'follow-back: no follow budget left' };
+
+  // Find the user's own handle (cached, else detect from x.com once).
+  let handle = await getOwnHandle();
+  if (!handle) {
+    let detect;
+    try {
+      detect = await driveTab(
+        HOME_URL,
+        { type: 'GET_OWN_HANDLE', payload: {} },
+        { settleMs: 3_000 },
+      );
+    } catch (err) {
+      return { success: false, errorMessage: err instanceof Error ? err.message : 'tab driver failed' };
+    }
+    if (detect.type === 'OWN_HANDLE_RESULT' && detect.payload.handle) {
+      handle = detect.payload.handle;
+      await setOwnHandle(handle);
+    } else {
+      await appendDiagnostic({
+        kind: 'selector_miss',
+        context: 'twitter:follow-back',
+        detail: 'Could not detect your @handle on x.com — are you signed in?',
+      });
+      return { success: true, errorMessage: 'follow-back: could not detect your @handle' };
+    }
+  }
+
+  const skipHandles = settings.whitelist
+    .filter((w) => w.platform === 'twitter')
+    .map((w) => w.handle.replace(/^@/, '').toLowerCase());
+
+  let resp;
+  try {
+    resp = await driveTab(
+      `https://x.com/${handle}/followers`,
+      { type: 'FOLLOW_BACK', payload: { max, minDelayMs: 3_000, maxDelayMs: 7_000, skipHandles } },
+      { settleMs: 3_500 },
+    );
+  } catch (err) {
+    return { success: false, errorMessage: err instanceof Error ? err.message : 'tab driver failed' };
+  }
+  if (resp.type !== 'FOLLOW_BACK_RESULT') {
+    return {
+      success: false,
+      errorMessage: resp.type === 'ERROR' ? resp.payload.message : 'unexpected follow-back response',
+    };
+  }
+  const n = resp.payload.followed.length; // counted live via RECORD_ACTION
+
+  // Pace follow-back runs.
+  const state = await getTargetState();
+  state['followback:twitter'] = {
+    ...(state['followback:twitter'] ?? { lastScannedAt: 0 }),
+    lastFollowScanAt: Date.now(),
+  };
+  await setTargetState(state);
+
+  return {
+    success: true,
+    errorMessage: n === 0 ? 'follow-back: nobody new to follow' : `follow-back: ${n} followed`,
+  };
+};
 
 export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => {
   // Twitter/X only. Any stray non-Twitter task (e.g. left in the queue from a
@@ -632,9 +745,15 @@ export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => 
       return executeFollowScan(task);
     case 'scan-home-feed':
       return executeHomeScan(task);
+    case 'scan-followback':
+      return runFollowBack(task);
     case 'comment':
       return executeComment(task);
     case 'follow':
       return executeFollow(task);
+    default:
+      // bookmark / repost / quote happen inline in the home autopilot — they're
+      // never enqueued as standalone tasks, so this is a defensive no-op.
+      return { success: true, errorMessage: `${task.taskType}: inline-only` };
   }
 };

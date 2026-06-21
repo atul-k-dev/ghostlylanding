@@ -216,7 +216,7 @@ adminRouter.get(
       subscriptionStatus: u.subscriptionStatus ?? 'free',
       subscriptionPlan: u.subscriptionPlan ?? 'free',
       isPro: isPro(u.subscriptionStatus as Parameters<typeof isPro>[0]),
-      lifetimeActionCount: u.lifetimeActionCount ?? 0,
+      lifetimeActionCount: u.monthlyActionCount ?? 0,
       createdAt: (u.createdAt as Date).toISOString(),
     }));
 
@@ -255,7 +255,7 @@ adminRouter.get(
           subscriptionStatus: user.subscriptionStatus ?? 'free',
           subscriptionPlan: user.subscriptionPlan ?? 'free',
           isPro: isPro(user.subscriptionStatus as Parameters<typeof isPro>[0]),
-          lifetimeActionCount: user.lifetimeActionCount ?? 0,
+          lifetimeActionCount: user.monthlyActionCount ?? 0,
           currentPeriodEnd: user.currentPeriodEnd
             ? (user.currentPeriodEnd as Date).toISOString()
             : null,

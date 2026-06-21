@@ -9,7 +9,14 @@ import { getCounters, setCounters } from '../lib/storage.js';
 import { localDate } from './timegate.js';
 import { platformCapsForToday } from './quotas.js';
 
-const emptyByAction = (): DailyCounter['byActionType'] => ({ like: 0, comment: 0, follow: 0 });
+const emptyByAction = (): DailyCounter['byActionType'] => ({
+  like: 0,
+  comment: 0,
+  follow: 0,
+  bookmark: 0,
+  repost: 0,
+  quote: 0,
+});
 
 const newDailyCounter = (
   date: string,
@@ -59,6 +66,12 @@ const capForAction = (counter: DailyCounter, action: ActionType): number => {
       return counter.effectiveCap.commentsPerDay;
     case 'follow':
       return counter.effectiveCap.followsPerDay;
+    case 'bookmark':
+      return counter.effectiveCap.bookmarksPerDay;
+    case 'repost':
+      return counter.effectiveCap.repostsPerDay;
+    case 'quote':
+      return counter.effectiveCap.quotesPerDay;
   }
 };
 

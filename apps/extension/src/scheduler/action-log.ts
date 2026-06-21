@@ -1,4 +1,5 @@
 import type { ActionLogInput } from '@casper/shared';
+import { currentPeriodKey } from '@casper/shared';
 import {
   getActionLogBuffer,
   setActionLogBuffer,
@@ -34,7 +35,7 @@ export const flushActionLog = async (): Promise<{ sent: number; kept: number }> 
   const buf = await getActionLogBuffer();
   if (buf.length === 0) return { sent: 0, kept: 0 };
 
-  const resp = await apiFetch<{ inserted: number; lifetimeActionCount?: number }>(
+  const resp = await apiFetch<{ inserted: number; monthlyActionCount?: number }>(
     '/api/actions/log',
     { method: 'POST', body: { entries: buf } },
   );
@@ -53,14 +54,19 @@ export const flushActionLog = async (): Promise<{ sent: number; kept: number }> 
   const state = await getSchedulerState();
   await setSchedulerState({ ...state, lastFlushAt: Date.now() });
 
-  // Sync the server-authoritative lifetime counter back into local auth so the
-  // free-tier gate sees the latest value on the very next scheduler tick.
-  if (typeof resp.data.lifetimeActionCount === 'number') {
+  // Sync the server-authoritative monthly counter back into local auth (stamped
+  // with the current month) so the free-tier gate sees the latest value on the
+  // very next scheduler tick.
+  if (typeof resp.data.monthlyActionCount === 'number') {
     const auth = await getAuth();
     if (auth) {
       await setAuth({
         ...auth,
-        user: { ...auth.user, lifetimeActionCount: resp.data.lifetimeActionCount },
+        user: {
+          ...auth.user,
+          monthlyActionCount: resp.data.monthlyActionCount,
+          actionPeriodKey: currentPeriodKey(),
+        },
       });
     }
   }

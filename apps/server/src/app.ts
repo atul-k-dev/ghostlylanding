@@ -17,6 +17,7 @@ import { billingWebhookRouter } from './routes/billing-webhook.js';
 import { returnPagesRouter } from './routes/return-pages.js';
 import { adminRouter } from './routes/admin.js';
 import { enforceBan } from './middleware/enforce-ban.js';
+import { rateLimit } from './middleware/rate-limit.js';
 
 export const createApp = (): Express => {
   const app = express();
@@ -62,6 +63,13 @@ export const createApp = (): Express => {
   );
 
   app.use('/api/health', healthRouter);
+
+  // Global per-IP backstop on top of the per-route/per-user limiters below.
+  // Generous enough not to bother legit users (incl. shared NATs) but it stops a
+  // single IP from flooding the API. Mounted after /health so uptime monitors
+  // aren't throttled, and after the Stripe webhook (which legitimately bursts).
+  app.use(rateLimit({ windowMs: 60_000, max: 600 }));
+
   app.use('/api/auth', authRouter);
 
   // Block suspended accounts on every authenticated request, even with a still-valid JWT.

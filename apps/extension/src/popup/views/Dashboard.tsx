@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type {
+  ActionType,
   CountersState,
   DailyCounter,
   ExtensionSettings,
@@ -9,7 +10,7 @@ import type {
   TonePreset,
   User,
 } from '@casper/shared';
-import { TONE_PRESETS, FREE_TIER, isPro } from '@casper/shared';
+import { TONE_PRESETS, FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import {
   getSettings,
@@ -26,7 +27,7 @@ type Tab = 'dashboard' | 'activity' | 'settings';
 interface ActionLogEntry {
   id: string;
   platform: Platform;
-  actionType: 'like' | 'comment' | 'follow';
+  actionType: ActionType;
   targetUrl: string;
   targetHandle: string | null;
   success: boolean;
@@ -201,6 +202,21 @@ const PlatformCounters = ({
         value={counter?.byActionType.follow ?? 0}
         max={counter?.effectiveCap.followsPerDay ?? 0}
       />
+      <Counter
+        label="Bookmarks"
+        value={counter?.byActionType.bookmark ?? 0}
+        max={counter?.effectiveCap.bookmarksPerDay ?? 0}
+      />
+      <Counter
+        label="Reposts"
+        value={counter?.byActionType.repost ?? 0}
+        max={counter?.effectiveCap.repostsPerDay ?? 0}
+      />
+      <Counter
+        label="Quotes"
+        value={counter?.byActionType.quote ?? 0}
+        max={counter?.effectiveCap.quotesPerDay ?? 0}
+      />
     </div>
   </div>
 );
@@ -263,8 +279,6 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
 
   const isPaused = settings?.isPaused ?? false;
 
-  const hasTargets = (settings?.targetCreators.length ?? 0) > 0;
-
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-casper-violet/20 bg-casper-violet/5 p-3 text-xs">
@@ -284,15 +298,6 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
           </p>
         )}
       </div>
-      {!hasTargets && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
-          <p className="font-medium text-amber-200">Add your first creator to begin 👋</p>
-          <p className="text-amber-200/70">
-            Open <strong>Settings</strong> and add a Twitter handle. Ghostly247 visits their profile,
-            likes recent posts, and finds new accounts to follow — all on the schedule you set.
-          </p>
-        </div>
-      )}
       <PlatformCounters platform="twitter" counter={counters?.twitter ?? null} />
     </div>
   );
@@ -467,6 +472,31 @@ const SettingsTab = ({
 
       <HomeFeedSection settings={settings} onChange={onChange} />
 
+      <Section
+        title="Auto follow-back"
+        subtitle="Periodically follow back people who follow you on Twitter/X."
+      >
+        <label className="flex items-center justify-between">
+          <span className="text-xs font-medium text-casper-ink">Follow back new followers</span>
+          <button
+            type="button"
+            onClick={() => onChange({ ...settings, followBack: !settings.followBack })}
+            aria-pressed={settings.followBack}
+            className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
+              settings.followBack
+                ? 'bg-emerald-500/15 text-emerald-300'
+                : 'bg-casper-ink/10 text-casper-ink/60'
+            }`}
+          >
+            {settings.followBack ? 'On' : 'Off'}
+          </button>
+        </label>
+        <p className="mt-1.5 text-[10px] text-casper-ink/40">
+          Opens your followers list and follows back, bounded by your daily follow cap & whitelist.
+          Toggle the Active pill to run it.
+        </p>
+      </Section>
+
       <TargetsSection settings={settings} onChange={onChange} />
 
       <WhitelistSection settings={settings} onChange={onChange} />
@@ -531,6 +561,24 @@ const SettingsTab = ({
 
       <button
         type="button"
+        onClick={() => {
+          // Open Gmail's compose window (not the OS default mail app) so it works
+          // straight from the browser the user is already signed into.
+          const url =
+            `https://mail.google.com/mail/?view=cm&fs=1&tf=1` +
+            `&to=${encodeURIComponent(SUPPORT_EMAIL)}` +
+            `&su=${encodeURIComponent('Ghostly247 Support Request')}` +
+            `&body=${encodeURIComponent(`Hi Ghostly247 team,\n\n\n\n— Account: ${userEmail}`)}`;
+          void chrome.tabs.create({ url });
+        }}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-casper-ink/10 px-3 py-2 text-sm font-medium text-casper-ink/80 transition hover:bg-white/5"
+      >
+        <MailSmallIcon />
+        Contact Support
+      </button>
+
+      <button
+        type="button"
         onClick={onLogout}
         className="w-full rounded-xl border border-casper-ink/10 px-3 py-2 text-casper-ink/70 transition hover:bg-white/5"
       >
@@ -539,6 +587,21 @@ const SettingsTab = ({
     </div>
   );
 };
+
+const SUPPORT_EMAIL = 'support@ghostly247.com';
+
+const MailSmallIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+    <path
+      d="m4 7 8 6 8-6"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 const ActivityTab = () => {
   const [entries, setEntries] = useState<ActionLogEntry[] | null>(null);
@@ -633,7 +696,7 @@ const formatRelative = (iso: string): string => {
 
 const PLAN_LABELS: Record<SubscriptionPlan, { label: string; price: string }> = {
   free: { label: 'Free', price: '$0' },
-  monthly: { label: 'Pro · Monthly', price: '$14.99/mo' },
+  monthly: { label: 'Pro · Monthly', price: '$9.99/mo' },
 };
 
 const PlanSection = () => {
@@ -699,9 +762,9 @@ const PlanSection = () => {
     pro && user?.currentPeriodEnd
       ? `Renews ${new Date(user.currentPeriodEnd).toLocaleDateString()}`
       : null;
-  const lifetimeUsed = user?.lifetimeActionCount ?? 0;
-  const lifetimeCap = FREE_TIER.lifetimeActions;
-  const exhausted = !pro && lifetimeUsed >= lifetimeCap;
+  const monthlyUsed = monthlyActionsUsed(user);
+  const monthlyCap = FREE_TIER.monthlyActions;
+  const exhausted = !pro && monthlyUsed >= monthlyCap;
 
   return (
     <Section
@@ -709,7 +772,7 @@ const PlanSection = () => {
       subtitle={
         pro
           ? 'Ghostly247 Pro · unlimited actions'
-          : `Free · all features, ${lifetimeCap} lifetime actions (likes + replies + follows)`
+          : `Free · all features, ${monthlyCap} actions per month (likes + replies + follows)`
       }
     >
       <div className="flex items-center justify-between mb-3">
@@ -736,22 +799,22 @@ const PlanSection = () => {
       {!pro && (
         <div className="mb-3">
           <div className="flex justify-between text-[10px] text-casper-ink/50 mb-1">
-            <span>Free actions used</span>
+            <span>Free actions used this month</span>
             <span>
-              {Math.min(lifetimeUsed, lifetimeCap)} / {lifetimeCap}
+              {Math.min(monthlyUsed, monthlyCap)} / {monthlyCap}
             </span>
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-casper-ink/10">
             <div
               className={`h-full rounded-full ${exhausted ? 'bg-rose-500' : 'bg-casper-violet'}`}
               style={{
-                width: `${Math.min(100, (lifetimeUsed / lifetimeCap) * 100)}%`,
+                width: `${Math.min(100, (monthlyUsed / monthlyCap) * 100)}%`,
               }}
             />
           </div>
           {exhausted && (
             <p className="mt-2 text-[10px] text-rose-400">
-              You've used all {lifetimeCap} free actions. Upgrade to keep going.
+              You've used all {monthlyCap} free actions this month. Upgrade for unlimited.
             </p>
           )}
         </div>
@@ -769,7 +832,7 @@ const PlanSection = () => {
       ) : (
         <div className="space-y-1.5">
           <UpgradeButton
-            label="Monthly · $14.99"
+            label="Monthly · $9.99"
             sub="Cancel anytime"
             highlight={true}
             busy={busy === 'monthly'}
@@ -1006,10 +1069,19 @@ const HomeFeedSection = ({
 }) => {
   const hf = settings.homeFeed;
   const [keywordText, setKeywordText] = useState(hf.keywords.join(', '));
+  const [excludeText, setExcludeText] = useState(hf.excludeKeywords.join(', '));
   const [scanStatus, setScanStatus] = useState<string | null>(null);
 
   const update = (patch: Partial<typeof hf>) =>
     onChange({ ...settings, homeFeed: { ...hf, ...patch } });
+
+  const commitExclude = () => {
+    const list = excludeText
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean);
+    update({ excludeKeywords: list });
+  };
 
   const commitKeywords = () => {
     const list = keywordText
@@ -1084,7 +1156,7 @@ const HomeFeedSection = ({
             <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
               Actions
             </p>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
               <Check checked={hf.like} onToggle={() => update({ like: !hf.like })} label="Like" />
               <Check
                 checked={hf.comment}
@@ -1096,12 +1168,27 @@ const HomeFeedSection = ({
                 onToggle={() => update({ follow: !hf.follow })}
                 label="Follow"
               />
+              <Check
+                checked={hf.bookmark}
+                onToggle={() => update({ bookmark: !hf.bookmark })}
+                label="Bookmark"
+              />
+              <Check
+                checked={hf.repost}
+                onToggle={() => update({ repost: !hf.repost })}
+                label="Repost"
+              />
+              <Check
+                checked={hf.quote}
+                onToggle={() => update({ quote: !hf.quote })}
+                label="Quote"
+              />
             </div>
             {hf.comment && (
               <p className="mt-2 text-[10px] text-casper-ink/40">
                 Ghostly247 posts a short, relevant reply automatically. Bounded by your daily caps &
                 relevance keywords — toggle the Active pill to stop everything instantly. Free plan:
-                30 actions total (likes + replies + follows). Needs your Ghostly247 server running.
+                5 actions per month (likes + replies + follows). Needs your Ghostly247 server running.
               </p>
             )}
           </div>
@@ -1123,6 +1210,26 @@ const HomeFeedSection = ({
             />
             <p className="mt-1 text-[10px] text-casper-ink/40">
               Leave blank to engage with everything in your feed.
+            </p>
+          </div>
+
+          <div>
+            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+              Exclude keywords
+            </p>
+            <input
+              type="text"
+              value={excludeText}
+              onChange={(e) => setExcludeText(e.target.value)}
+              onBlur={commitExclude}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitExclude();
+              }}
+              placeholder="politics, nsfw, crypto (comma-separated)"
+              className="w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+            />
+            <p className="mt-1 text-[10px] text-casper-ink/40">
+              Skip any post containing these words — even if it matches above.
             </p>
           </div>
 

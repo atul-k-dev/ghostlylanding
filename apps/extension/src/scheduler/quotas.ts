@@ -35,6 +35,9 @@ export const computeDailyCaps = (
     likesPerDay: cap(base.likesPerDay * m * variance),
     commentsPerDay: cap(base.commentsPerDay * m * variance),
     followsPerDay: cap(base.followsPerDay * m * variance),
+    bookmarksPerDay: cap(base.bookmarksPerDay * m * variance),
+    repostsPerDay: cap(base.repostsPerDay * m * variance),
+    quotesPerDay: cap(base.quotesPerDay * m * variance),
   };
 };
 

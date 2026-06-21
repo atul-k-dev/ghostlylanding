@@ -49,6 +49,20 @@ export type ContentRequest =
   | {
       type: 'RUN_HOME';
       payload: HomeAutopilotOptions;
+    }
+  | {
+      type: 'GET_OWN_HANDLE';
+      payload: Record<string, never>;
+    }
+  | {
+      type: 'FOLLOW_BACK';
+      payload: {
+        max: number;
+        minDelayMs: number;
+        maxDelayMs: number;
+        /** Lowercased handles to never follow back (whitelist). */
+        skipHandles: string[];
+      };
     };
 
 /** Inline home-feed autopilot — one tab smoothly scrolls and acts in place. */
@@ -58,12 +72,21 @@ export interface HomeAutopilotOptions {
   /** Auto-reply: type + post a relevant reply inline (Pro-gated upstream). */
   comment: boolean;
   follow: boolean;
+  /** Bookmark, repost, and quote-tweet matching posts inline. */
+  bookmark: boolean;
+  repost: boolean;
+  quote: boolean;
   keywords: string[];
+  /** Blocklist — posts containing any of these are skipped entirely. */
+  excludeKeywords: string[];
   freshnessHours: number;
   maxLikes: number;
   maxComments: number;
   maxFollows: number;
-  /** Overall action ceiling (free-tier lifetime cap; large for Pro). */
+  maxBookmarks: number;
+  maxReposts: number;
+  maxQuotes: number;
+  /** Overall action ceiling (free-tier monthly cap; large for Pro). */
   totalBudget: number;
   /**
    * Wall-clock budget for this ONE continuous session (ms). The tab keeps
@@ -74,6 +97,8 @@ export interface HomeAutopilotOptions {
   maxRunMs: number;
   /** Post IDs to skip for commenting (already replied to). */
   skipCommentIds: string[];
+  /** Post IDs to skip for quote-tweeting (already quoted). */
+  skipQuoteIds: string[];
   minDelayMs: number;
   maxDelayMs: number;
 }
@@ -82,6 +107,9 @@ export interface HomeAutopilotResult {
   liked: { postUrl: string; postId: string; authorHandle: string | null }[];
   commented: { postUrl: string; postId: string; draftId?: string }[];
   followed: { handle: string; profileUrl: string | null }[];
+  bookmarked: { postUrl: string; postId: string }[];
+  reposted: { postUrl: string; postId: string }[];
+  quoted: { postUrl: string; postId: string; draftId?: string }[];
   scanned: number;
   /** Why replying didn't happen (server down, not Pro, DOM flow failed). */
   commentError?: string;
@@ -119,6 +147,14 @@ export type ContentResponse =
   | {
       type: 'FOLLOW_RESULT';
       payload: { followed: boolean; alreadyFollowing: boolean; error?: string };
+    }
+  | {
+      type: 'OWN_HANDLE_RESULT';
+      payload: { handle: string | null };
+    }
+  | {
+      type: 'FOLLOW_BACK_RESULT';
+      payload: { followed: { handle: string; profileUrl: string }[] };
     }
   | {
       type: 'ERROR';

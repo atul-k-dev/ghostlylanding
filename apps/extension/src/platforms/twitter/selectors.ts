@@ -16,6 +16,14 @@ export const TWITTER_SELECTORS = {
   likeButton: 'button[data-testid="like"]',
   /** Like buttons: already liked (unlike action). */
   unlikeButton: 'button[data-testid="unlike"]',
+  /** Bookmark button (not-yet-bookmarked) and its already-bookmarked state. */
+  bookmarkButton: 'button[data-testid="bookmark"]',
+  removeBookmarkButton: 'button[data-testid="removeBookmark"]',
+  /** Repost/retweet button; the already-reposted state; and the "Repost"
+   *  confirm item in the dropdown the retweet button opens. */
+  retweetButton: 'button[data-testid="retweet"]',
+  unretweetButton: 'button[data-testid="unretweet"]',
+  retweetConfirm: '[data-testid="retweetConfirm"]',
   /** Aria fallbacks if data-testid disappears. */
   likeButtonAria: 'button[aria-label*="Like" i][role="button"]',
   /** Inner text container of a tweet. */

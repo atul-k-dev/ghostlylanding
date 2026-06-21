@@ -17,9 +17,11 @@ export const STORAGE_KEYS = {
   likedPosts: 'casper.likedPosts',
   commentedPosts: 'casper.commentedPosts',
   draftedPosts: 'casper.draftedPosts',
+  quotedPosts: 'casper.quotedPosts',
   followedHandles: 'casper.followedHandles',
   diagnostics: 'casper.diagnostics',
   pendingReset: 'casper.pendingReset',
+  ownHandle: 'casper.ownHandle',
 } as const;
 
 export interface StoredAuth {
@@ -50,8 +52,23 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   targetCreators: [],
   whitelist: [],
   caps: {
-    twitter: { likesPerDay: 100, commentsPerDay: 30, followsPerDay: 50 },
-    linkedin: { likesPerDay: 60, commentsPerDay: 20, followsPerDay: 30 },
+    twitter: {
+      likesPerDay: 100,
+      commentsPerDay: 30,
+      followsPerDay: 50,
+      bookmarksPerDay: 60,
+      repostsPerDay: 30,
+      quotesPerDay: 15,
+    },
+    // LinkedIn is inert (automation removed) but the type requires all platforms.
+    linkedin: {
+      likesPerDay: 60,
+      commentsPerDay: 20,
+      followsPerDay: 30,
+      bookmarksPerDay: 30,
+      repostsPerDay: 15,
+      quotesPerDay: 10,
+    },
   },
   homeFeed: {
     // Twitter/X only — LinkedIn automation was removed.
@@ -60,8 +77,13 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
     like: true,
     comment: false,
     follow: false,
+    bookmark: false,
+    repost: false,
+    quote: false,
     keywords: [],
+    excludeKeywords: [],
   },
+  followBack: false,
 };
 
 const DEFAULT_COUNTERS: CountersState = { twitter: null, linkedin: null };
@@ -261,6 +283,33 @@ export const isAlreadyDrafted = async (platform: string, postId: string): Promis
   return `${platform}:${postId}` in map;
 };
 
+// -- quoted posts dedupe (quote-tweets can't be detected from the DOM) --------
+export const getQuotedPosts = async (): Promise<LikedPostsMap> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.quotedPosts);
+  return (got[STORAGE_KEYS.quotedPosts] as LikedPostsMap | undefined) ?? {};
+};
+
+export const setQuotedPosts = async (map: LikedPostsMap): Promise<void> => {
+  const keys = Object.keys(map);
+  if (keys.length > LIKED_POSTS_MAX) {
+    const sorted = keys.sort((a, b) => (map[a] ?? 0) - (map[b] ?? 0));
+    const toDrop = sorted.slice(0, keys.length - LIKED_POSTS_MAX);
+    for (const k of toDrop) delete map[k];
+  }
+  await chrome.storage.local.set({ [STORAGE_KEYS.quotedPosts]: map });
+};
+
+export const markQuoted = async (platform: string, postId: string): Promise<void> => {
+  const map = await getQuotedPosts();
+  map[`${platform}:${postId}`] = Date.now();
+  await setQuotedPosts(map);
+};
+
+export const isAlreadyQuoted = async (platform: string, postId: string): Promise<boolean> => {
+  const map = await getQuotedPosts();
+  return `${platform}:${postId}` in map;
+};
+
 // -- followed handles dedupe (same LRU shape as liked) ----------------------
 export const getFollowedHandles = async (): Promise<LikedPostsMap> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.followedHandles);
@@ -356,4 +405,14 @@ export const setPendingReset = async (email: string, ttlMinutes = 15): Promise<v
 
 export const clearPendingReset = async (): Promise<void> => {
   await chrome.storage.local.remove(STORAGE_KEYS.pendingReset);
+};
+
+// -- cached own X handle (for auto follow-back) ------------------------------
+export const getOwnHandle = async (): Promise<string | null> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.ownHandle);
+  return (got[STORAGE_KEYS.ownHandle] as string | undefined) ?? null;
+};
+
+export const setOwnHandle = async (handle: string): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.ownHandle]: handle });
 };

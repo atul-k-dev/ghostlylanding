@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ok, err } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
+import { rateLimit } from '../middleware/rate-limit.js';
 import { UserModel } from '../models/user.model.js';
 import { ActionLogModel } from '../models/action-log.model.js';
 import { CommentDraftModel } from '../models/comment-draft.model.js';
@@ -14,6 +15,11 @@ export const accountRouter = Router();
 accountRouter.delete(
   '/',
   requireAuth,
+  rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    key: (req) => `delacct:${req.auth?.sub ?? req.ip}`,
+  }),
   asyncHandler(async (req, res) => {
     if (!req.auth) {
       res.status(401).json(err('unauthorized', 'No auth context'));

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ok, err, ACTION_TYPES, PLATFORMS } from '@casper/shared';
+import { ok, err, ACTION_TYPES, PLATFORMS, currentPeriodKey } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -53,19 +53,26 @@ actionsRouter.post(
     }));
     const inserted = await ActionLogModel.insertMany(docs, { ordered: false });
     const successCount = docs.filter((d) => d.success).length;
-    let lifetimeActionCount: number | undefined;
+    let monthlyActionCount: number | undefined;
     if (successCount > 0) {
+      const periodKey = currentPeriodKey();
+      // Roll the monthly counter over at the month boundary (only matches when
+      // the stored period differs), then add this batch.
+      await UserModel.updateOne(
+        { _id: req.auth.sub, actionPeriodKey: { $ne: periodKey } },
+        { $set: { actionPeriodKey: periodKey, monthlyActionCount: 0 } },
+      );
       const updated = await UserModel.findByIdAndUpdate(
         req.auth.sub,
-        { $inc: { lifetimeActionCount: successCount } },
-        { new: true, projection: { lifetimeActionCount: 1 } },
+        { $inc: { monthlyActionCount: successCount } },
+        { new: true, projection: { monthlyActionCount: 1 } },
       );
-      lifetimeActionCount = updated?.lifetimeActionCount ?? undefined;
+      monthlyActionCount = updated?.monthlyActionCount ?? undefined;
     }
     res.json(
       ok({
         inserted: inserted.length,
-        ...(lifetimeActionCount !== undefined ? { lifetimeActionCount } : {}),
+        ...(monthlyActionCount !== undefined ? { monthlyActionCount } : {}),
       }),
     );
   }),

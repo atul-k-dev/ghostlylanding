@@ -5,10 +5,11 @@
  * comments / follows in place as it goes — so the user can watch a single,
  * continuous session instead of tabs popping open for each action.
  *
- * Safety budgets (daily caps, lifetime cap) are computed by the executor and
+ * Safety budgets (daily caps, monthly cap) are computed by the executor and
  * passed in; this module just stops when a budget is hit. Every per-post action
  * is wrapped so a single failure never breaks the smooth scroll.
  */
+import type { ActionType } from '@casper/shared';
 import { TWITTER_SELECTORS as S } from './selectors.js';
 import { waitFor, smoothScrollBy, wait } from './dom.js';
 import { typeIntoComposer } from './comment.js';
@@ -22,7 +23,7 @@ const randomInt = (min: number, max: number): number =>
  *  the whole session returns). Best-effort — a dropped message just undercounts. */
 const recordAction = async (
   platform: string,
-  actionType: 'like' | 'comment' | 'follow',
+  actionType: ActionType,
   data: { postUrl?: string; postId?: string; handle?: string; profileUrl?: string; draftId?: string },
 ): Promise<void> => {
   try {
@@ -71,14 +72,20 @@ const isFresh = (publishedAt: string | null, hours: number): boolean => {
   return Date.now() - t <= hours * 60 * 60 * 1000;
 };
 
-const isRelevant = (text: string, keywords: string[]): boolean => {
-  if (keywords.length === 0) return true;
+const matchesAny = (text: string, keywords: string[]): boolean => {
   const hay = text.toLowerCase();
   return keywords.some((k) => {
     const needle = k.trim().toLowerCase();
     return needle.length > 0 && hay.includes(needle);
   });
 };
+
+const isRelevant = (text: string, keywords: string[]): boolean =>
+  keywords.length === 0 || matchesAny(text, keywords);
+
+/** A post is excluded if it contains any blocklist keyword. */
+const isExcluded = (text: string, excludeKeywords: string[]): boolean =>
+  excludeKeywords.length > 0 && matchesAny(text, excludeKeywords);
 
 /** Like the post inside this article. Returns the outcome. */
 const likeInArticle = async (article: HTMLElement): Promise<'liked' | 'already' | 'skip'> => {
@@ -249,6 +256,118 @@ const followAuthorInline = async (article: HTMLElement): Promise<'followed' | 's
   return 'followed';
 };
 
+/** Bookmark the post (private save-for-later). Mirrors the like flow. */
+const bookmarkInArticle = async (
+  article: HTMLElement,
+): Promise<'bookmarked' | 'already' | 'skip'> => {
+  if (article.querySelector(S.removeBookmarkButton)) return 'already';
+  const btn = article.querySelector<HTMLButtonElement>(S.bookmarkButton);
+  if (!btn) return 'skip';
+  btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await wait(400);
+  btn.click();
+  for (let i = 0; i < 10; i++) {
+    await wait(220);
+    if (article.querySelector(S.removeBookmarkButton)) return 'bookmarked';
+  }
+  return 'skip';
+};
+
+/** Repost/retweet: click the repost button, then "Repost" in the dropdown. */
+const repostInArticle = async (article: HTMLElement): Promise<'reposted' | 'already' | 'skip'> => {
+  if (article.querySelector(S.unretweetButton)) return 'already';
+  const btn = article.querySelector<HTMLButtonElement>(S.retweetButton);
+  if (!btn) return 'skip';
+  btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await wait(400);
+  btn.click();
+  const confirm = await waitFor<HTMLElement>(S.retweetConfirm, 3_000);
+  if (!confirm) {
+    dismissMenu();
+    return 'skip';
+  }
+  confirm.click();
+  for (let i = 0; i < 10; i++) {
+    await wait(250);
+    if (article.querySelector(S.unretweetButton)) return 'reposted';
+  }
+  return 'skip';
+};
+
+/**
+ * Quote-tweet: open the repost menu, click "Quote", then type an AI commentary
+ * into the compose dialog and post it (same compose flow as a reply).
+ */
+const quoteInArticle = async (
+  article: HTMLElement,
+  meta: PostMeta,
+  platform: string,
+): Promise<{ posted: boolean; draftId?: string; error?: string }> => {
+  const rtBtn = article.querySelector<HTMLButtonElement>(S.retweetButton);
+  if (!rtBtn) return { posted: false, error: 'repost button not found (already reposted?)' };
+
+  const draft = await generateDraft(platform, meta.text, meta.postUrl);
+  if (!draft.ok) return { posted: false, error: draft.error };
+
+  rtBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await wait(400);
+  rtBtn.click();
+
+  const menu = await waitFor<HTMLElement>(S.dropdownMenu, 3_000);
+  if (!menu) return { posted: false, draftId: draft.id, error: 'repost menu never opened' };
+  let quoteItem: HTMLElement | undefined;
+  for (let i = 0; i < 12; i++) {
+    const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    quoteItem = items.find((it) => /\bquote\b/i.test((it.textContent ?? '').trim()));
+    if (quoteItem) break;
+    await wait(200);
+  }
+  if (!quoteItem) {
+    dismissMenu();
+    return { posted: false, draftId: draft.id, error: 'Quote option not found in repost menu' };
+  }
+  quoteItem.click();
+
+  // Quote opens the tweet compose dialog (same testids as the reply modal).
+  const dialog = await waitFor<HTMLElement>(S.replyDialog, 8_000);
+  if (!dialog) {
+    dismissComposer();
+    return { posted: false, draftId: draft.id, error: 'quote composer never opened' };
+  }
+  let composer: HTMLElement | null = null;
+  for (let i = 0; i < 20; i++) {
+    composer = dialog.querySelector<HTMLElement>(S.replyComposer);
+    if (composer) break;
+    await wait(200);
+  }
+  if (!composer) {
+    dismissComposer();
+    return { posted: false, draftId: draft.id, error: 'quote composer never opened' };
+  }
+  await typeIntoComposer(composer, draft.draftText);
+
+  let btn: HTMLButtonElement | null = null;
+  for (let i = 0; i < 16; i++) {
+    btn = dialog.querySelector<HTMLButtonElement>(S.replyDialogButton);
+    if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') break;
+    await wait(220);
+  }
+  if (!btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
+    dismissComposer();
+    return { posted: false, draftId: draft.id, error: 'quote submit never enabled' };
+  }
+  btn.click();
+  for (let i = 0; i < 16; i++) {
+    await wait(350);
+    if (!document.querySelector(S.replyDialog)) {
+      console.log('[casper] quote: posted ✓');
+      return { posted: true, draftId: draft.id };
+    }
+  }
+  dismissComposer();
+  return { posted: false, draftId: draft.id, error: 'quote composer did not clear after submit' };
+};
+
 export const runHomeAutopilot = async (
   opts: HomeAutopilotOptions,
 ): Promise<HomeAutopilotResult> => {
@@ -256,6 +375,9 @@ export const runHomeAutopilot = async (
     liked: [],
     commented: [],
     followed: [],
+    bookmarked: [],
+    reposted: [],
+    quoted: [],
     scanned: 0,
   };
   // If the timeline never renders (logged out / wrong page), don't sit here
@@ -266,10 +388,14 @@ export const runHomeAutopilot = async (
 
   const processed = new Set<string>();
   const skip = new Set(opts.skipCommentIds);
+  const skipQuote = new Set(opts.skipQuoteIds);
   let likes = 0;
   let comments = 0;
   let follows = 0;
-  const total = (): number => likes + comments + follows;
+  let bookmarks = 0;
+  let reposts = 0;
+  let quotes = 0;
+  const total = (): number => likes + comments + follows + bookmarks + reposts + quotes;
   const pause = (): Promise<void> => wait(randomInt(opts.minDelayMs, opts.maxDelayMs));
 
   const startedAt = Date.now();
@@ -277,9 +403,14 @@ export const runHomeAutopilot = async (
   const timeLeft = (): boolean => Date.now() < deadline;
   // Stop once every enabled action type has spent its daily budget, or the
   // overall (free-tier / combined) ceiling is hit.
-  const budgetLeft = (): boolean =>
-    total() < opts.totalBudget &&
-    !(likes >= opts.maxLikes && comments >= opts.maxComments && follows >= opts.maxFollows);
+  const allMaxed = (): boolean =>
+    likes >= opts.maxLikes &&
+    comments >= opts.maxComments &&
+    follows >= opts.maxFollows &&
+    bookmarks >= opts.maxBookmarks &&
+    reposts >= opts.maxReposts &&
+    quotes >= opts.maxQuotes;
+  const budgetLeft = (): boolean => total() < opts.totalBudget && !allMaxed();
 
   // The kill switch lives in storage: toggling the Active pill off flips
   // settings.isPaused. Poll it so a long session stops within a couple seconds
@@ -310,6 +441,7 @@ export const runHomeAutopilot = async (
 
       if (!isFresh(meta.publishedAt, opts.freshnessHours)) continue;
       if (!isRelevant(meta.text, opts.keywords)) continue;
+      if (isExcluded(meta.text, opts.excludeKeywords)) continue;
 
       // Only check the kill switch for posts we're about to act on (these are
       // what incur the real delays); skipped posts fly by in microseconds.
@@ -337,6 +469,75 @@ export const runHomeAutopilot = async (
           }
         } catch {
           /* skip this like */
+        }
+      }
+
+      // BOOKMARK
+      if (opts.bookmark && bookmarks < opts.maxBookmarks && total() < opts.totalBudget) {
+        try {
+          if ((await bookmarkInArticle(article)) === 'bookmarked') {
+            result.bookmarked.push({ postUrl: meta.postUrl, postId: meta.postId });
+            bookmarks++;
+            await recordAction(opts.platform, 'bookmark', {
+              postUrl: meta.postUrl,
+              postId: meta.postId,
+            });
+            await pause();
+          }
+        } catch {
+          /* skip this bookmark */
+        }
+      }
+
+      // QUOTE (before repost — a quote amplifies the post on its own)
+      let quotedThisPost = false;
+      if (
+        opts.quote &&
+        meta.text &&
+        !skipQuote.has(meta.postId) &&
+        quotes < opts.maxQuotes &&
+        total() < opts.totalBudget
+      ) {
+        try {
+          const r = await quoteInArticle(article, meta, opts.platform);
+          if (r.posted) {
+            result.quoted.push({
+              postUrl: meta.postUrl,
+              postId: meta.postId,
+              ...(r.draftId ? { draftId: r.draftId } : {}),
+            });
+            quotes++;
+            quotedThisPost = true;
+            skipQuote.add(meta.postId);
+            await recordAction(opts.platform, 'quote', {
+              postUrl: meta.postUrl,
+              postId: meta.postId,
+              ...(r.draftId ? { draftId: r.draftId } : {}),
+            });
+            await pause();
+          } else if (r.error) {
+            console.log('[casper] quote:', r.error);
+          }
+        } catch (err) {
+          dismissComposer();
+          console.log('[casper] quote flow error', err);
+        }
+      }
+
+      // REPOST (skipped if we just quoted this same post)
+      if (opts.repost && !quotedThisPost && reposts < opts.maxReposts && total() < opts.totalBudget) {
+        try {
+          if ((await repostInArticle(article)) === 'reposted') {
+            result.reposted.push({ postUrl: meta.postUrl, postId: meta.postId });
+            reposts++;
+            await recordAction(opts.platform, 'repost', {
+              postUrl: meta.postUrl,
+              postId: meta.postId,
+            });
+            await pause();
+          }
+        } catch {
+          /* skip this repost */
         }
       }
 

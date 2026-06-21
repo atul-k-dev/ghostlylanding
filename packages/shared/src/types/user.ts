@@ -26,8 +26,12 @@ export interface User {
   subscriptionStatus?: SubscriptionStatus | null;
   subscriptionPlan?: SubscriptionPlan;
   currentPeriodEnd?: string | null;
-  /** Lifetime successful-action count — once it hits FREE_TIER.lifetimeActions, free users must upgrade. */
-  lifetimeActionCount?: number;
+  /** Successful actions used in the current calendar month (UTC). Resets each
+   *  month; once it hits FREE_TIER.monthlyActions, free users must upgrade. */
+  monthlyActionCount?: number;
+  /** "YYYY-MM" (UTC) period that monthlyActionCount belongs to. When this no
+   *  longer matches the current month, the count is treated as 0 (fresh quota). */
+  actionPeriodKey?: string | null;
   /** Grants access to the admin panel. */
   isAdmin?: boolean;
   /** When true the account is suspended — blocked from sign-in and all API use. */
@@ -35,15 +39,41 @@ export interface User {
   preferences: UserPreferences;
 }
 
-/** Free tier limits per locked spec: 30 lifetime actions total, 1 platform, no AI comments. */
+/** Free tier limits: 5 actions per month, 1 platform, no AI comments. */
 export const FREE_TIER = {
-  lifetimeActions: 30,
+  monthlyActions: 5,
   maxPlatforms: 1,
   aiCommentsEnabled: false,
 } as const;
 
 export const isPro = (status?: SubscriptionStatus | null): boolean =>
   status === 'active' || status === 'trialing';
+
+/** "YYYY-MM" key for the given date's month in UTC — the free-tier quota window. */
+export const currentPeriodKey = (d: Date = new Date()): string => d.toISOString().slice(0, 7);
+
+/**
+ * Actions a user has used in the CURRENT monthly window. Returns 0 once the
+ * month rolls over (even before the server persists the reset), so the quota
+ * refreshes on the 1st without needing a round-trip.
+ */
+export const monthlyActionsUsed = (
+  user: Pick<User, 'monthlyActionCount' | 'actionPeriodKey'> | null | undefined,
+): number => {
+  if (!user) return 0;
+  if (user.actionPeriodKey !== currentPeriodKey()) return 0;
+  return user.monthlyActionCount ?? 0;
+};
+
+/** The monthly counter fields after one more action, rolling over at the month
+ *  boundary. Used for the client's optimistic local count between server syncs. */
+export const bumpMonthly = (
+  user: Pick<User, 'monthlyActionCount' | 'actionPeriodKey'>,
+): { monthlyActionCount: number; actionPeriodKey: string } => {
+  const key = currentPeriodKey();
+  const used = user.actionPeriodKey === key ? (user.monthlyActionCount ?? 0) : 0;
+  return { monthlyActionCount: used + 1, actionPeriodKey: key };
+};
 
 export interface UserPreferences {
   enabledPlatforms: Platform[];

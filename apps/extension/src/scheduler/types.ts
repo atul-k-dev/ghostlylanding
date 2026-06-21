@@ -7,7 +7,8 @@ export type TaskKind = 'action' | 'scan';
 export type ScanTaskType =
   | 'scan-profile-likes'
   | 'scan-profile-followers'
-  | 'scan-home-feed';
+  | 'scan-home-feed'
+  | 'scan-followback';
 export type SchedulerTaskType = ActionType | ScanTaskType;
 
 export interface QueuedTask {
