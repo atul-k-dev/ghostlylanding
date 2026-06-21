@@ -27,6 +27,18 @@
   --color-casper-violet: #f44d60;
   --color-casper-cloud: #0e0e0e;
   --color-casper-ink: #f4f4f5;
+
+  /*
+   * Corner radii — kept SUBTLE on purpose (the brand prefers light roundness,
+   * not pill-y cards). Overriding the named radius scale shrinks every
+   * rounded-md/lg/xl/2xl/3xl across the popup at once — buttons, cards, inputs —
+   * while `rounded-full` (avatars, the Active pill, progress bars) stays round.
+   */
+  --radius-md: 0.25rem; /* 4px — chips */
+  --radius-lg: 0.375rem; /* 6px — buttons & inputs */
+  --radius-xl: 0.375rem; /* 6px (was 12px) */
+  --radius-2xl: 0.5rem; /* 8px — cards (was 16px) */
+  --radius-3xl: 0.5rem; /* 8px */
 }
 
 :root {

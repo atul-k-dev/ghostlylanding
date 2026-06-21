@@ -595,7 +595,7 @@ const SettingsTab = ({
             `&body=${encodeURIComponent(`Hi Ghostly247 team,\n\n\n\n— Account: ${userEmail}`)}`;
           void chrome.tabs.create({ url });
         }}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-casper-ink/10 px-3 py-2 text-sm font-medium text-casper-ink/80 transition hover:bg-white/5"
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-casper-border px-3 py-2.5 text-sm font-medium text-casper-ink/80 transition hover:bg-white/5"
       >
         <MailSmallIcon />
         Contact Support
@@ -604,7 +604,7 @@ const SettingsTab = ({
       <button
         type="button"
         onClick={onLogout}
-        className="w-full rounded-xl border border-casper-ink/10 px-3 py-2 text-casper-ink/70 transition hover:bg-white/5"
+        className="w-full rounded-lg border border-casper-border px-3 py-2.5 text-sm font-medium text-casper-ink/70 transition hover:bg-white/5"
       >
         Sign out
       </button>
@@ -849,7 +849,7 @@ const PlanSection = () => {
           type="button"
           onClick={manage}
           disabled={busy === 'portal'}
-          className="w-full rounded-xl border border-casper-ink/10 px-3 py-2 text-[11px] text-casper-ink/80 transition hover:bg-white/5 disabled:opacity-50"
+          className="w-full rounded-lg border border-casper-border px-3 py-2 text-[11px] text-casper-ink/80 transition hover:bg-white/5 disabled:opacity-50"
         >
           {busy === 'portal' ? 'Opening…' : 'Manage subscription'}
         </button>
