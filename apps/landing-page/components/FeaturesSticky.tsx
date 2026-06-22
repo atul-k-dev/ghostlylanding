@@ -62,7 +62,7 @@ const features = [
     ),
     visual: (
       <div className="w-full h-full relative bg-card">
-        <Image src="/feature/2.png" alt="AI Comments" fill className="object-cover" />
+        <Image src="/feature/2.png" alt="AI Replies" fill className="object-cover" />
       </div>
     )
   },

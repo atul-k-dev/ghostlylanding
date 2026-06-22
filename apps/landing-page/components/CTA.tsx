@@ -31,7 +31,7 @@ export function CTA() {
 
         {/* Subtitle */}
         <p className="mb-10 max-w-[500px] text-[15px] sm:text-[17px] leading-[1.5] text-muted-fg">
-          Connect your accounts today. We'll help you grow your audience on autopilot, completely in your own tone.
+          Connect your X account today. We.ll grow your reach on autopilot, completely in your own tone.
         </p>
 
         {/* CTA Button */}

@@ -103,7 +103,7 @@ export function Hero() {
           </nav>
 
           <button className="hidden md:block border border-white/50 px-5 py-2 text-sm font-medium hover:bg-white hover:text-black transition-colors rounded-sm text-muted-fg">
-            Get Now
+            Get Started
           </button>
 
           {/* Hamburger Menu Button */}
@@ -136,7 +136,7 @@ export function Hero() {
                 <a href="#testimonials" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-accent transition-colors flex items-center justify-center gap-2 w-full py-4 border-b border-border/50">TESTIMONIALS</a>
                 <a href="#pricing" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-accent transition-colors flex items-center justify-center gap-2 w-full py-4 border-b border-border/50">PRICING</a>
                 <button className="mt-8 border border-white/50 px-10 py-4 text-sm font-medium hover:bg-white hover:text-black transition-colors rounded-sm text-fg">
-                  Get Now
+                  Get Started
                 </button>
               </nav>
             </motion.div>
@@ -176,7 +176,7 @@ export function Hero() {
                   View Features
                 </a>
                 <button className="w-full sm:w-auto bg-primary text-fg hover:bg-accent px-7 py-3.5 text-sm font-semibold transition-colors rounded-sm text-center">
-                  Start Free Trial
+                  Get Started Free
                 </button>
               </div>
             </FadeInStagger>
