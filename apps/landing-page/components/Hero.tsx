@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HeroVisual } from "./HeroVisual";
 import LogoLoop from "./LogoLoop";
 import PixelCard from "./PixelCard";
 import { FadeInStagger } from "./animations/FadeInStagger";
@@ -98,15 +97,15 @@ export function Hero() {
 
             <FadeInStagger y={30} stagger={0.15} className="relative z-10">
               <div className="inline-flex items-center text-[11px] tracking-wider font-mono text-fg/70 bg-white/5 backdrop-blur-sm border border-border px-3 py-1.5 mb-8 rounded-sm">
-                Automated Social Growth <span className="text-fg ml-2 font-bold animate-pulse">_</span>
+                Twitter / X on Autopilot <span className="text-fg ml-2 font-bold animate-pulse">_</span>
               </div>
 
               <h1 className="text-[40px] sm:text-[48px] lg:text-[64px] font-bold leading-[1.05] tracking-tight mb-6 text-fg">
-                Your Autonomous<br />Engagement Copilot
+                Automate your reach<br />&amp; presence on <span className="text-accent">X</span>
               </h1>
 
               <p className="text-muted-fg text-base sm:text-[17px] max-w-[480px] mb-10 leading-relaxed font-medium">
-                AI-powered interactions on autopilot. Build genuine relationships, grow your audience, and scale your personal brand — <b className='text-white'>while you sleep.</b> 
+                Likes, replies, follows, reposts &amp; more — on autopilot, in your tone, so you grow your X presence <b className="font-semibold text-accent bg-accent/10 px-1.5 py-0.5 rounded-[3px]">while you sleep.</b> One install away.
               </p>
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -130,10 +129,19 @@ export function Hero() {
 
             </div>
 
-            {/* 3D Visual */}
-            <div className="flex-1 w-full h-full min-h-[400px]">
-              <PixelCard variant="pink" className="w-full h-full">
-                <HeroVisual />
+            {/* Product demo video */}
+            <div className="flex-1 w-full h-full min-h-[360px] p-6 md:p-10 lg:p-14">
+              <PixelCard variant="pink" className="w-full h-full rounded-xl">
+                <video
+                  src="/Ghostly.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="metadata"
+                  aria-label="Ghostly247 product demo"
+                  className="absolute inset-0 h-full w-full object-contain"
+                />
               </PixelCard>
             </div>
           </div>
