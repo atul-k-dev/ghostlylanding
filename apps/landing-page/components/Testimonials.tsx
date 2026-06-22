@@ -16,7 +16,7 @@ const TESTIMONIALS = [
   {
     logo: "Indie Founder",
     quote: "I was spending 2 hours a day replying on X just to stay visible. Ghostly247 does it overnight in my exact tone. My impressions tripled in the first week.",
-    name: "James Okafor",
+    name: "Ashutosh Banerjee",
     role: "FOUNDER, SAAS STARTUP",
     image: "/testimonials/james_okafor.jpg"
   },
@@ -30,7 +30,7 @@ const TESTIMONIALS = [
   {
     logo: "Growth",
     quote: "Ghostly247 runs in my own browser \u2014 no cloud login, no API tokens, no risk. It feels like the only tool that actually respects how platforms work instead of trying to hack around them.",
-    name: "Marcus Thorne",
+    name: "VL Kumaran",
     role: "GROWTH MARKETER",
     image: "/testimonials/marcus_thorne.jpg"
   },
