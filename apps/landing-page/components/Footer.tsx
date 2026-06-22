@@ -1,6 +1,5 @@
 import React from "react";
 import { GhostLogo } from "./GhostLogo";
-import { INSTALL_URL } from "@/lib/install";
 
 const TwitterXIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -44,8 +43,8 @@ export function Footer() {
           <div className="max-w-sm">
             <div className="mb-5 flex items-center gap-2">
               <GhostLogo className="h-10 w-10" />
-              <span className="text-2xl font-bold lowercase tracking-tight">
-                ghostly<span className="text-accent">247</span>
+              <span className="text-2xl font-bold tracking-tight">
+                Ghostly<span className="text-accent">247</span>
               </span>
             </div>
             <p className="text-[15px] leading-relaxed text-muted-fg">
@@ -96,29 +95,11 @@ export function Footer() {
           ))}
         </div>
 
-        {/* CTA strip */}
-        <div className="mt-14 flex flex-col items-start justify-between gap-5 rounded-2xl border border-border bg-card p-6 sm:flex-row sm:items-center sm:p-8">
-          <div>
-            <p className="text-xl font-semibold tracking-tight sm:text-2xl">
-              Get your nights back to work.
-            </p>
-            <p className="mt-1 text-[14px] text-muted-fg">Free to start. No card needed.</p>
-          </div>
-          <a
-            href={INSTALL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 rounded-full bg-white px-7 py-3.5 text-[14px] font-semibold text-black transition-colors hover:bg-gray-200"
-          >
-            Add to Chrome — free
-          </a>
-        </div>
-
         {/* Giant watermark wordmark + overlapping bottom line */}
         <div className="relative mt-14 select-none border-t border-border pt-14">
           <div className="pointer-events-none overflow-hidden text-center">
-            <span className="block whitespace-nowrap bg-gradient-to-b from-accent/35 to-accent/[0.04] bg-clip-text font-black lowercase leading-[0.78] tracking-tighter text-transparent text-[clamp(54px,15.5vw,248px)]">
-              ghostly247
+            <span className="block whitespace-nowrap bg-gradient-to-b from-accent/35 to-accent/[0.04] bg-clip-text font-black leading-[0.78] tracking-tighter text-transparent text-[clamp(54px,15.5vw,248px)]">
+              Ghostly247
             </span>
           </div>
           <div className="absolute inset-x-0 bottom-1 flex flex-col items-center justify-between gap-2 px-1 sm:flex-row">
