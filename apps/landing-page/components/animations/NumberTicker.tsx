@@ -1,36 +1,64 @@
 "use client";
-import React, { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
-import { ScrollTrigger } from 'gsap/dist/ScrollTrigger';
 
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger, useGSAP);
-}
-
-export const NumberTicker = ({ value, prefix = "", suffix = "", duration = 2, decimals = 0, className = "" }: { value: number, prefix?: string, suffix?: string, duration?: number, decimals?: number, className?: string }) => {
+export const NumberTicker = ({
+  value,
+  prefix = "",
+  suffix = "",
+  duration = 2,
+  decimals = 0,
+  className = "",
+}: {
+  value: number;
+  prefix?: string;
+  suffix?: string;
+  duration?: number;
+  decimals?: number;
+  className?: string;
+}) => {
   const nodeRef = useRef<HTMLSpanElement>(null);
+  const played = useRef(false);
 
-  useGSAP(() => {
-    if (!nodeRef.current) return;
-    
-    const obj = { val: 0 };
-    
-    gsap.to(obj, {
-      scrollTrigger: {
-        trigger: nodeRef.current,
-        start: "top 90%",
-      },
-      val: value,
-      duration: duration,
-      ease: "power2.out",
-      onUpdate: () => {
-        if (nodeRef.current) {
-          nodeRef.current.innerText = `${prefix}${obj.val.toFixed(decimals)}${suffix}`;
+  useEffect(() => {
+    const el = nodeRef.current;
+    if (!el) return;
+
+    const render = (v: number) => {
+      el.innerText = `${prefix}${v.toFixed(decimals)}${suffix}`;
+    };
+    render(0);
+
+    // Count up the first time the element scrolls into view. IntersectionObserver
+    // (unlike GSAP ScrollTrigger) fires reliably even when the element is already
+    // visible on mount and is immune to layout shifts from the hero video/fonts.
+    const animate = () => {
+      if (played.current) return;
+      played.current = true;
+      const obj = { val: 0 };
+      gsap.to(obj, {
+        val: value,
+        duration,
+        ease: "power2.out",
+        onUpdate: () => render(obj.val),
+      });
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            animate();
+            io.disconnect();
+            break;
+          }
         }
-      }
-    });
-  }, { scope: nodeRef });
+      },
+      { threshold: 0.2 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [value, prefix, suffix, duration, decimals]);
 
   return (
     <span ref={nodeRef} className={className}>

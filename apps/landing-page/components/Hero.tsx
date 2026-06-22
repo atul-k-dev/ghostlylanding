@@ -7,10 +7,62 @@ import { FadeInStagger } from "./animations/FadeInStagger";
 import { NumberTicker } from "./animations/NumberTicker";
 import { GhostLogo } from "./GhostLogo";
 
+const featureChip = (label: string, icon: React.ReactNode) => ({
+  node: (
+    <div className="flex items-center gap-2.5 text-xl font-bold uppercase tracking-tight text-muted-fg transition-colors hover:text-fg">
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-accent"
+      >
+        {icon}
+      </svg>
+      {label}
+    </div>
+  ),
+});
+
 const techLogos = [
-  { node: <div className="text-muted-fg font-bold  text-xl flex items-center gap-2 hover:text-fg transition-colors uppercase"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M23.643 4.937c-.835.37-1.732.62-2.675.733.962-.576 1.7-1.49 2.048-2.578-.9.534-1.897.922-2.958 1.13-.85-.904-2.06-1.47-3.4-1.47-2.572 0-4.658 2.086-4.658 4.66 0 .364.042.718.12 1.06-3.873-.195-7.304-2.05-9.602-4.868-.4.69-.63 1.49-.63 2.342 0 1.616.823 3.043 2.072 3.878-.764-.025-1.482-.234-2.11-.583v.06c0 2.257 1.605 4.14 3.737 4.568-.392.106-.803.162-1.227.162-.3 0-.593-.028-.877-.082.593 1.85 2.313 3.198 4.352 3.234-1.595 1.25-3.604 1.995-5.786 1.995-.376 0-.747-.022-1.112-.065 2.062 1.323 4.51 2.093 7.14 2.093 8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602.91-.658 1.7-1.477 2.323-2.41z" /></svg>TWITTER</div> },
-  { node: <div className="text-muted-fg font-bold  text-xl flex items-center gap-2 hover:text-fg transition-colors uppercase"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>YOUTUBE</div> },
-  { node: <div className="text-muted-fg font-bold  text-xl flex items-center gap-2 hover:text-fg transition-colors uppercase"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg>INSTAGRAM</div> },
+  featureChip("AI Replies", <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />),
+  featureChip(
+    "Auto-Like",
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />,
+  ),
+  featureChip(
+    "Auto-Follow",
+    <>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <line x1="19" y1="8" x2="19" y2="14" />
+      <line x1="22" y1="11" x2="16" y2="11" />
+    </>,
+  ),
+  featureChip(
+    "Follow-Back",
+    <>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </>,
+  ),
+  featureChip("Bookmark", <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />),
+  featureChip(
+    "Repost",
+    <>
+      <polyline points="17 1 21 5 17 9" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <polyline points="7 23 3 19 7 15" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </>,
+  ),
+  featureChip("Safe by Design", <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />),
 ];
 
 export function Hero() {
@@ -174,7 +226,7 @@ export function Hero() {
             <div className="flex flex-col">
               <span className="text-[#666] font-mono text-[10px] tracking-[0.05em] mb-2 uppercase">Total Users</span>
               <div className="text-2xl lg:text-[40px] font-bold tracking-tight text-fg flex items-center justify-center">
-                <NumberTicker value={11000} suffix="+" className="flex items-center" />
+                <NumberTicker value={1000} suffix="+" className="flex items-center" />
               </div>
             </div>
             <div className="flex flex-col">
@@ -186,7 +238,7 @@ export function Hero() {
             <div className="flex flex-col">
               <span className="text-[#666] font-mono text-[10px] tracking-[0.05em] mb-2 uppercase">Engagements Driven</span>
               <div className="text-2xl lg:text-[40px]  font-bold tracking-tight text-fg flex items-center justify-center">
-                <NumberTicker value={2.1} decimals={1} suffix="M" className="flex items-center  font-black" />
+                <NumberTicker value={500} suffix="K+" className="flex items-center  font-black" />
               </div>
             </div>
           </div>
