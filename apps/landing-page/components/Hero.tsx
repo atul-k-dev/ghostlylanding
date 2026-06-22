@@ -84,11 +84,22 @@ export function Hero() {
             <span>Ghostly</span><span className='text-accent font-bold text-3xl'>247</span>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 text-[11px] uppercase tracking-[0.15em] font-mono text-muted-fg">
-            <a href="#features" className="hover:text-fg transition-colors flex items-center gap-2"><span className="text-[#444]">/</span> FEATURES</a>
-            <a href="#how-it-works" className="hover:text-fg transition-colors flex items-center gap-2"><span className="text-[#444]">/</span> HOW IT WORKS</a>
-            <a href="#testimonials" className="hover:text-fg transition-colors flex items-center gap-2"><span className="text-[#444]">/</span> TESTIMONIALS</a>
-            <a href="#pricing" className="hover:text-fg transition-colors flex items-center gap-2"><span className="text-[#444]">/</span> PRICING</a>
+          <nav className="hidden md:flex items-center gap-1 text-[11px] uppercase tracking-[0.18em] font-mono text-muted-fg">
+            {[
+              { label: "Features", href: "#features" },
+              { label: "How It Works", href: "#how-it-works" },
+              { label: "Testimonials", href: "#testimonials" },
+              { label: "Pricing", href: "#pricing" },
+            ].map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                className="group relative px-3 py-2 transition-colors duration-200 hover:text-fg"
+              >
+                {l.label}
+                <span className="pointer-events-none absolute inset-x-3 bottom-1 h-px origin-left scale-x-0 bg-accent transition-transform duration-300 ease-out group-hover:scale-x-100" />
+              </a>
+            ))}
           </nav>
 
           <button className="hidden md:block border border-white/50 px-5 py-2 text-sm font-medium hover:bg-white hover:text-black transition-colors rounded-sm text-muted-fg">

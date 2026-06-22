@@ -25,11 +25,11 @@ export function FeaturesGrid() {
               {/* Feature 1 */}
               <div className='bg-card hover:border-white/40 border transition border-b-3 border-r-3 border-white/0 p-4 rounded-lg'>
                 <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-green/10 text-emerald-green">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                 </div>
-                <h4 className="mb-2 font-inter text-lg font-medium text-fg">Smart Scheduling</h4>
+                <h4 className="mb-2 font-inter text-lg font-medium text-fg">All-in-One Engagement</h4>
                 <p className="font-inter text-sm leading-relaxed text-halo-pale/70">
-                  Engage on your schedule, in your time zone, without lifting a finger.
+                  Like, reply, follow, bookmark, repost &amp; quote — automatically, in one tab.
                 </p>
               </div>
 
@@ -40,7 +40,7 @@ export function FeaturesGrid() {
                 </div>
                 <h4 className="mb-2 font-inter text-lg font-medium text-fg">Smart Targeting</h4>
                 <p className="font-inter text-sm leading-relaxed text-halo-pale/70">
-                  Reach the right people and skip the spam with advanced creator filters.
+                  Engage by keyword, target the creators you pick, and auto follow-back your followers.
                 </p>
               </div>
 
@@ -62,7 +62,7 @@ export function FeaturesGrid() {
                 </div>
                 <h4 className="mb-2 font-inter text-lg font-medium text-fg">Safety Engine</h4>
                 <p className="font-inter text-sm leading-relaxed text-halo-pale/70">
-                  Built like a vault with random delays and auto-pause for full security.
+                  Random delays, age-aware caps &amp; auto-pause — all in your own browser.
                 </p>
               </div>
             </FadeInStagger>
