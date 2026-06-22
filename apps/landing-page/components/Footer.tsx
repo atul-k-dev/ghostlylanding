@@ -1,10 +1,10 @@
 import React from "react";
 import { GhostLogo } from "./GhostLogo";
+import { INSTALL_URL } from "@/lib/install";
 
-const SanjayaLogo = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V6Z" stroke="white" strokeWidth="1.5" />
-    <path d="M8 8V16L16 8V16" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+const TwitterXIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
   </svg>
 );
 
@@ -14,151 +14,121 @@ const FacebookIcon = () => (
   </svg>
 );
 
-const TwitterXIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
-  </svg>
-);
-
-const InstagramIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-  </svg>
-);
+const LINKS = [
+  {
+    heading: "Product",
+    items: [
+      { label: "Features", href: "#features" },
+      { label: "How It Works", href: "#how-it-works" },
+      { label: "Pricing", href: "#pricing" },
+      { label: "Compare", href: "#comparison" },
+    ],
+  },
+  {
+    heading: "Company",
+    items: [
+      { label: "Testimonials", href: "#testimonials" },
+      { label: "FAQ", href: "#faq" },
+      { label: "Contact", href: "mailto:support@ghostly247.com" },
+    ],
+  },
+];
 
 export function Footer() {
   return (
-    <footer className="w-full   text-fg pt-14 sm:pt-20 pb-8 px-4 sm:px-6 md:px-10 font-sans ">
-      <div className="mx-auto max-w-[1400px] flex flex-col md:flex-row justify-between">
-        
-        {/* Left Side */}
-        <div className="flex flex-col w-full md:w-1/2 md:pr-10">
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-8">
-            <GhostLogo className="h-9 w-9 text-xl" />
-            <span className="text-[26px] font-medium tracking-tight">Ghostly247</span>
+    <footer className="w-full text-fg px-4 sm:px-6 md:px-10 pt-16 sm:pt-20 pb-8 font-sans">
+      <div className="mx-auto max-w-[1400px]">
+        {/* Top: brand + link columns */}
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-[1.4fr_1fr_1fr] md:gap-8">
+          {/* Brand */}
+          <div className="max-w-sm">
+            <div className="mb-5 flex items-center gap-2">
+              <GhostLogo className="h-10 w-10" />
+              <span className="text-2xl font-bold lowercase tracking-tight">
+                ghostly<span className="text-accent">247</span>
+              </span>
+            </div>
+            <p className="text-[15px] leading-relaxed text-muted-fg">
+              The friendly little ghost that grows your Twitter / X presence while you sleep —
+              likes, replies, follows &amp; more, in your tone.
+            </p>
+
+            {/* Socials */}
+            <div className="mt-6 flex gap-2.5">
+              <a
+                href="https://x.com/ghostly247"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Ghostly247 on X"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-[#111111] text-muted-fg transition-colors hover:border-white/30 hover:text-fg"
+              >
+                <TwitterXIcon />
+              </a>
+              <a
+                href="#"
+                aria-label="Ghostly247 on Facebook"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-[#111111] text-muted-fg transition-colors hover:border-white/30 hover:text-fg"
+              >
+                <FacebookIcon />
+              </a>
+            </div>
           </div>
 
-          {/* Heading */}
-          <h2 className="text-[32px] sm:text-[44px] md:text-[54px] leading-[1.05] font-medium tracking-tight mb-8 sm:mb-12">
-            Get your nights <br /> back to work.
-          </h2>
-
-          {/* Brand badge */}
-          <div className="mt-4 hidden sm:flex">
-            <GhostLogo className="h-32 w-32 text-7xl" />
-          </div>
-        </div>
-
-        {/* Right Side */}
-        <div className="flex flex-col w-full md:w-1/2 justify-between mt-14 sm:mt-20 md:mt-0 md:pl-16 lg:pl-20">
-          
-          {/* Top Links and Contact area */}
-          <div className="flex flex-col sm:flex-row justify-between">
-            {/* Navigation */}
-            <div className="flex flex-col mb-16 sm:mb-0">
-              <h4 className="text-[10px] font-bold tracking-widest text-[#666666] uppercase mb-6">
-                Navigation
+          {/* Link columns */}
+          {LINKS.map((col) => (
+            <div key={col.heading}>
+              <h4 className="mb-5 text-[10px] font-bold uppercase tracking-widest text-[#666666]">
+                {col.heading}
               </h4>
-              <ul className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-1 sm:gap-5">
-                {[
-                  { label: 'Home', href: '#' },
-                  { label: 'Features', href: '#features' },
-                  { label: 'How It Works', href: '#how-it-works' },
-                  { label: 'Pricing', href: '#pricing' },
-                  { label: 'Compare', href: '#comparison' },
-                  { label: 'Testimonials', href: '#testimonials' },
-                  { label: 'FAQ', href: '#faq' },
-                ].map((link) => (
+              <ul className="space-y-3.5">
+                {col.items.map((link) => (
                   <li key={link.label}>
-                    <a href={link.href} className="text-[14.5px] font-medium text-[#e5e5e5] hover:text-fg transition-colors">
+                    <a
+                      href={link.href}
+                      className="text-[14.5px] font-medium text-[#cfcfcf] transition-colors hover:text-fg"
+                    >
                       {link.label}
                     </a>
                   </li>
                 ))}
               </ul>
             </div>
+          ))}
+        </div>
 
-            {/* Contact & Newsletter */}
-            <div className="flex flex-col">
-              
-              {/* Socials */}
-              <div className="mb-10">
-                <h4 className="text-[10px] font-bold tracking-widest text-[#666666] uppercase mb-4">
-                  Socials
-                </h4>
-                <div className="flex gap-2">
-                  <a href="#" className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#111111] border border-border hover:bg-[#222] transition-colors">
-                    <FacebookIcon />
-                  </a>
-                  <a href="#" className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#111111] border border-border hover:bg-[#222] transition-colors">
-                    <TwitterXIcon />
-                  </a>
-                  <a href="#" className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#111111] border border-border hover:bg-[#222] transition-colors">
-                    <InstagramIcon />
-                  </a>
-                </div>
-              </div>
-
-              {/* Email */}
-              <div className="mb-8">
-                <h4 className="text-[10px] font-bold tracking-widest text-[#666666] uppercase mb-3">
-                  Email
-                </h4>
-                <a href="mailto:support@ghostly247.com" className="text-[20px] sm:text-[26px] font-medium text-fg hover:text-muted-fg transition-colors break-all sm:break-normal">
-                  support@ghostly247.com
-                </a>
-              </div>
-
-              {/* Twitter */}
-              <div className="mb-14">
-                <h4 className="text-[10px] font-bold tracking-widest text-[#666666] uppercase mb-3">
-                  Follow Us
-                </h4>
-                <a href="https://x.com/ghostly247" target="_blank" rel="noopener noreferrer" className="text-[16px] font-medium text-[#e5e5e5] hover:text-fg transition-colors">
-                  @ghostly247 on X
-                </a>
-              </div>
-
-              {/* Newsletter */}
-              <div>
-                <h4 className="text-[10px] font-bold tracking-widest text-[#666666] uppercase mb-4">
-                  Subscribe for updates
-                </h4>
-                <form className="flex items-center bg-card rounded-lg border border-border p-1.5 w-full max-w-[340px]">
-                  <input 
-                    type="email" 
-                    placeholder="Email address" 
-                    className="bg-transparent border-none outline-none text-fg text-[13px] font-medium pl-4 pr-2 w-full placeholder:text-[#666666]"
-                    required
-                  />
-                  <button 
-                    type="submit" 
-                    className="bg-white text-black text-[13.5px] font-medium px-5 py-2.5 rounded-md hover:bg-gray-200 transition-colors flex-shrink-0"
-                  >
-                    Submit
-                  </button>
-                </form>
-              </div>
-
-            </div>
-          </div>
-          
-          {/* Bottom Watermark Bar - Now constrained to the right side */}
-          <div className="w-full border-t border-border mt-14 sm:mt-20 pt-6 sm:pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6">
-            <p className="text-[11px] font-semibold tracking-[0.15em] text-[#666666] uppercase">
-              © 2026 GHOSTLY247. ALL RIGHTS RESERVED.
+        {/* CTA strip */}
+        <div className="mt-14 flex flex-col items-start justify-between gap-5 rounded-2xl border border-border bg-card p-6 sm:flex-row sm:items-center sm:p-8">
+          <div>
+            <p className="text-xl font-semibold tracking-tight sm:text-2xl">
+              Get your nights back to work.
             </p>
-            <div className="flex items-center text-[11px] font-semibold tracking-[0.15em] text-[#666666] uppercase">
-              MADE BY 
-              <a href="https://www.buildstory.studio/" target="_blank" rel="noopener noreferrer" className="text-fg ml-4 text-[15px] tracking-normal flex items-center font-bold hover:text-muted-fg transition-colors">
-                BuildStory
-              </a>
-            </div>
+            <p className="mt-1 text-[14px] text-muted-fg">Free to start. No card needed.</p>
           </div>
-          
+          <a
+            href={INSTALL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-full bg-white px-7 py-3.5 text-[14px] font-semibold text-black transition-colors hover:bg-gray-200"
+          >
+            Add to Chrome — free
+          </a>
+        </div>
+
+        {/* Giant watermark wordmark + overlapping bottom line */}
+        <div className="relative mt-14 select-none border-t border-border pt-14">
+          <div className="pointer-events-none overflow-hidden text-center">
+            <span className="block whitespace-nowrap bg-gradient-to-b from-accent/35 to-accent/[0.04] bg-clip-text font-black lowercase leading-[0.78] tracking-tighter text-transparent text-[clamp(54px,15.5vw,248px)]">
+              ghostly247
+            </span>
+          </div>
+          <div className="absolute inset-x-0 bottom-1 flex flex-col items-center justify-between gap-2 px-1 sm:flex-row">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-fg/55">
+              © 2026 Ghostly247. All rights reserved.
+            </p>
+            <p className="text-[11px] text-fg/55">
+              The friendly little ghost for solo creators on X.
+            </p>
+          </div>
         </div>
       </div>
     </footer>

@@ -79,9 +79,9 @@ export function Hero() {
           {/* Extended border */}
           <div className="absolute left-[-50vw] right-[-50vw] bottom-[-1px] h-[1px] bg-border z-[-1]" />
 
-          <div className="text-2xl font-medium tracking-tight text-fg flex items-center z-50">
-            <GhostLogo className="h-12 w-12 text-2xl mr-3" />
-            <span>Ghostly</span><span className='text-accent font-bold text-3xl'>247</span>
+          <div className="flex items-center z-50 text-[26px] font-bold lowercase tracking-tight text-fg">
+            <GhostLogo className="h-12 w-12 mr-1" />
+            <span>ghostly</span><span className="text-accent">247</span>
           </div>
 
           <nav className="hidden md:flex items-center gap-1 text-[11px] uppercase tracking-[0.18em] font-mono text-muted-fg">

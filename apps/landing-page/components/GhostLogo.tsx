@@ -3,17 +3,16 @@ type Props = {
 };
 
 /**
- * Ghostly247 logo badge — the same coral ghost used in the browser extension popup:
- * a solid coral disc (#f44d60) with the 👻 glyph centered. Size it via
- * `className` (set both the box, e.g. `h-9 w-9`, and the glyph, e.g. `text-xl`).
+ * Ghostly247 logo — the brand ghost mascot (white ghost, coral infinity eyes)
+ * from /public/ghostly247logo.png. Size it via `className` (e.g. `h-10 w-10`).
  */
-export function GhostLogo({ className = "h-9 w-9 text-xl" }: Props) {
+export function GhostLogo({ className = "h-9 w-9" }: Props) {
   return (
-    <span
-      aria-hidden="true"
-      className={`inline-flex flex-none items-center justify-center rounded-full bg-[#f44d60] leading-none text-white ${className}`}
-    >
-      👻
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/ghostly247logo.png"
+      alt="Ghostly247"
+      className={`flex-none object-contain ${className}`}
+    />
   );
 }
