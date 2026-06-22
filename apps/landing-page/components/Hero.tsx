@@ -130,7 +130,7 @@ export function Hero() {
             </div>
 
             {/* Product demo video */}
-            <div className="flex-1 w-full h-full min-h-[360px] p-6 md:p-10 lg:p-14">
+            <div className="flex-1 w-full h-full min-h-[440px] p-3 md:p-5 lg:p-7">
               <PixelCard variant="pink" className="w-full h-full rounded-xl">
                 <video
                   src="/Ghostly.mp4"
