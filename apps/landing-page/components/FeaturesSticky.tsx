@@ -8,13 +8,13 @@ import { FadeInStagger } from "./animations/FadeInStagger";
 const features = [
   {
     number: "01",
-    category: "SMART AUTO-LIKE",
-    title: "Like the right posts.\nSkip the noise.",
-    description: "Target posts by hashtag, keyword, or specific creator. Casper only likes posts worth liking — and skips the spam.",
+    category: "SMART ENGAGEMENT",
+    title: "Engage the right posts.\nSkip the noise.",
+    description: "Ghostly247 reads each post and likes, bookmarks, reposts & quotes the ones worth engaging — and skips the spam.",
     bullets: [
-      "Hashtag, keyword, and creator-list targeting",
+      "Like, bookmark, repost & quote — all inline",
+      "Relevance-keyword and target-creator targeting",
       "Fresh-post filter — no resurfacing month-old content",
-      "Junk-post skip and per-account dedupe",
       "Daily caps with random variance"
     ],
     stats: (
@@ -33,14 +33,14 @@ const features = [
   },
   {
     number: "02",
-    category: "AI COMMENTS",
-    title: "Comments that sound\nlike you.",
-    description: "Casper reads the full post, drafts in your tone, and runs every line through a profanity + risk filter before it ever reaches your queue.",
+    category: "AI REPLIES",
+    title: "Replies that sound\nlike you.",
+    description: "Ghostly247 reads the full post, drafts a reply in your tone, and runs it through a safety check before it ever posts.",
     bullets: [
-      "Tone presets — Designer, Founder, Coach, Writer",
-      "Custom voice training on 10 of your past comments",
-      "Length and structure controls per platform",
-      "Approval queue or auto-post mode"
+      "Tone presets — friendly, professional, or witty",
+      "Reads the full post for real context",
+      "OpenAI moderation on every reply",
+      "Never replies to the same post twice"
     ],
     stats: (
       <div className="flex flex-col gap-4 w-full">
@@ -51,7 +51,7 @@ const features = [
           <span className="absolute -right-2 -bottom-4 text-2xl text-fg/20">"</span>
         </div>
         <div className="flex gap-3 text-xs font-mono text-fg/40 mt-1">
-          <span className="bg-white/5 px-2 py-1 rounded">Designer</span>
+          <span className="bg-white/5 px-2 py-1 rounded">Friendly</span>
           <span className="bg-white/5 px-2 py-1 rounded">Short</span>
           <span className="bg-white/5 px-2 py-1 rounded flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
@@ -68,14 +68,14 @@ const features = [
   },
   {
     number: "03",
-    category: "SMART FOLLOW & CONNECT",
+    category: "SMART FOLLOW",
     title: "Reach the right\npeople.",
-    description: "Follow the engagers of creators you admire. Send personalized LinkedIn connection notes. Stop chasing followers who'll never engage back.",
+    description: "Follow the followers of creators you admire, and automatically follow back everyone who follows you — bounded by your whitelist and daily caps.",
     bullets: [
-      "Follow engagers of target creators",
-      "Bio-keyword targeting on both platforms",
-      "Personalized LinkedIn connection notes",
-      "Auto-unfollow non-followers (with whitelist)"
+      "Follow a target creator's followers",
+      "Auto follow-back new followers",
+      "Whitelist accounts you never want to follow",
+      "Skips anyone you already follow"
     ],
     stats: (
       <div className="flex flex-col gap-3">
@@ -104,10 +104,10 @@ const features = [
     number: "04",
     category: "SMART SCHEDULING",
     title: "Active hours,\nyour way.",
-    description: "Casper engages on your schedule, in your time zone, with a burst right after you post — and a one-tap pause when life happens.",
+    description: "Ghostly247 engages on your schedule, in your time zone, in one continuous session — with a one-tap pause whenever life happens.",
     bullets: [
-      "Time-zone aware activity windows",
-      "Burst mode after you publish",
+      "Time-zone aware active hours",
+      "Pick a session length — 15 to 60 minutes",
       "Random delays — never two actions in the same second",
       "One-tap kill switch in the popup"
     ],
@@ -144,12 +144,12 @@ const features = [
     number: "05",
     category: "SAFETY ENGINE",
     title: "Built like\na vault.",
-    description: "Safety isn't a feature in Casper — it's the foundation. Random delays, age-aware caps, and auto-pause the moment a platform looks twice.",
+    description: "Safety isn't a feature in Ghostly247 — it's the foundation. Random delays, age-aware caps, and an auto-pause that protects your account.",
     bullets: [
       "Browser-session execution — never headless",
       "Age-aware daily caps that scale conservatively",
-      "Auto-pause for 3hrs on any platform anomaly",
-      "Transparent action log on every like, comment, follow"
+      "Auto-pause when your session limit is reached",
+      "Transparent action log on every action"
     ],
     stats: null,
     visual: (

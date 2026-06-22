@@ -35,10 +35,10 @@ export function Compare() {
       inhouse: { text: "Made for big sales teams", icon: "warn" as const }
     },
     {
-      title: "Platforms",
-      casper: { text: "Twitter and LinkedIn from day one", icon: "check" as const },
-      other: { text: "Works only on LinkedIn", icon: "cross" as const },
-      inhouse: { text: "Manual posting across platforms", icon: "warn" as const }
+      title: "Focus",
+      casper: { text: "Built only for Twitter / X — done right", icon: "check" as const },
+      other: { text: "Spread thin across every network", icon: "cross" as const },
+      inhouse: { text: "Manual posting, tab by tab", icon: "warn" as const }
     },
     {
       title: "How It Runs",
@@ -47,9 +47,9 @@ export function Compare() {
       inhouse: { text: "You do everything yourself", icon: "warn" as const }
     },
     {
-      title: "Comments",
-      casper: { text: "Writes in your tone, post by post", icon: "check" as const },
-      other: { text: "Sends generic, copy-paste comments", icon: "cross" as const },
+      title: "Replies",
+      casper: { text: "Written in your tone, post by post", icon: "check" as const },
+      other: { text: "Generic, copy-paste comments", icon: "cross" as const },
       inhouse: { text: "Your voice, but hours of work", icon: "warn" as const }
     },
     {
@@ -86,7 +86,7 @@ export function Compare() {
         {/* Header Section */}
         <FadeInStagger y={30} stagger={0.15} className="mx-auto max-w-3xl text-center flex flex-col items-center mb-16">
           <div className="inline-flex items-center rounded-sm bg-card border border-border px-2 py-0.5 font-geist text-[10px] font-bold uppercase tracking-widest text-fg/60 mb-6 shadow-sm">
-            WHY CASPER
+            WHY GHOSTLY247
           </div>
           <h2 className="font-aeonik text-[28px] sm:text-4xl md:text-[44px] font-medium tracking-tight mb-3 leading-tight text-fg">
             Built for one creator. <br className="hidden md:block" />Not a sales floor.
@@ -101,16 +101,16 @@ export function Compare() {
           <div className="grid grid-cols-4 border-b border-white/50">
             <div className="p-4 sm:p-6"></div>
             
-            {/* Highlighted Casper Column Header */}
+            {/* Highlighted Ghostly247 Column Header */}
             <div className="p-4 sm:p-6 bg-white/[0.04] border-x border-white/50 flex items-center gap-3">
-              {/* Fake Logo for Casper */}
+              {/* Fake Logo for Ghostly247 */}
               <div className="w-6 h-6 border border-white/30 rounded flex items-center justify-center bg-white/5">
                 <svg className="w-4 h-4 text-fg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                   <path d="M3 9h18M9 21V9"/>
                 </svg>
               </div>
-              <span className="font-aeonik text-[20px] font-medium text-fg tracking-wide">Casper</span>
+              <span className="font-aeonik text-[20px] font-medium text-fg tracking-wide">Ghostly247</span>
             </div>
             
             <div className="p-4 sm:p-6 flex items-center text-fg/90 font-medium">Other Tools</div>
@@ -125,7 +125,7 @@ export function Compare() {
                 {row.title}
               </div>
               
-              {/* Highlighted Casper Column Cell */}
+              {/* Highlighted Ghostly247 Column Cell */}
               <div className="p-4 sm:p-6 bg-white/[0.04] border-x border-white/50 flex items-center gap-2 sm:gap-3 text-fg">
                 <Icon type={row.casper.icon} />
                 {row.casper.text}

@@ -53,7 +53,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             👻
           </span>
           <div className="leading-tight">
-            <p className="text-[17px] font-semibold tracking-tight">Casper</p>
+            <p className="text-[17px] font-semibold tracking-tight">Ghostly247</p>
             <p className="iridescent-text text-[10px] font-semibold uppercase tracking-[0.24em]">
               Admin Panel
             </p>

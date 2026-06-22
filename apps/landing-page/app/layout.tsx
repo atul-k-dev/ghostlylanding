@@ -17,37 +17,36 @@ const sans = Inter({
 });
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://ai-casper.vercel.app";
-const TITLE = "Casper AI — Grow your Twitter & LinkedIn while you sleep";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://ghostly247.com";
+const TITLE = "Ghostly247 — Grow your Twitter / X while you sleep";
 const DESCRIPTION =
-  "The friendly little ghost that likes, comments, and follows in your tone. A browser extension built for solo creators, not sales teams. Twitter + LinkedIn under one license.";
+  "The friendly little ghost that likes, replies, follows, bookmarks, reposts, and quotes in your tone. A Twitter / X browser extension built for solo creators, not sales teams.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: TITLE,
-    template: "%s · Casper AI",
+    template: "%s · Ghostly247",
   },
   description: DESCRIPTION,
-  applicationName: "Casper AI",
-  authors: [{ name: "Casper AI" }],
-  creator: "Casper AI",
-  publisher: "Casper AI",
+  applicationName: "Ghostly247",
+  authors: [{ name: "Ghostly247" }],
+  creator: "Ghostly247",
+  publisher: "Ghostly247",
   category: "technology",
   keywords: [
-    "Casper AI",
+    "Ghostly247",
     "Twitter automation",
-    "LinkedIn automation",
-    "AI comments",
+    "X automation",
+    "AI replies",
     "social media growth",
     "browser extension",
     "auto-like",
     "auto-follow",
+    "auto follow-back",
     "creator tools",
     "indie creators",
     "personal branding",
-    "voice training AI",
-    "X automation",
   ],
   alternates: {
     canonical: "/",
@@ -61,7 +60,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: SITE_URL,
-    siteName: "Casper AI",
+    siteName: "Ghostly247",
     title: TITLE,
     description: DESCRIPTION,
     images: [
@@ -69,7 +68,7 @@ export const metadata: Metadata = {
         url: `${SITE_URL}/opengraph.png?v=1`,
         width: 1200,
         height: 630,
-        alt: "Casper AI — the friendly ghost that grows your socials while you sleep",
+        alt: "Ghostly247 — the friendly ghost that grows your socials while you sleep",
         type: "image/png",
       },
     ],
@@ -83,11 +82,11 @@ export const metadata: Metadata = {
         url: `${SITE_URL}/opengraph.png?v=1`,
         width: 1200,
         height: 630,
-        alt: "Casper AI — the friendly ghost that grows your socials while you sleep",
+        alt: "Ghostly247 — the friendly ghost that grows your socials while you sleep",
       },
     ],
-    creator: "@casperaiapp",
-    site: "@casperaiapp",
+    creator: "@ghostly247",
+    site: "@ghostly247",
   },
   robots: {
     index: true,
@@ -124,25 +123,22 @@ const STRUCTURED_DATA = {
     {
       "@type": "Organization",
       "@id": `${SITE_URL}#org`,
-      name: "Casper AI",
+      name: "Ghostly247",
       url: SITE_URL,
       logo: `${SITE_URL}/logo.png`,
-      sameAs: [
-        "https://twitter.com/casperaiapp",
-        "https://linkedin.com/company/casperaiapp",
-      ],
+      sameAs: ["https://x.com/ghostly247"],
     },
     {
       "@type": "WebSite",
       "@id": `${SITE_URL}#site`,
       url: SITE_URL,
-      name: "Casper AI",
+      name: "Ghostly247",
       description: DESCRIPTION,
       publisher: { "@id": `${SITE_URL}#org` },
     },
     {
       "@type": "SoftwareApplication",
-      name: "Casper AI",
+      name: "Ghostly247",
       operatingSystem: "Chrome, Brave, Arc",
       applicationCategory: "BrowserApplication",
       url: SITE_URL,
@@ -156,15 +152,9 @@ const STRUCTURED_DATA = {
         },
         {
           "@type": "Offer",
-          price: "14.99",
+          price: "9.99",
           priceCurrency: "USD",
           name: "Pro Monthly",
-        },
-        {
-          "@type": "Offer",
-          price: "149.99",
-          priceCurrency: "USD",
-          name: "Pro Yearly",
         },
       ],
       aggregateRating: {

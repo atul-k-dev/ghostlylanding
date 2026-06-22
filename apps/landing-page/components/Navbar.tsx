@@ -29,7 +29,7 @@ export default function Navbar() {
         <a href="#" className="flex items-center gap-2">
           <GhostLogo className="h-11 w-11 text-2xl" />
           <span className="font-inter text-[20px] sm:text-[27px] font-semibold text-fg tracking-tight">
-            CasperAI
+            Ghostly247
           </span>
         </a>
 

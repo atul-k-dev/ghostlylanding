@@ -9,7 +9,7 @@ export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: { code: string; message: string } };
 
-/** Authenticated fetch against the Casper server. Returns the unwrapped
+/** Authenticated fetch against the Ghostly247 server. Returns the unwrapped
  *  { ok, data } | { ok, error } envelope. On 401/403 it clears the session. */
 export async function api<T>(
   path: string,

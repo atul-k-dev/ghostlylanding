@@ -42,7 +42,7 @@ export function FinalCTA() {
         </h2>
 
         <p className="mx-auto mt-8 max-w-md font-inter text-lg text-halo-pale">
-          Casper handles your likes, comments, and follows on your schedule.
+          Ghostly247 handles your likes, comments, and follows on your schedule.
           You get the followers — and your sleep back.
         </p>
 

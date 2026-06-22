@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter-loaded" });
 
 export const metadata: Metadata = {
-  title: "Casper Admin",
-  description: "Casper AI — admin control center",
+  title: "Ghostly247 Admin",
+  description: "Ghostly247 — admin control center",
   robots: { index: false, follow: false },
 };
 

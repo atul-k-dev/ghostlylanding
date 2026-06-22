@@ -5,32 +5,32 @@ type QA = { q: string; a: string };
 
 const FAQS: QA[] = [
   {
-    q: "Will I get banned from Twitter or LinkedIn?",
-    a: "No system can guarantee zero risk on platforms we don\u2019t own. But Casper runs in your real browser session with random 8\u201345s delays between actions, age-aware daily caps, and an auto-pause the moment a platform returns anything weird. It\u2019s the safest engagement pattern available \u2014 and far safer than tools that log into your accounts from cloud servers.",
+    q: "Will I get banned from Twitter / X?",
+    a: "No system can guarantee zero risk on a platform we don\u2019t own. But Ghostly247 runs in your real browser session with random 8\u201345s delays between actions, age-aware daily caps, and an auto-pause built in. It\u2019s the safest engagement pattern available \u2014 and far safer than tools that log into your account from cloud servers.",
   },
   {
     q: "Do you have access to my passwords?",
-    a: "Never. Casper is a browser extension. It acts in your already-logged-in browser session \u2014 like you\u2019re sitting at the keyboard. Your credentials stay between you and the platforms. We never see them, store them, or transmit them.",
+    a: "Never. Ghostly247 is a browser extension. It acts in your already-logged-in browser session \u2014 like you\u2019re sitting at the keyboard. Your credentials stay between you and X. We never see them, store them, or transmit them.",
   },
   {
-    q: "How does voice training work?",
-    a: "Paste 10 of your past comments into Casper. We use gpt-4o-mini to extract a tone profile \u2014 vocab, length, sentence structure, your signature moves. Every comment Casper drafts is evaluated against that profile before it reaches your approval queue.",
+    q: "How do the AI replies work?",
+    a: "Pick a tone \u2014 friendly, professional, or witty. Ghostly247 reads the full post and drafts a short, relevant reply in that tone using gpt-4o-mini, then runs it through OpenAI moderation before it ever posts. It never replies to the same post twice.",
+  },
+  {
+    q: "What can it actually do?",
+    a: "On Twitter / X: auto-like, AI replies, follow, bookmark, repost, and quote-tweet \u2014 all inline in one tab. It can visit creators you target and like their posts, follow their followers, and automatically follow back anyone who follows you. Relevance and exclude keywords keep it on-topic.",
   },
   {
     q: "Do I need to keep my browser open?",
-    a: "Yes \u2014 and that\u2019s the whole safety pitch. Casper runs in your browser, on your schedule. We don\u2019t run on cloud servers logged into your accounts (which is exactly how other tools get users banned). When your laptop is closed, Casper sleeps too.",
+    a: "Yes \u2014 and that\u2019s the whole safety pitch. Ghostly247 runs in your browser, on your schedule. We don\u2019t run on cloud servers logged into your account (which is exactly how other tools get users banned). When your laptop is closed, Ghostly247 sleeps too.",
   },
   {
-    q: "Can I cancel any time?",
-    a: "Yes. One click in your billing settings, no email-the-CEO retention games. Your free tier stays yours forever even after you cancel Pro.",
-  },
-  {
-    q: "How is this different from PowerIn or Linkmate?",
-    a: "Those are sales-team tools wearing creator clothes. They run on cloud infrastructure (which platforms detect), they\u2019re LinkedIn-only, and the dashboards look like Salesforce. Casper is built for one person, both platforms, in your own browser, with cute branding instead of cold templates.",
+    q: "What does the free plan include?",
+    a: "Every feature is unlocked on the free plan \u2014 nothing is crippled. The only limit is 5 actions per month (likes, replies, follows and the rest combined), which resets each month. Pro removes the cap for $9.99/month, and you can cancel any time in one click.",
   },
   {
     q: "What happens to my data if I delete my account?",
-    a: "Everything is wiped \u2014 tone profile, action logs, settings, billing records (per regulation we keep tax-required records for 7 years, anonymized). No soft-deletes. No \u2018we may retain your data for legitimate business interests.\u2019 Gone.",
+    a: "Everything is wiped \u2014 action logs, settings, drafts, billing records (per regulation we keep tax-required records for 7 years, anonymized). No soft-deletes. No \u2018we may retain your data for legitimate business interests.\u2019 Gone.",
   },
 ];
 
@@ -60,7 +60,7 @@ export function FAQ() {
             </div>
             <div className="flex flex-col flex-1 pt-1 pb-1 pr-2">
               <span className="text-fg font-medium text-[15px]">Talk with Team</span>
-              <span className="text-[#666666] text-[9px] uppercase tracking-widest font-semibold mt-1 mb-3">Founder of CasperAI</span>
+              <span className="text-[#666666] text-[9px] uppercase tracking-widest font-semibold mt-1 mb-3">Founder of Ghostly247</span>
               <button className="bg-white/0 group border border-white/70 hover:text-black hover:bg-gray-100 transition-colors text-fg text-[13px] font-medium px-0 py-2 rounded-full flex items-center justify-center w-full group">
                 Book 15-mins call
                 <svg className="w-3.5 h-3.5 ml-1 text-fg group-hover:text-black transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

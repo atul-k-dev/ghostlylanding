@@ -41,7 +41,7 @@ export default function LoginPage() {
             👻
           </div>
           <h1 className="text-2xl font-light">
-            Casper <span className="iridescent-text">Admin</span>
+            Ghostly247 <span className="iridescent-text">Admin</span>
           </h1>
           <p className="mt-1 text-xs text-iron-slate">Control center — admins only</p>
         </div>

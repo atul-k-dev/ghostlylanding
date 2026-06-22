@@ -52,7 +52,7 @@ export default function UserDetailPage() {
   const toggleBan = async () => {
     if (!detail) return;
     const banning = !detail.user.isBanned;
-    if (banning && !confirm(`Ban ${detail.user.email}? They’ll be signed out and blocked from Casper.`))
+    if (banning && !confirm(`Ban ${detail.user.email}? They’ll be signed out and blocked from Ghostly247.`))
       return;
     setBusy(true);
     const res = await api(`/api/admin/users/${id}/ban`, {

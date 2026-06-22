@@ -38,7 +38,7 @@ export function Footer() {
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
             <GhostLogo className="h-9 w-9 text-xl" />
-            <span className="text-[26px] font-medium tracking-tight">CasperAI</span>
+            <span className="text-[26px] font-medium tracking-tight">Ghostly247</span>
           </div>
 
           {/* Heading */}
@@ -107,8 +107,8 @@ export function Footer() {
                 <h4 className="text-[10px] font-bold tracking-widest text-[#666666] uppercase mb-3">
                   Email
                 </h4>
-                <a href="mailto:hello@casperai.com" className="text-[20px] sm:text-[26px] font-medium text-fg hover:text-muted-fg transition-colors break-all sm:break-normal">
-                  hello@casperai.com
+                <a href="mailto:support@ghostly247.com" className="text-[20px] sm:text-[26px] font-medium text-fg hover:text-muted-fg transition-colors break-all sm:break-normal">
+                  support@ghostly247.com
                 </a>
               </div>
 
@@ -117,8 +117,8 @@ export function Footer() {
                 <h4 className="text-[10px] font-bold tracking-widest text-[#666666] uppercase mb-3">
                   Follow Us
                 </h4>
-                <a href="https://x.com/casperai" target="_blank" rel="noopener noreferrer" className="text-[16px] font-medium text-[#e5e5e5] hover:text-fg transition-colors">
-                  @casperai on X
+                <a href="https://x.com/ghostly247" target="_blank" rel="noopener noreferrer" className="text-[16px] font-medium text-[#e5e5e5] hover:text-fg transition-colors">
+                  @ghostly247 on X
                 </a>
               </div>
 
@@ -149,7 +149,7 @@ export function Footer() {
           {/* Bottom Watermark Bar - Now constrained to the right side */}
           <div className="w-full border-t border-border mt-14 sm:mt-20 pt-6 sm:pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6">
             <p className="text-[11px] font-semibold tracking-[0.15em] text-[#666666] uppercase">
-              © 2026 CASPERAI. ALL RIGHTS RESERVED.
+              © 2026 GHOSTLY247. ALL RIGHTS RESERVED.
             </p>
             <div className="flex items-center text-[11px] font-semibold tracking-[0.15em] text-[#666666] uppercase">
               MADE BY 

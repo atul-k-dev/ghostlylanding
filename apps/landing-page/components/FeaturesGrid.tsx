@@ -49,9 +49,9 @@ export function FeaturesGrid() {
                 <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-vivid-crimson/10 text-vivid-crimson">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                 </div>
-                <h4 className="mb-2 font-inter text-lg font-medium text-fg">AI Comments</h4>
+                <h4 className="mb-2 font-inter text-lg font-medium text-fg">AI Replies</h4>
                 <p className="font-inter text-sm leading-relaxed text-halo-pale/70">
-                  Draft responses that sound exactly like you using custom voice training.
+                  Context-aware replies drafted in your tone — friendly, professional, or witty.
                 </p>
               </div>
 

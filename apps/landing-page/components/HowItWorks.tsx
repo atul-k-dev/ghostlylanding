@@ -7,24 +7,24 @@ const STEPS = [
   {
     index: "01",
     label: "CONNECT",
-    title: "Pin Casper.\nStay logged in.",
-    description: "Add the extension to Chrome and stay logged into Twitter and LinkedIn the way you already do — Casper acts in your real browser session, never a cloud server.",
+    title: "Pin Ghostly247.\nStay logged in.",
+    description: "Add the extension to Chrome and stay logged into Twitter / X the way you already do — Ghostly247 acts in your real browser session, never a cloud server.",
     list: [
       "ONE-CLICK CHROME INSTALL",
       "NO NEW ACCOUNTS, NO NEW PASSWORDS",
-      "WORKS WITH YOUR EXISTING LOGINS"
+      "WORKS WITH YOUR EXISTING LOGIN"
     ],
     image: "/step-connect.png"
   },
   {
     index: "02",
-    label: "TRAIN",
-    title: "Teach Casper\nyour voice.",
-    description: "Pick a niche preset — Designer, Founder, Coach, Writer — or paste 10 of your past comments. Casper extracts a tone profile and uses it on every reply.",
+    label: "SET UP",
+    title: "Set your tone\n& targets.",
+    description: "Pick a tone — friendly, professional, or witty — choose what to do, and add a few relevance keywords. Setup takes a couple of minutes.",
     list: [
-      "FOUR NICHE TEMPLATES READY TO GO",
-      "OR TRAIN ON YOUR OWN PAST COMMENTS",
-      "LENGTH AND STRUCTURE CONTROLS"
+      "THREE TONE PRESETS TO CHOOSE FROM",
+      "PICK ACTIONS: LIKE, REPLY, FOLLOW & MORE",
+      "RELEVANCE & EXCLUDE KEYWORDS"
     ],
     image: "/step-train.png"
   },
@@ -32,11 +32,11 @@ const STEPS = [
     index: "03",
     label: "SLEEP",
     title: "Wake up to a\nfresh log.",
-    description: "Casper engages on your schedule with random delays and daily caps. Every action is logged with target and timestamp — no silent activity, ever.",
+    description: "Ghostly247 engages on your schedule with random delays and daily caps. Every action is logged with target and timestamp — no silent activity, ever.",
     list: [
       "RANDOM 8–45S DELAYS BETWEEN ACTIONS",
-      "AUTO-PAUSE ON ANY PLATFORM ANOMALY",
-      "DAILY SUMMARY EMAIL AT 9 PM YOUR TIME"
+      "AUTO-PAUSE WHEN YOUR SESSION ENDS",
+      "FULL ACTION LOG IN THE POPUP"
     ],
     image: "/step-sleep.png"
   }
@@ -57,7 +57,7 @@ export function HowItWorks() {
               Connect. Train. <br className="hidden lg:block" />Sleep.
             </h2>
             <p className="font-inter text-[15px] leading-relaxed text-iron-slate max-w-[340px]">
-              Three steps to set up. After that, Casper runs itself while you focus on your actual work.
+              Three steps to set up. After that, Ghostly247 runs itself while you focus on your actual work.
             </p>
           </FadeInStagger>
         </div>

@@ -8,42 +8,42 @@ import { NumberTicker } from "./animations/NumberTicker";
 const TESTIMONIALS = [
   {
     logo: "Solo Designer",
-    quote: "I set up Casper before bed and woke up to 40+ genuine interactions on my timeline. People started replying back \u2014 they had no idea it wasn\u2019t me typing at midnight.",
+    quote: "I set up Ghostly247 before bed and woke up to 40+ genuine interactions on my timeline. People started replying back \u2014 they had no idea it wasn\u2019t me typing at midnight.",
     name: "Maya Collins",
     role: "FREELANCE BRAND DESIGNER",
     image: "/testimonials/maya_collins.png"
   },
   {
     logo: "Indie Founder",
-    quote: "I was spending 2 hours a day commenting on LinkedIn just to stay visible. Casper does it overnight in my exact tone. My impressions tripled in the first week.",
+    quote: "I was spending 2 hours a day replying on X just to stay visible. Ghostly247 does it overnight in my exact tone. My impressions tripled in the first week.",
     name: "James Okafor",
     role: "FOUNDER, SAAS STARTUP",
     image: "/testimonials/james_okafor.png"
   },
   {
     logo: "Coach",
-    quote: "The tone matching is scary good. I pasted 10 old comments and Casper nailed my voice \u2014 warm but direct. My audience engagement went up and nobody noticed the difference.",
+    quote: "The tone matching is scary good. I picked the friendly preset and Ghostly247 nailed my voice \u2014 warm but direct. My audience engagement went up and nobody noticed the difference.",
     name: "Priya Sharma",
     role: "EXECUTIVE COACH & SPEAKER",
     image: "/testimonials/priya_sharma.png"
   },
   {
     logo: "Growth",
-    quote: "Casper runs in my own browser \u2014 no cloud login, no API tokens, no risk. It feels like the only tool that actually respects how platforms work instead of trying to hack around them.",
+    quote: "Ghostly247 runs in my own browser \u2014 no cloud login, no API tokens, no risk. It feels like the only tool that actually respects how platforms work instead of trying to hack around them.",
     name: "Marcus Thorne",
     role: "GROWTH MARKETER",
     image: "/testimonials/marcus_thorne.png"
   },
   {
     logo: "Writer",
-    quote: "I was mass-unfollowed by a bot tool before. Casper is the opposite \u2014 random delays, daily caps, auto-pause. It behaves like a real person because it runs like one.",
+    quote: "I was mass-unfollowed by a bot tool before. Ghostly247 is the opposite \u2014 random delays, daily caps, auto-pause. It behaves like a real person because it runs like one.",
     name: "Elena Voss",
     role: "NEWSLETTER WRITER, 28K SUBS",
     image: "/testimonials/elena_voss.png"
   },
   {
     logo: "Agency",
-    quote: "We run Casper for 3 client accounts. The daily log emails keep everyone in the loop, and the niche presets saved us hours of prompt engineering. Dead simple.",
+    quote: "We run Ghostly247 for 3 client accounts. The action log keeps everyone in the loop, and setup took minutes — no prompt engineering, no dashboards to learn. Dead simple.",
     name: "David Chen",
     role: "SOCIAL MEDIA AGENCY OWNER",
     image: "/testimonials/david_chen.png"

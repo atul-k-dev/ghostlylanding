@@ -36,7 +36,7 @@ export default function NotFound() {
           maxWidth: "28rem",
         }}
       >
-        Oops — this page doesn&apos;t exist. Casper must have ghosted it.
+        Oops — this page doesn&apos;t exist. Ghostly247 must have ghosted it.
       </p>
 
       <Link
