@@ -32,6 +32,13 @@ export default defineManifest({
       js: ['src/content/twitter.ts'],
       run_at: 'document_idle',
     },
+    {
+      // Stripe checkout return page — closes the tab and returns to the popup.
+      // Add the production server origin here (and in host_permissions) on deploy.
+      matches: ['http://localhost:4000/r/*'],
+      js: ['src/content/checkout-return.ts'],
+      run_at: 'document_start',
+    },
   ],
   permissions: ['storage', 'alarms', 'scripting', 'activeTab', 'identity'],
   host_permissions: [

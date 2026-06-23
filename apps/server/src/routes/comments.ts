@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
-import { ok, err, PLATFORMS, TONE_PRESETS } from '@casper/shared';
+import { ok, err, PLATFORMS, TONE_PRESETS, FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -10,6 +10,7 @@ import { generateCommentDraft } from '../openai/generate-comment.js';
 import { moderate } from '../openai/moderation.js';
 import { hasOpenAI } from '../openai/client.js';
 import { CommentDraftModel } from '../models/comment-draft.model.js';
+import { UserModel } from '../models/user.model.js';
 import type { Types } from 'mongoose';
 
 export const commentsRouter = Router();
@@ -34,8 +35,10 @@ commentsRouter.post(
     max: 60,
     key: (req) => `gen:${req.auth?.sub ?? req.ip}`,
   }),
-  // Reply generation is available to everyone; the 30-action lifetime cap (free)
-  // is enforced where actions are actually performed, not at generation time.
+  // Reply generation is a Pro feature for unlimited use; free users may generate
+  // until they exhaust their monthly action allowance (likes + replies + follows
+  // combined). Gating here bounds OpenAI spend — without it a free user (or a
+  // leaked JWT) could keep generating long after using up their quota.
   validate(generateSchema),
   asyncHandler(async (req, res) => {
     if (!hasOpenAI()) {
@@ -46,6 +49,25 @@ commentsRouter.post(
       res.status(401).json(err('unauthorized', 'No auth context'));
       return;
     }
+
+    const user = await UserModel.findById(req.auth.sub).lean();
+    if (!user) {
+      res.status(404).json(err('user_not_found', 'User no longer exists'));
+      return;
+    }
+    if (
+      !isPro(user.subscriptionStatus as Parameters<typeof isPro>[0]) &&
+      monthlyActionsUsed(user) >= FREE_TIER.monthlyActions
+    ) {
+      res.status(402).json(
+        err(
+          'free_limit_reached',
+          `Free plan: ${FREE_TIER.monthlyActions} actions/month used. Upgrade to Pro for unlimited AI replies.`,
+        ),
+      );
+      return;
+    }
+
     const { platform, postText, postUrl, tone } = req.body as z.infer<typeof generateSchema>;
 
     // §10: process post text in memory only — store its hash, never the text.

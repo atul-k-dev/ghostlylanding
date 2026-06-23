@@ -44,7 +44,7 @@ returnPagesRouter.get('/success', (_req, res) => {
     page(
       '🎉',
       "You're Pro!",
-      'AI comments and both platforms are unlocked. You can close this tab and return to the Ghostly247 extension — it updates automatically.',
+      'Payment received — taking you back to Ghostly247. This tab will close on its own; if it doesn’t, you can close it and reopen the extension (it updates automatically).',
       'Need a receipt or want to change your subscription? Open the extension → Settings → Plan → Manage.',
     ),
   );

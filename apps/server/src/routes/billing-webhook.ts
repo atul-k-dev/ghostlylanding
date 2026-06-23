@@ -3,7 +3,8 @@ import type Stripe from 'stripe';
 import { ok, err } from '@casper/shared';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
-import { getStripe, hasStripe, planForPriceId } from '../stripe/client.js';
+import { getStripe, hasStripe } from '../stripe/client.js';
+import { applySubscription } from '../stripe/subscriptions.js';
 import { UserModel } from '../models/user.model.js';
 
 export const billingWebhookRouter = Router();
@@ -115,40 +116,3 @@ const userIdFromCustomer = async (
   return user?._id.toString() ?? null;
 };
 
-const applySubscription = async (userId: string, sub: Stripe.Subscription): Promise<void> => {
-  const item = sub.items.data[0];
-  const priceId = item?.price.id;
-  const plan = priceId ? planForPriceId(priceId) : null;
-  const status = sub.status;
-  // Newer Stripe API moved current_period_* off the Subscription onto each item.
-  // Read whichever is present so we work across api versions.
-  const subAny = sub as unknown as { current_period_end?: number };
-  const itemAny = item as unknown as { current_period_end?: number } | undefined;
-  const periodEndUnix = subAny.current_period_end ?? itemAny?.current_period_end ?? null;
-  await UserModel.findByIdAndUpdate(userId, {
-    stripeSubscriptionId: sub.id,
-    subscriptionStatus: status === 'trialing' ? 'trialing' : mapStatus(status),
-    subscriptionPlan: plan ?? 'monthly',
-    currentPeriodEnd: periodEndUnix ? new Date(periodEndUnix * 1000) : null,
-  });
-};
-
-const mapStatus = (s: Stripe.Subscription.Status): string => {
-  switch (s) {
-    case 'active':
-      return 'active';
-    case 'past_due':
-      return 'past_due';
-    case 'canceled':
-      return 'canceled';
-    case 'incomplete':
-    case 'incomplete_expired':
-      return 'incomplete';
-    case 'unpaid':
-      return 'past_due';
-    case 'paused':
-      return 'past_due';
-    default:
-      return 'active';
-  }
-};

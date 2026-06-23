@@ -56,7 +56,7 @@ The **home-feed autopilot** opens one tab, smoothly scrolls your timeline, and a
 
 ## Plans & billing
 - **Free** — 5 actions per month (likes + replies + follows + bookmarks + reposts + quotes combined), resets monthly.
-- **Pro** — $9.99/month, unlimited actions. Stripe checkout + self-serve billing portal; subscriptions stay in sync via webhooks.
+- **Pro** — $14.99/month, unlimited actions. Stripe checkout + self-serve billing portal; subscriptions stay in sync via webhooks.
 
 ## Support & misc
 - **Contact Support** — opens a pre-addressed email to `support@ghostly247.com`.

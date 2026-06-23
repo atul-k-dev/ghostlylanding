@@ -6,6 +6,7 @@ import { rateLimit } from '../middleware/rate-limit.js';
 import { UserModel } from '../models/user.model.js';
 import { ActionLogModel } from '../models/action-log.model.js';
 import { CommentDraftModel } from '../models/comment-draft.model.js';
+import { getStripe, hasStripe } from '../stripe/client.js';
 
 export const accountRouter = Router();
 
@@ -26,12 +27,34 @@ accountRouter.delete(
       return;
     }
     const userId = req.auth.sub;
+    const user = await UserModel.findById(userId);
+
+    // Stop billing in Stripe BEFORE we delete the user — otherwise a deleted
+    // account keeps getting charged with no way to reach the billing portal.
+    // Deleting the customer also cancels its subscriptions; we cancel the sub
+    // explicitly first so billing stops even if customer deletion fails. Both
+    // are best-effort: a Stripe hiccup must not block the user's data wipe.
+    if (user && hasStripe() && user.stripeCustomerId) {
+      const stripe = getStripe();
+      if (user.stripeSubscriptionId) {
+        try {
+          await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+        } catch (e) {
+          req.log.error({ err: e, userId }, 'failed to cancel Stripe subscription on delete');
+        }
+      }
+      try {
+        await stripe.customers.del(user.stripeCustomerId);
+      } catch (e) {
+        req.log.error({ err: e, userId }, 'failed to delete Stripe customer on delete');
+      }
+    }
 
     const [actionLogs, drafts] = await Promise.all([
       ActionLogModel.deleteMany({ userId }),
       CommentDraftModel.deleteMany({ userId }),
     ]);
-    const user = await UserModel.findByIdAndDelete(userId);
+    if (user) await user.deleteOne();
 
     req.log.info(
       {

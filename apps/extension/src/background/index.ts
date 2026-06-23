@@ -55,6 +55,38 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+/** The server's Stripe success_url path (e.g. http://localhost:4000/r/success). */
+const CHECKOUT_SUCCESS_PATH = '/r/success';
+/** Guards against onUpdated firing twice for the same tab navigation. */
+const finishingCheckout = new Set<number>();
+
+/**
+ * After payment, Stripe redirects the checkout tab to `/r/success` — a server
+ * page, not the extension. We watch for that and bring the user back: pull the
+ * (now Pro) user, close the dead tab, and pop the extension open.
+ *
+ * Registered at the TOP LEVEL on purpose: filling out the Stripe form can take
+ * minutes, which lets Chrome evict the service worker. Top-level listeners are
+ * re-registered on SW restart and wake the worker for their event — a listener
+ * added later (inside a handler) would be lost and never fire. `changeInfo.url`
+ * is delivered because the API origin is in host_permissions (for apiFetch).
+ */
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.url && changeInfo.url.includes(CHECKOUT_SUCCESS_PATH)) {
+    console.log('[casper] checkout success detected via tabs.onUpdated', tabId);
+    void finishCheckout(tabId, sessionIdFromUrl(changeInfo.url));
+  }
+});
+
+/** Pull Stripe's `session_id` out of the /r/success URL (used to confirm Pro). */
+const sessionIdFromUrl = (url: string): string | undefined => {
+  try {
+    return new URL(url).searchParams.get('session_id') ?? undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 // Install on initial SW boot too (some lifecycles skip onInstalled).
 void installScheduler();
 
@@ -92,9 +124,19 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   OPEN_BILLING_PORTAL: handleOpenBillingPortal as AsyncHandler<unknown, unknown>,
 };
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== 'object' || typeof message.type !== 'string') {
     sendResponse({ ok: false, error: 'invalid_message' });
+    return false;
+  }
+  // Sent by the checkout-return content script ON the /r/success page. We need
+  // the sender's tab id (the content script can't get its own), so it's handled
+  // here rather than in the payload-only asyncHandlers map.
+  if (message.type === 'CHECKOUT_RETURN') {
+    console.log('[casper] checkout success detected via content script', sender.tab?.id);
+    const sessionId = (message.payload as { sessionId?: string } | undefined)?.sessionId;
+    void finishCheckout(sender.tab?.id, sessionId);
+    sendResponse({ ok: true });
     return false;
   }
   const handler = asyncHandlers[message.type];
@@ -497,6 +539,61 @@ async function handleStartCheckout(payload: unknown) {
     await chrome.tabs.create({ url: resp.data.url, active: true });
   }
   return resp;
+}
+
+async function finishCheckout(
+  tabId: number | undefined,
+  sessionId?: string,
+): Promise<void> {
+  if (tabId === undefined) return;
+  if (finishingCheckout.has(tabId)) return; // both triggers may fire for one nav
+  finishingCheckout.add(tabId);
+
+  // Close the dead Stripe page IMMEDIATELY — never wait on the network first.
+  // (Awaiting before this can stall in an MV3 worker and leave the tab open.)
+  try {
+    await chrome.tabs.remove(tabId);
+    console.log('[casper] closed checkout tab', tabId);
+  } catch (e) {
+    console.warn('[casper] could not close checkout tab', tabId, e);
+  }
+  // Bring the extension popup forward so they're back in Ghostly247 (Chrome
+  // 127+; best-effort — the popup also auto-updates whenever it's next opened).
+  try {
+    await chrome.action.openPopup();
+  } catch (e) {
+    console.warn('[casper] openPopup unavailable — popup shows Pro on next open', e);
+  }
+
+  // Grant Pro right now: confirm the checkout session server-side (doesn't need
+  // the async webhook / `stripe listen`). Falls back to polling /api/me in case
+  // we never got a session id.
+  try {
+    if (sessionId) {
+      const resp = await apiFetch<User>('/api/billing/confirm-session', {
+        method: 'POST',
+        body: { sessionId },
+      });
+      if (resp.ok) {
+        const auth = await getAuth();
+        if (auth) await setAuth({ ...auth, user: resp.data });
+        console.log('[casper] subscription confirmed →', resp.data.subscriptionStatus);
+        return;
+      }
+      console.warn('[casper] confirm-session failed, falling back to /me poll', resp.error);
+    }
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const resp = await apiFetch<User>('/api/me');
+      if (resp.ok) {
+        const auth = await getAuth();
+        if (auth) await setAuth({ ...auth, user: resp.data });
+        if (isPro(resp.data.subscriptionStatus ?? 'free')) break;
+      }
+      await new Promise((r) => setTimeout(r, 1_500));
+    }
+  } finally {
+    finishingCheckout.delete(tabId);
+  }
 }
 
 async function handleOpenBillingPortal() {

@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ok, err, SUBSCRIPTION_PLANS } from '@casper/shared';
+import { ok, err, isPro, SUBSCRIPTION_PLANS } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rate-limit.js';
 import { config } from '../config.js';
-import { UserModel } from '../models/user.model.js';
+import { UserModel, toUserDTO } from '../models/user.model.js';
 import { getStripe, hasStripe, priceIdForPlan } from '../stripe/client.js';
+import { applySubscription } from '../stripe/subscriptions.js';
+import type Stripe from 'stripe';
 
 export const billingRouter = Router();
 
@@ -49,6 +51,19 @@ billingRouter.post(
       return;
     }
 
+    // Don't let an already-subscribed user start a second checkout — that would
+    // create a duplicate subscription and double-bill them. Send them to the
+    // billing portal instead.
+    if (isPro(user.subscriptionStatus as Parameters<typeof isPro>[0])) {
+      res.status(409).json(
+        err(
+          'already_subscribed',
+          'You already have an active Ghostly247 Pro subscription. Manage it from the billing portal.',
+        ),
+      );
+      return;
+    }
+
     const stripe = getStripe();
     let customerId = user.stripeCustomerId ?? null;
     if (!customerId) {
@@ -80,6 +95,77 @@ billingRouter.post(
       return;
     }
     res.json(ok({ url: session.url, sessionId: session.id }));
+  }),
+);
+
+// -- POST /confirm-session ---------------------------------------------------
+// Called by the extension the moment the user returns from Stripe Checkout.
+// Verifies the session belongs to this user and applies the subscription
+// immediately, so Pro is granted without waiting on (or needing) the async
+// webhook — the webhook stays the canonical sync for later status changes.
+const confirmSchema = z.object({ sessionId: z.string().min(1).max(255) });
+
+billingRouter.post(
+  '/confirm-session',
+  requireAuth,
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    key: (req) => `confirm:${req.auth?.sub ?? req.ip}`,
+  }),
+  validate(confirmSchema),
+  asyncHandler(async (req, res) => {
+    if (!hasStripe()) {
+      res.status(503).json(err('billing_unconfigured', 'Billing is not configured on the server'));
+      return;
+    }
+    if (!req.auth) {
+      res.status(401).json(err('unauthorized', 'No auth context'));
+      return;
+    }
+    const { sessionId } = req.body as z.infer<typeof confirmSchema>;
+    const stripe = getStripe();
+
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ['subscription'] });
+    } catch {
+      res.status(404).json(err('session_not_found', 'No such checkout session'));
+      return;
+    }
+
+    // The session must belong to this user (we set both at creation time).
+    const sessionUserId =
+      (session.metadata?.userId as string | undefined) ??
+      (session.client_reference_id ?? undefined);
+    if (sessionUserId && sessionUserId !== req.auth.sub) {
+      res.status(403).json(err('session_mismatch', 'This checkout session is not yours'));
+      return;
+    }
+
+    if (session.payment_status !== 'paid' && session.status !== 'complete') {
+      res.status(409).json(err('not_paid', 'Checkout is not completed yet'));
+      return;
+    }
+
+    // Resolve the subscription (expanded above; retrieve if Stripe returned an id).
+    let sub: Stripe.Subscription | null = null;
+    if (session.subscription && typeof session.subscription !== 'string') {
+      sub = session.subscription;
+    } else if (typeof session.subscription === 'string') {
+      sub = await stripe.subscriptions.retrieve(session.subscription);
+    }
+    if (!sub) {
+      res.status(409).json(err('no_subscription', 'Checkout has no subscription yet'));
+      return;
+    }
+
+    const updated = await applySubscription(req.auth.sub, sub);
+    if (!updated) {
+      res.status(404).json(err('user_not_found', 'User no longer exists'));
+      return;
+    }
+    res.json(ok(toUserDTO(updated.toObject() as Parameters<typeof toUserDTO>[0])));
   }),
 );
 
