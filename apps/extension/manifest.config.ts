@@ -34,8 +34,8 @@ export default defineManifest({
     },
     {
       // Stripe checkout return page — closes the tab and returns to the popup.
-      // Add the production server origin here (and in host_permissions) on deploy.
-      matches: ['http://localhost:4000/r/*'],
+      // Both the local dev server and the deployed API origin are listed.
+      matches: ['http://localhost:4000/r/*', 'https://api.ghostly247.com/r/*'],
       js: ['src/content/checkout-return.ts'],
       run_at: 'document_start',
     },
@@ -45,5 +45,6 @@ export default defineManifest({
     'https://x.com/*',
     'https://twitter.com/*',
     'http://localhost:4000/*',
+    'https://api.ghostly247.com/*',
   ],
 });
