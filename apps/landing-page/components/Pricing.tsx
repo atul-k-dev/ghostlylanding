@@ -8,11 +8,11 @@ const FREE_FEATURES = [
   "Every feature unlocked — nothing crippled",
   "Auto-like, follow & follow-back",
   "Action log + one-tap kill switch",
-  "Runs safely in your own browser",
+  "Runs in your own browser",
 ];
 
 const PRO_FEATURES = [
-  { label: "Unlimited actions (within safe daily caps)", highlight: true },
+  { label: "Unlimited actions (within daily caps)", highlight: true },
   { label: "AI replies in your tone — friendly, professional or witty", highlight: true },
   { label: "Like, reply, follow, bookmark, repost & quote", highlight: false },
   { label: "Target creators — like their posts, follow their followers", highlight: false },

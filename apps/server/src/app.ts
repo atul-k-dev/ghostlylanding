@@ -16,6 +16,7 @@ import { billingRouter } from './routes/billing.js';
 import { billingWebhookRouter } from './routes/billing-webhook.js';
 import { returnPagesRouter } from './routes/return-pages.js';
 import { adminRouter } from './routes/admin.js';
+import { supportRouter } from './routes/support.js';
 import { enforceBan } from './middleware/enforce-ban.js';
 import { rateLimit } from './middleware/rate-limit.js';
 
@@ -71,6 +72,8 @@ export const createApp = (): Express => {
   app.use(rateLimit({ windowMs: 60_000, max: 600 }));
 
   app.use('/api/auth', authRouter);
+  // Public contact form — unauthenticated, before the ban gate.
+  app.use('/api/support', supportRouter);
 
   // Block suspended accounts on every authenticated request, even with a still-valid JWT.
   app.use(enforceBan);

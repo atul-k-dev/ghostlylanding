@@ -28,7 +28,14 @@ const LINKS = [
     items: [
       { label: "Testimonials", href: "#testimonials" },
       { label: "FAQ", href: "#faq" },
-      { label: "Contact", href: "mailto:support@ghostly247.com" },
+      { label: "Support", href: "/support" },
+    ],
+  },
+  {
+    heading: "Legal",
+    items: [
+      { label: "Privacy Policy", href: "/privacy" },
+      { label: "Terms & Disclaimer", href: "/terms" },
     ],
   },
 ];
@@ -38,7 +45,7 @@ export function Footer() {
     <footer className="w-full text-fg px-4 sm:px-6 md:px-10 pt-16 sm:pt-20 pb-8 font-sans">
       <div className="mx-auto max-w-[1400px]">
         {/* Top: brand + link columns */}
-        <div className="grid grid-cols-1 gap-12 md:grid-cols-[1.4fr_1fr_1fr] md:gap-8">
+        <div className="grid grid-cols-2 gap-12 md:grid-cols-[1.4fr_1fr_1fr_1fr] md:gap-8">
           {/* Brand */}
           <div className="max-w-sm">
             <div className="mb-5 flex items-center gap-2">

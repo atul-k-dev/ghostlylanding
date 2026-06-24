@@ -23,9 +23,11 @@ interface SendArgs {
   subject: string;
   html: string;
   text: string;
+  /** Optional Reply-To so replies go to the original sender (e.g. support form). */
+  replyTo?: string;
 }
 
-export const sendEmail = async ({ to, subject, html, text }: SendArgs): Promise<void> => {
+export const sendEmail = async ({ to, subject, html, text, replyTo }: SendArgs): Promise<void> => {
   const resend = getResend();
   if (!resend) {
     // Dev fallback: surface the content in logs so the flow is testable.
@@ -38,10 +40,39 @@ export const sendEmail = async ({ to, subject, html, text }: SendArgs): Promise<
     subject,
     html,
     text,
+    ...(replyTo ? { replyTo } : {}),
   });
   if (error) {
     throw new Error(`Resend send failed: ${error.message}`);
   }
+};
+
+/** Support email address contact-form submissions are delivered to. */
+export const SUPPORT_INBOX = 'support@ghostly247.com';
+
+/** Deliver a contact-form submission to the support inbox (reply goes to sender). */
+export const sendSupportMessage = async (args: {
+  name: string;
+  email: string;
+  message: string;
+  subject?: string;
+}): Promise<void> => {
+  const subject = args.subject?.trim()
+    ? `Support: ${args.subject.trim()}`
+    : `New support message from ${args.name}`;
+  const escape = (s: string): string =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const text = `From: ${args.name} <${args.email}>\n\n${args.message}`;
+  const html = `
+  <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1f2333">
+    <h1 style="font-size:18px;margin:0 0 12px">New support message</h1>
+    <p style="font-size:14px;color:#4b5066;margin:0 0 4px"><strong>Name:</strong> ${escape(args.name)}</p>
+    <p style="font-size:14px;color:#4b5066;margin:0 0 16px"><strong>Email:</strong> ${escape(args.email)}</p>
+    <div style="font-size:14px;color:#1f2333;line-height:1.6;white-space:pre-wrap;background:#f6f7f9;border-radius:12px;padding:16px">${escape(
+      args.message,
+    )}</div>
+  </div>`;
+  await sendEmail({ to: SUPPORT_INBOX, subject, html, text, replyTo: args.email });
 };
 
 /** Branded password-reset email carrying a short-lived 6-digit code. */

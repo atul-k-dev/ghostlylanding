@@ -62,7 +62,7 @@ const techLogos = [
       <path d="M21 13v2a4 4 0 0 1-4 4H3" />
     </>,
   ),
-  featureChip("Safe by Design", <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />),
+  featureChip("In Your Browser", <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />),
 ];
 
 export function Hero() {

@@ -130,7 +130,7 @@ export const LoggedOut = () => {
         }
         footer={
           <p className="font-mono text-[10px] tracking-[0.12em] text-casper-muted">
-            v0.0.1 • SAFE BY DEFAULT
+            v0.0.1 • RUNS IN YOUR BROWSER
           </p>
         }
       />
