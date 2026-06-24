@@ -309,8 +309,12 @@ export const BrandPanel = ({
     <NightScene />
     <div className="relative z-10 flex h-full flex-col justify-between p-5">
       <div>
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-casper-coral text-[34px] leading-none shadow-lg shadow-casper-coral/30">
-          👻
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-casper-coral shadow-lg shadow-casper-coral/30">
+          <img
+            src={chrome.runtime.getURL('ghostly247logo.png')}
+            alt="Ghostly247"
+            className="h-8 w-8 object-contain"
+          />
         </div>
         <h1 className="text-xl font-bold leading-tight text-white">{title}</h1>
         <p className="mt-1.5 text-xs leading-relaxed text-casper-muted">{subtitle}</p>

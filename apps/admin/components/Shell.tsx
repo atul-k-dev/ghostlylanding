@@ -49,8 +49,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-line bg-[linear-gradient(180deg,#1c1c22_0%,#161619_100%)] px-3 py-5">
         {/* Brand */}
         <div className="mb-8 flex items-center gap-3 px-2">
-          <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-casper-red text-[26px] leading-none text-white shadow-[0_0_22px_-4px_rgba(244,77,96,0.75)] ring-1 ring-white/10">
-            👻
+          <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-casper-red shadow-[0_0_22px_-4px_rgba(244,77,96,0.75)] ring-1 ring-white/10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/ghostly247logo-black.png" alt="Ghostly247" className="h-9 w-9 object-contain" />
           </span>
           <div className="leading-tight">
             <p className="text-[17px] font-semibold tracking-tight">Ghostly247</p>

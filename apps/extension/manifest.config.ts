@@ -2,9 +2,9 @@ import { defineManifest } from '@crxjs/vite-plugin';
 
 export default defineManifest({
   manifest_version: 3,
-  name: 'Ghostly247',
+  name: 'Ghostly247 — Twitter/X Growth Autopilot',
   description:
-    'The friendly little ghost that grows your Twitter/X presence while you sleep.',
+    'Grow your Twitter/X on autopilot — auto-likes, AI replies, follows, bookmarks, reposts & quotes, safely from your own browser.',
   version: '0.0.1',
   icons: {
     16: 'icons/icon-16.png',
@@ -34,17 +34,18 @@ export default defineManifest({
     },
     {
       // Stripe checkout return page — closes the tab and returns to the popup.
-      // Both the local dev server and the deployed API origin are listed.
-      matches: ['http://localhost:4000/r/*', 'https://api.ghostly247.com/r/*'],
+      matches: ['https://api.ghostly247.com/r/*'],
       js: ['src/content/checkout-return.ts'],
       run_at: 'document_start',
     },
   ],
-  permissions: ['storage', 'alarms', 'scripting', 'activeTab', 'identity'],
+  // Minimal set: storage (settings/auth), alarms (scheduler tick),
+  // identity (Google sign-in). No scripting/activeTab — actions run via the
+  // statically-declared x.com content script.
+  permissions: ['storage', 'alarms', 'identity'],
   host_permissions: [
     'https://x.com/*',
     'https://twitter.com/*',
-    'http://localhost:4000/*',
     'https://api.ghostly247.com/*',
   ],
 });

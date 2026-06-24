@@ -37,8 +37,9 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-casper-red text-2xl text-white shadow-[0_0_24px_-4px_rgba(244,77,96,0.6)]">
-            👻
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-casper-red shadow-[0_0_24px_-4px_rgba(244,77,96,0.6)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/ghostly247logo-black.png" alt="Ghostly247" className="h-8 w-8 object-contain" />
           </div>
           <h1 className="text-2xl font-light">
             Ghostly247 <span className="iridescent-text">Admin</span>
