@@ -9,17 +9,17 @@ const TESTIMONIALS = [
   {
     logo: 'Creator',
     quote:
-      'I set up Ghostly247 before bed and woke up to 40+ genuine interactions on my timeline. People started replying back \u2014 they had no idea it wasn\u2019t me typing at midnight.',
+      'I create all day and never have time to engage back. Ghostly247 keeps my replies and likes going in my own voice \u2014 my comment section finally feels like a real community instead of a ghost town.',
     name: 'Tamara Kottmann',
     role: 'CONTENT CREATOR',
     image: '/testimonials/tamara_kottmann.jpg',
   },
   {
-    logo: 'Indie Founder',
+    logo: 'Indie Hacker',
     quote:
-      'I was spending 2 hours a day replying on X just to stay visible. Ghostly247 does it overnight in my exact tone. My impressions tripled in the first week.',
+      'I bootstrapped solo, so every hour counts. Ghostly247 keeps my account warm overnight while I ship \u2014 I wake up to new followers and replies that actually sound like me.',
     name: 'Daniel C.',
-    role: 'FOUNDER, SAAS STARTUP',
+    role: 'INDIE HACKER',
     image: '/testimonials/daniel_c.jpg',
   },
   {
@@ -31,20 +31,37 @@ const TESTIMONIALS = [
     image: '/testimonials/priya_sharma.jpg',
   },
   {
-    logo: 'Growth',
+    logo: 'Strategist',
     quote:
-      'Ghostly247 runs in my own browser \u2014 no cloud login, no API tokens, no risk. It feels like the only tool that actually respects how platforms work instead of trying to hack around them.',
+      'I have tested every engagement tool out there and most get you flagged. Ghostly247 paces itself like a human \u2014 steady reach, zero warnings, and it just runs in my own browser.',
     name: 'Vanessa Stuart',
-    role: 'GROWTH MARKETER',
+    role: 'BRAND STRATEGIST',
     image: '/testimonials/vanessa_stuart.jpg',
   },
   {
-    logo: 'Writer',
+    logo: 'Community',
     quote:
-      'I was mass-unfollowed by a bot tool before. Ghostly247 is the opposite \u2014 random delays, daily caps, auto-pause. It behaves like a real person because it runs like one.',
+      'Replying to everyone across time zones was burning me out. Now the daily back-and-forth happens on autopilot in my tone, so people feel seen even when I am offline.',
     name: 'Veronica',
-    role: 'NEWSLETTER WRITER, 28K SUBS',
+    role: 'COMMUNITY MANAGER',
     image: '/testimonials/veronica.jpg',
+  },
+
+  {
+    logo: 'Indie Founder',
+    quote:
+      'I was spending 2 hours a day replying on X just to stay visible. Ghostly247 does it overnight in my exact tone. My impressions tripled in the first week.',
+    name: 'Ashutosh Banerjee',
+    role: 'FOUNDER, SAAS STARTUP',
+    image: '/testimonials/james_okafor.jpg',
+  },
+  {
+    logo: 'Growth',
+    quote:
+      'Ghostly247 runs in my own browser \u2014 no cloud login, no API tokens, no risk. It feels like the only tool that actually respects how platforms work instead of trying to hack around them.',
+    name: 'VL Kumaran',
+    role: 'GROWTH MARKETER',
+    image: '/testimonials/marcus_thorne.jpg',
   },
 ];
 
