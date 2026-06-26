@@ -7,12 +7,20 @@ import { NumberTicker } from './animations/NumberTicker';
 
 const TESTIMONIALS = [
   {
+    logo: 'Creator',
+    quote:
+      'I set up Ghostly247 before bed and woke up to 40+ genuine interactions on my timeline. People started replying back \u2014 they had no idea it wasn\u2019t me typing at midnight.',
+    name: 'Tamara Kottmann',
+    role: 'CONTENT CREATOR',
+    image: '/testimonials/tamara_kottmann.jpg',
+  },
+  {
     logo: 'Indie Founder',
     quote:
       'I was spending 2 hours a day replying on X just to stay visible. Ghostly247 does it overnight in my exact tone. My impressions tripled in the first week.',
-    name: 'Ashutosh Banerjee',
+    name: 'Daniel C.',
     role: 'FOUNDER, SAAS STARTUP',
-    image: '/testimonials/james_okafor.jpg',
+    image: '/testimonials/daniel_c.jpg',
   },
   {
     logo: 'Coach',
@@ -26,9 +34,17 @@ const TESTIMONIALS = [
     logo: 'Growth',
     quote:
       'Ghostly247 runs in my own browser \u2014 no cloud login, no API tokens, no risk. It feels like the only tool that actually respects how platforms work instead of trying to hack around them.',
-    name: 'VL Kumaran',
+    name: 'Vanessa Stuart',
     role: 'GROWTH MARKETER',
-    image: '/testimonials/marcus_thorne.jpg',
+    image: '/testimonials/vanessa_stuart.jpg',
+  },
+  {
+    logo: 'Writer',
+    quote:
+      'I was mass-unfollowed by a bot tool before. Ghostly247 is the opposite \u2014 random delays, daily caps, auto-pause. It behaves like a real person because it runs like one.',
+    name: 'Veronica',
+    role: 'NEWSLETTER WRITER, 28K SUBS',
+    image: '/testimonials/veronica.jpg',
   },
 ];
 
