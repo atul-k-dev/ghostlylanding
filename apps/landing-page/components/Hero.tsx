@@ -87,7 +87,7 @@ export function Hero() {
           <nav className="hidden md:flex items-center gap-1 text-[11px] uppercase tracking-[0.18em] font-mono text-muted-fg">
             {[
               { label: "Features", href: "#features" },
-              { label: "How It Works", href: "#how-it-works" },
+              { label: "How to Use", href: "#how-to-use" },
               { label: "Testimonials", href: "#testimonials" },
               { label: "Pricing", href: "#pricing" },
             ].map((l) => (
@@ -132,7 +132,7 @@ export function Hero() {
             >
               <nav className="flex flex-col items-center gap-8 text-lg uppercase tracking-[0.15em] font-mono text-fg w-full px-6">
                 <a href="#features" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-accent transition-colors flex items-center justify-center gap-2 w-full py-4 border-b border-border/50">FEATURES</a>
-                <a href="#how-it-works" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-accent transition-colors flex items-center justify-center gap-2 w-full py-4 border-b border-border/50">HOW IT WORKS</a>
+                <a href="#how-to-use" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-accent transition-colors flex items-center justify-center gap-2 w-full py-4 border-b border-border/50">HOW TO USE</a>
                 <a href="#testimonials" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-accent transition-colors flex items-center justify-center gap-2 w-full py-4 border-b border-border/50">TESTIMONIALS</a>
                 <a href="#pricing" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-accent transition-colors flex items-center justify-center gap-2 w-full py-4 border-b border-border/50">PRICING</a>
                 <button className="mt-8 border border-white/50 px-10 py-4 text-sm font-medium hover:bg-white hover:text-black transition-colors rounded-sm text-fg">

@@ -184,11 +184,12 @@ const PlatformCounters = ({
   counter: DailyCounter | null;
 }) => (
   <div className="rounded-2xl bg-casper-surface p-3 border border-casper-border">
-    <div className="mb-2 flex items-center justify-between">
+    <div className="mb-2 grid grid-cols-3 items-center">
       <p className="text-xs font-semibold capitalize">{platform}</p>
-      {counter && (
-        <p className="text-[10px] text-casper-ink/40">{counter.date}</p>
-      )}
+      <span className="text-center text-[11px] font-semibold text-casper-coral">
+        Your daily limit
+      </span>
+      <p className="text-right text-[10px] text-casper-ink/40">{counter?.date ?? ''}</p>
     </div>
     <div className="grid grid-cols-3 gap-2">
       <Counter
@@ -303,9 +304,38 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
         )}
       </div>
       <PlatformCounters platform="twitter" counter={counters?.twitter ?? null} />
+
+      <a
+        href={HOW_TO_USE_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-casper-border px-3 py-2.5 text-sm font-medium text-casper-ink/80 transition hover:bg-white/5"
+      >
+        <BookIcon />
+        How to use Ghostly247
+      </a>
     </div>
   );
 };
+
+const HOW_TO_USE_URL = 'https://www.ghostly247.com/#how-to-use';
+
+const BookIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 15.5v-10Z"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h5.5a1.5 1.5 0 0 0 1.5-1.5v-10Z"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 const NumberField = ({
   label,

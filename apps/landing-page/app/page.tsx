@@ -3,7 +3,7 @@ import { Testimonials } from "@/components/Testimonials";
 import { FeaturesGrid } from "@/components/FeaturesGrid";
 import { Footer } from "@/components/Footer";
 import { Hero } from "@/components/Hero";
-import { HowItWorks } from "@/components/HowItWorks";
+import { HowToUse } from "@/components/HowToUse";
 import { FeaturesSticky } from "@/components/FeaturesSticky";
 import { Compare } from "@/components/Compare";
 import { Pricing } from "@/components/Pricing";
@@ -37,7 +37,7 @@ export default function HomePage() {
           <FeaturesGrid />
         </SectionWrapper>
         <SectionWrapper>
-          <HowItWorks />
+          <HowToUse />
         </SectionWrapper>
         <SectionWrapper>
           <FeaturesSticky />
