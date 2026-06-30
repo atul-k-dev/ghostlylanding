@@ -7,9 +7,10 @@ import type {
   User,
   Platform,
   TonePreset,
+  CommentLength,
   ActionType,
 } from '@casper/shared';
-import { PLATFORMS, ACTION_TYPES, TONE_PRESETS, isPro, bumpMonthly } from '@casper/shared';
+import { PLATFORMS, ACTION_TYPES, TONE_PRESETS, COMMENT_LENGTHS, isPro, bumpMonthly } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
 import {
   getAuth,
@@ -446,9 +447,12 @@ async function handleDraftComment(payload: unknown) {
   }
   const settings = await getSettings();
   const tone: TonePreset = TONE_PRESETS.includes(settings.tone) ? settings.tone : 'friendly';
+  const length: CommentLength = COMMENT_LENGTHS.includes(settings.commentLength)
+    ? settings.commentLength
+    : 1;
   const resp = await apiFetch<DraftDoc>('/api/comments/generate', {
     method: 'POST',
-    body: { platform, postText, postUrl, tone },
+    body: { platform, postText, postUrl, tone, length },
   });
   return resp;
 }

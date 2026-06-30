@@ -1,4 +1,4 @@
-import type { Platform, TonePreset } from './platform.js';
+import type { Platform, TonePreset, CommentLength } from './platform.js';
 
 export interface TargetCreator {
   platform: Platform;
@@ -66,6 +66,8 @@ export interface ExtensionSettings {
   isPaused: boolean;
   timezone: string;
   tone: TonePreset;
+  /** Length of auto-generated replies, in short lines (1 ≈ 8–10 words). Default 1. */
+  commentLength: CommentLength;
   /**
    * Safety auto-pause: once the engine has been Active for this many minutes it
    * pauses itself, so a session can't run unattended forever. The user re-arms

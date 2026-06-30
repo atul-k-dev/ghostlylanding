@@ -43,6 +43,8 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   isPaused: true,
   timezone: detectTimezone(),
   tone: 'friendly',
+  // Replies are one short line (8–10 words) unless the user picks longer.
+  commentLength: 1,
   // Auto-pause after an hour of activity to protect the account.
   sessionMinutes: 60,
   // Show the work happening (foreground tabs) by default.

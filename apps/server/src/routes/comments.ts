@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { ok, err, PLATFORMS, TONE_PRESETS, FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
+import type { CommentLength } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -23,6 +24,8 @@ const generateSchema = z.object({
   postText: z.string().min(1).max(4_000),
   postUrl: z.string().url().max(2_048),
   tone: z.enum(TONE_PRESETS).default('friendly'),
+  // Reply length in short lines (1 ≈ 8–10 words). Defaults to 1 for older clients.
+  length: z.coerce.number().int().min(1).max(3).default(1),
 });
 
 commentsRouter.post(
@@ -68,7 +71,9 @@ commentsRouter.post(
       return;
     }
 
-    const { platform, postText, postUrl, tone } = req.body as z.infer<typeof generateSchema>;
+    const { platform, postText, postUrl, tone, length } = req.body as z.infer<
+      typeof generateSchema
+    >;
 
     // §10: process post text in memory only — store its hash, never the text.
     const postTextHash = sha256(postText);
@@ -116,7 +121,12 @@ commentsRouter.post(
     // Generate
     let draftText: string;
     try {
-      draftText = await generateCommentDraft({ platform, tone, postText });
+      draftText = await generateCommentDraft({
+        platform,
+        tone,
+        length: length as CommentLength,
+        postText,
+      });
     } catch (e) {
       req.log.error({ err: e }, 'comment generation failed');
       res.status(502).json(err('generation_failed', 'Could not generate a draft right now'));

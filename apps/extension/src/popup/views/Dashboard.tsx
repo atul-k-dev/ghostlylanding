@@ -8,9 +8,10 @@ import type {
   SubscriptionPlan,
   TargetCreator,
   TonePreset,
+  CommentLength,
   User,
 } from '@casper/shared';
-import { TONE_PRESETS, FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
+import { TONE_PRESETS, COMMENT_LENGTHS, FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import {
   getSettings,
@@ -363,6 +364,12 @@ const NumberField = ({
   </label>
 );
 
+const COMMENT_LENGTH_LABELS: Record<CommentLength, string> = {
+  1: '1 line · 8–10 words',
+  2: '2 lines · ~20 words',
+  3: '3 lines · ~35 words',
+};
+
 const SettingsTab = ({
   settings,
   onChange,
@@ -501,6 +508,22 @@ const SettingsTab = ({
           {TONE_PRESETS.map((t) => (
             <option key={t} value={t}>
               {t}
+            </option>
+          ))}
+        </select>
+      </Section>
+
+      <Section title="Reply length" subtitle="How long auto-replies are. Shorter feels more human.">
+        <select
+          value={settings.commentLength}
+          onChange={(e) =>
+            onChange({ ...settings, commentLength: Number(e.target.value) as CommentLength })
+          }
+          className="w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-sm focus:border-casper-violet focus:outline-none"
+        >
+          {COMMENT_LENGTHS.map((n) => (
+            <option key={n} value={n}>
+              {COMMENT_LENGTH_LABELS[n]}
             </option>
           ))}
         </select>
