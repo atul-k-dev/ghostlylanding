@@ -25,6 +25,8 @@ const preferencesSchema = new Schema(
     },
     /** Home-feed relevance keywords (the user's interested post types). */
     keywords: { type: [String], default: [] },
+    /** Opt-out for the end-of-day activity recap email. Defaults on. */
+    dailyDigest: { type: Boolean, default: true },
   },
   { _id: false },
 );
@@ -65,6 +67,9 @@ const userSchema = new Schema(
     isBanned: { type: Boolean, default: false },
     /** Timestamp of the most recent ban; null when not banned. */
     bannedAt: { type: Date, default: null },
+    /** "YYYY-MM-DD" (user-local) of the last day we sent an activity recap for —
+     *  dedupe so the end-of-day email goes out at most once per day. */
+    lastDailySummaryDate: { type: String, default: null },
     preferences: { type: preferencesSchema, default: () => ({}) },
   },
   { timestamps: true },

@@ -40,6 +40,9 @@ export const config = {
   ),
   // Server's own public base URL — Stripe redirects to /r/* here.
   serverBaseUrl: required('SERVER_BASE_URL', `http://localhost:${process.env.PORT ?? '4000'}`),
+  // Public origin that serves branded email assets (the logo). Defaults to the
+  // live marketing site so images resolve in real inboxes without extra setup.
+  emailAssetBaseUrl: required('EMAIL_ASSET_BASE_URL', 'https://ghostly247.com'),
   stripeSecretKey: optional('STRIPE_SECRET_KEY'),
   stripeWebhookSecret: optional('STRIPE_WEBHOOK_SECRET'),
   stripePrices: {

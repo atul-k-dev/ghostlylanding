@@ -51,6 +51,7 @@ The **home-feed autopilot** opens one tab, smoothly scrolls your timeline, and a
 ## Dashboard & transparency
 - **Live daily counters** — Likes, Comments, Follows, Bookmarks, Reposts, Quotes.
 - **Activity log** — every action with status (✓/✗), target, and timestamp.
+- **Daily recap email** — a branded end-of-day summary of everything Ghostly did that day: per-action counts, the **full text of every AI reply & quote** (so you can review they sound like you), and your new follows. Timed to your local morning, sent at most once a day, with one-click unsubscribe.
 - **Diagnostics** — recent selector/network issues and auto-pause notices.
 - **Plan panel** — current plan, monthly usage, upgrade.
 

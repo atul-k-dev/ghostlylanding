@@ -23,7 +23,20 @@ const entrySchema = z.object({
 
 const batchSchema = z.object({
   entries: z.array(entrySchema).min(1).max(200),
+  // The client's IANA timezone, sent so the server can time the end-of-day
+  // recap email to the user's local day (kept fresh on every flush).
+  timezone: z.string().max(64).optional(),
 });
+
+/** Cheap IANA-timezone validity check (rejects garbage before we persist it). */
+const isValidTimezone = (tz: string): boolean => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 actionsRouter.post(
   '/log',
@@ -40,7 +53,16 @@ actionsRouter.post(
       res.status(401).json(err('unauthorized', 'No auth context'));
       return;
     }
-    const { entries } = req.body as z.infer<typeof batchSchema>;
+    const { entries, timezone } = req.body as z.infer<typeof batchSchema>;
+    // Keep the user's timezone current for the daily digest — strictly
+    // best-effort: fire-and-forget so a failure here can never block or fail
+    // action logging (the core path). Only writes when it actually changed.
+    if (timezone && isValidTimezone(timezone)) {
+      void UserModel.updateOne(
+        { _id: req.auth.sub, 'preferences.timezone': { $ne: timezone } },
+        { $set: { 'preferences.timezone': timezone } },
+      ).catch((e) => req.log.warn({ err: e }, 'timezone sync failed (non-fatal)'));
+    }
     const docs = entries.map((e) => ({
       userId: req.auth!.sub,
       platform: e.platform,

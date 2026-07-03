@@ -2,6 +2,7 @@ import { createApp } from './app.js';
 import { config } from './config.js';
 import { connectDb, disconnectDb } from './db.js';
 import { logger } from './logger.js';
+import { startDailySummaryScheduler } from './jobs/daily-summary.js';
 
 const main = async (): Promise<void> => {
   if (!config.jwtSecret) {
@@ -15,6 +16,9 @@ const main = async (): Promise<void> => {
   const server = app.listen(config.port, () => {
     logger.info({ port: config.port, env: config.env }, 'Ghostly247 API listening');
   });
+
+  // End-of-day activity recap emails (hourly check, once per user-local day).
+  startDailySummaryScheduler();
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'shutting down');

@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import { UserModel } from '../models/user.model.js';
+import { verifyUnsubToken } from '../email/daily-summary.js';
 
 /**
  * Tiny HTML pages served by the server itself, used as Stripe Checkout
- * success_url and cancel_url. These live here (not on the landing site)
- * so the marketing/landing app has zero billing surface area.
+ * success_url and cancel_url (and the daily-recap email unsubscribe link).
+ * These live here (not on the landing site) so the marketing/landing app has
+ * zero billing surface area.
  */
 export const returnPagesRouter = Router();
 
@@ -58,4 +61,34 @@ returnPagesRouter.get('/cancel', (_req, res) => {
       "Your free plan stays active. Whenever you're ready, open the extension and pick Upgrade again.",
     ),
   );
+});
+
+// One-click unsubscribe from the end-of-day recap email. The link carries a
+// signed token (HMAC of the user id) so only the real recipient can flip it.
+returnPagesRouter.get('/email/unsubscribe', (req, res) => {
+  const u = typeof req.query.u === 'string' ? req.query.u : '';
+  const t = typeof req.query.t === 'string' ? req.query.t : '';
+  if (!u || !t || !verifyUnsubToken(u, t)) {
+    res
+      .status(400)
+      .type('html')
+      .send(page('⚠️', 'Invalid link', 'This unsubscribe link is invalid or has expired.'));
+    return;
+  }
+  void UserModel.updateOne({ _id: u }, { $set: { 'preferences.dailyDigest': false } })
+    .then(() => {
+      res.type('html').send(
+        page(
+          '✅',
+          'Unsubscribed',
+          "You won't get daily recap emails anymore. You can turn them back on anytime from the extension settings.",
+        ),
+      );
+    })
+    .catch(() => {
+      res
+        .status(500)
+        .type('html')
+        .send(page('⚠️', 'Something went wrong', 'Please try again in a moment, or contact support.'));
+    });
 });

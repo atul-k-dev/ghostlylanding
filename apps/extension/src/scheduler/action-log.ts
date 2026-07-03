@@ -7,6 +7,7 @@ import {
   setSchedulerState,
   getAuth,
   setAuth,
+  getSettings,
 } from '../lib/storage.js';
 import { apiFetch } from '../lib/api.js';
 
@@ -35,9 +36,12 @@ export const flushActionLog = async (): Promise<{ sent: number; kept: number }> 
   const buf = await getActionLogBuffer();
   if (buf.length === 0) return { sent: 0, kept: 0 };
 
+  // Send the user's timezone alongside the batch so the server can time the
+  // end-of-day recap email to their local day (kept fresh on every flush).
+  const settings = await getSettings();
   const resp = await apiFetch<{ inserted: number; monthlyActionCount?: number }>(
     '/api/actions/log',
-    { method: 'POST', body: { entries: buf } },
+    { method: 'POST', body: { entries: buf, timezone: settings.timezone } },
   );
 
   if (!resp.ok) {
