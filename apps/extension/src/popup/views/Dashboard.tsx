@@ -9,6 +9,7 @@ import type {
   TargetCreator,
   TonePreset,
   CommentLength,
+  PostLength,
   User,
 } from '@casper/shared';
 import { TONE_PRESETS, COMMENT_LENGTHS, FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
@@ -20,10 +21,13 @@ import {
   STORAGE_KEYS,
   getDiagnostics,
   clearDiagnostics,
+  tweetLimitFor,
+  effectivePostLength,
   type DiagnosticEntry,
+  type ScheduledPost,
 } from '../../lib/storage.js';
 
-type Tab = 'dashboard' | 'activity' | 'settings';
+type Tab = 'dashboard' | 'activity' | 'schedule' | 'settings';
 
 interface ActionLogEntry {
   id: string;
@@ -83,6 +87,9 @@ export const Dashboard = ({ user, onLogout }: Props) => {
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {tab === 'dashboard' && <DashboardTab settings={settings} />}
         {tab === 'activity' && <ActivityTab />}
+        {tab === 'schedule' && settings && (
+          <ScheduleTab settings={settings} onChange={updateSettings} />
+        )}
         {tab === 'settings' && settings && (
           <SettingsTab
             settings={settings}
@@ -145,6 +152,7 @@ const Tabs = ({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) => {
   const items: { id: Tab; label: string }[] = [
     { id: 'dashboard', label: 'Home' },
     { id: 'activity', label: 'Activity' },
+    { id: 'schedule', label: 'Schedule' },
     { id: 'settings', label: 'Settings' },
   ];
   return (
@@ -236,6 +244,7 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
     failed: number;
   } | null>(null);
   const [remainingMin, setRemainingMin] = useState<number | null>(null);
+  const [scheduledCount, setScheduledCount] = useState(0);
 
   const refresh = async () => {
     try {
@@ -249,6 +258,15 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
         data: { pending: number; running: number; completed: number; failed: number };
       }>({ type: 'GET_QUEUE_STATS', payload: {} });
       if (s.ok) setStats(s.data);
+
+      const sp = await sendToBackground<
+        { ok: true; data: { posts: ScheduledPost[]; max: number } } | { ok: false }
+      >({ type: 'LIST_SCHEDULED_POSTS', payload: {} });
+      if (sp.ok) {
+        setScheduledCount(
+          sp.data.posts.filter((p) => p.status === 'scheduled' || p.status === 'publishing').length,
+        );
+      }
 
       // Live auto-pause countdown.
       const sched = await getSchedulerState();
@@ -271,7 +289,12 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
       changes: { [key: string]: chrome.storage.StorageChange },
       area: chrome.storage.AreaName,
     ) => {
-      if (area === 'local' && (STORAGE_KEYS.counters in changes || STORAGE_KEYS.queue in changes)) {
+      if (
+        area === 'local' &&
+        (STORAGE_KEYS.counters in changes ||
+          STORAGE_KEYS.queue in changes ||
+          STORAGE_KEYS.scheduledPosts in changes)
+      ) {
         void refresh();
       }
     };
@@ -304,6 +327,18 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
           </p>
         )}
       </div>
+      {scheduledCount > 0 && (
+        <div className="flex items-center justify-between rounded-2xl border border-casper-border bg-casper-surface px-3 py-2.5 text-xs">
+          <span className="flex items-center gap-2 text-casper-ink/80">
+            <CalendarIcon />
+            <span className="font-medium">
+              {scheduledCount} post{scheduledCount === 1 ? '' : 's'} scheduled
+            </span>
+          </span>
+          <span className="text-[10px] text-casper-ink/40">See Schedule tab</span>
+        </div>
+      )}
+
       <PlatformCounters platform="twitter" counter={counters?.twitter ?? null} />
 
       <a
@@ -320,6 +355,13 @@ const DashboardTab = ({ settings }: { settings: ExtensionSettings | null }) => {
 };
 
 const HOW_TO_USE_URL = 'https://www.ghostly247.com/#how-to-use';
+
+const CalendarIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="3.5" y="5" width="17" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+  </svg>
+);
 
 const BookIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -773,6 +815,444 @@ const formatRelative = (iso: string): string => {
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
   return `${Math.floor(diff / 86_400_000)}d ago`;
+};
+
+const toDateInputValue = (d: Date): string => {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+/** Local midnight (start of day) for a YYYY-MM-DD date string. */
+const startOfLocalDay = (dateStr: string): number => new Date(`${dateStr}T00:00:00`).getTime();
+
+const formatWhen = (ms: number): string =>
+  new Date(ms).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+
+const POST_LENGTHS: { id: PostLength; label: string }[] = [
+  { id: 'short', label: 'Short · 280' },
+  { id: 'mid', label: 'Medium · 1k' },
+  { id: 'long', label: 'Long · 4k' },
+];
+
+const POST_STATUS: Record<ScheduledPost['status'], { label: string; cls: string }> = {
+  scheduled: { label: 'Scheduled', cls: 'bg-casper-violet/15 text-casper-violet' },
+  publishing: { label: 'Posting…', cls: 'bg-amber-500/15 text-amber-300' },
+  posted: { label: 'Posted', cls: 'bg-emerald-500/15 text-emerald-300' },
+  failed: { label: 'Failed', cls: 'bg-rose-500/15 text-rose-300' },
+};
+
+const ScheduleTab = ({
+  settings,
+  onChange,
+}: {
+  settings: ExtensionSettings;
+  onChange: (s: ExtensionSettings) => void;
+}) => {
+  const isPaused = settings.isPaused;
+  const plan = settings.xAccountPlan;
+  const limit = tweetLimitFor(plan, settings.postLength);
+  const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [max, setMax] = useState(5);
+  const [description, setDescription] = useState('');
+  const [link, setLink] = useState('');
+  const [image, setImage] = useState<{ dataUrl: string; name: string } | null>(null);
+  const [text, setText] = useState('');
+  const [when, setWhen] = useState(() => toDateInputValue(new Date()));
+  const [generating, setGenerating] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const refresh = async () => {
+    const r = await sendToBackground<
+      { ok: true; data: { posts: ScheduledPost[]; max: number } } | { ok: false }
+    >({ type: 'LIST_SCHEDULED_POSTS', payload: {} });
+    if (r.ok) {
+      setPosts(r.data.posts);
+      setMax(r.data.max);
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+    const listener = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: chrome.storage.AreaName,
+    ) => {
+      if (area === 'local' && STORAGE_KEYS.scheduledPosts in changes) void refresh();
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, []);
+
+  const pending = posts.filter((p) => p.status === 'scheduled' || p.status === 'publishing');
+  const history = posts.filter((p) => p.status === 'posted' || p.status === 'failed');
+  const atLimit = pending.length >= max;
+
+  const onPickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file.');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setError('Image is too large (max 3 MB).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImage({ dataUrl: String(reader.result), name: file.name });
+      setError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const generate = async () => {
+    if (!description.trim()) {
+      setError('Write a short description first.');
+      return;
+    }
+    setGenerating(true);
+    setError(null);
+    try {
+      const r = await sendToBackground<
+        { ok: true; data: { text: string } } | { ok: false; error: { message: string } }
+      >({
+        type: 'GENERATE_POST',
+        payload: { description: description.trim(), link: link.trim() || undefined },
+      });
+      if (r.ok) setText(r.data.text);
+      else setError(r.error.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const schedule = async () => {
+    if (!text.trim()) {
+      setError('Add some post text (or generate it).');
+      return;
+    }
+    if (effectivePostLength(text.trim(), link) > limit) {
+      setError(`Post is over the ${limit}-character limit — trim it before scheduling.`);
+      return;
+    }
+    const today = toDateInputValue(new Date());
+    if (!when || when < today) {
+      setError('Pick today or a future day.');
+      return;
+    }
+    const ts = startOfLocalDay(when);
+    if (!Number.isFinite(ts)) {
+      setError('Pick a valid day.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const r = await sendToBackground<
+        { ok: true } | { ok: false; error: { message: string } }
+      >({
+        type: 'SCHEDULE_POST',
+        payload: {
+          text: text.trim(),
+          link: link.trim(),
+          imageDataUrl: image?.dataUrl ?? null,
+          scheduledAt: ts,
+        },
+      });
+      if (r.ok) {
+        setDescription('');
+        setLink('');
+        setImage(null);
+        setText('');
+        setWhen(toDateInputValue(new Date()));
+        setNotice('Scheduled ✓');
+        await refresh();
+      } else {
+        setError(r.error.message);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (id: string) => {
+    await sendToBackground({ type: 'DELETE_SCHEDULED_POST', payload: { id } });
+    await refresh();
+  };
+
+  // Count the way X does: the text plus the attached link (23 + a 2-char join).
+  const effectiveLen = effectivePostLength(text, link);
+  const over = effectiveLen > limit;
+
+  return (
+    <div className="space-y-4 text-xs">
+      <div className="rounded-2xl border border-casper-violet/20 bg-casper-violet/5 p-3">
+        <p className="font-medium text-casper-ink">Create &amp; schedule a post ✍️</p>
+        <p className="mt-1 text-[10px] leading-relaxed text-casper-ink/60">
+          Describe your post, let AI draft it, add a link or image, and pick a day. Ghostly247
+          posts it through your own X session that day, the next time your browser is open and
+          signed in. It posts even while the engine is paused; delete one to cancel.
+        </p>
+      </div>
+
+      <Section
+        title="Your X account"
+        subtitle={
+          plan === 'pro'
+            ? `X Premium — posts up to ${limit.toLocaleString()} characters.`
+            : 'Free account — posts are limited to 280 characters.'
+        }
+      >
+        <div className="flex gap-2">
+          {(['free', 'pro'] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onChange({ ...settings, xAccountPlan: p })}
+              aria-pressed={plan === p}
+              className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                plan === p
+                  ? 'bg-casper-violet text-white'
+                  : 'border border-casper-ink/10 text-casper-ink/70 hover:bg-white/5'
+              }`}
+            >
+              {p === 'free' ? 'Free · 280' : 'Pro · long posts'}
+            </button>
+          ))}
+        </div>
+
+        {plan === 'pro' && (
+          <div className="mt-3">
+            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+              Post length
+            </p>
+            <div className="flex gap-2">
+              {POST_LENGTHS.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => onChange({ ...settings, postLength: l.id })}
+                  aria-pressed={settings.postLength === l.id}
+                  className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition ${
+                    settings.postLength === l.id
+                      ? 'bg-casper-violet text-white'
+                      : 'border border-casper-ink/10 text-casper-ink/70 hover:bg-white/5'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </Section>
+
+      <Section title="New post" subtitle={`${pending.length} / ${max} scheduled`}>
+        <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+          What's the post about?
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={2}
+          placeholder="e.g. why I stopped using keyword filters and switched to intent-based targeting"
+          className="w-full resize-none rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+        />
+
+        <label className="mb-1.5 mt-3 block font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+          Link (optional)
+        </label>
+        <input
+          type="url"
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+          placeholder="https://…"
+          className="w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+        />
+
+        <label className="mb-1.5 mt-3 block font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+          Image (optional)
+        </label>
+        {image ? (
+          <div className="flex items-center gap-2">
+            <img
+              src={image.dataUrl}
+              alt="attachment"
+              className="h-12 w-12 flex-none rounded-lg border border-casper-border object-cover"
+            />
+            <span className="flex-1 truncate text-[10px] text-casper-ink/50">{image.name}</span>
+            <button
+              type="button"
+              onClick={() => setImage(null)}
+              className="rounded px-2 py-0.5 text-[10px] text-rose-400 hover:bg-rose-500/10"
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <label className="inline-flex cursor-pointer items-center rounded-lg border border-casper-ink/10 bg-casper-cloud px-3 py-1.5 text-[11px] text-casper-ink/70 transition hover:bg-white/5">
+            Choose image
+            <input type="file" accept="image/*" onChange={onPickImage} className="hidden" />
+          </label>
+        )}
+
+        <button
+          type="button"
+          onClick={generate}
+          disabled={generating || !description.trim()}
+          className="mt-3 w-full rounded-lg bg-casper-violet/10 px-3 py-2 text-[11px] font-medium text-casper-violet transition hover:bg-casper-violet/20 disabled:opacity-50"
+        >
+          {generating ? 'Drafting…' : text ? 'Re-draft with AI' : 'Draft with AI ✨'}
+        </button>
+
+        <label className="mb-1.5 mt-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+          <span>Post text</span>
+          <span className={over ? 'text-rose-400' : 'text-casper-ink/40'}>
+            {effectiveLen}/{limit}
+          </span>
+        </label>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={7}
+          placeholder="Your tweet — draft it with AI above, or write it yourself."
+          className={`w-full resize-y whitespace-pre-wrap rounded-lg border bg-casper-cloud px-2 py-1.5 text-xs leading-relaxed focus:outline-none ${
+            over ? 'border-rose-500/50' : 'border-casper-ink/10 focus:border-casper-violet'
+          }`}
+        />
+        {over ? (
+          <p className="mt-1 text-[10px] text-rose-400">
+            Over the {limit}-character limit
+            {link.trim() ? ' (your link counts as 23 characters)' : ''} — trim it before scheduling.
+          </p>
+        ) : (
+          link.trim() && (
+            <p className="mt-1 text-[10px] text-casper-ink/40">
+              Your link counts as 23 characters toward the {limit} limit.
+            </p>
+          )
+        )}
+
+        <label className="mb-1.5 mt-3 block font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+          Post on
+        </label>
+        <input
+          type="date"
+          value={when}
+          min={toDateInputValue(new Date())}
+          onChange={(e) => setWhen(e.target.value)}
+          className="w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+        />
+        <p className="mt-1 text-[10px] text-casper-ink/40">
+          Goes out on this day the next time your browser is open. If it's closed all day, it
+          posts the next time you open Ghostly247 after that.
+        </p>
+
+        {atLimit && (
+          <p className="mt-2 text-[10px] text-amber-300">
+            You've hit the {max}-post limit. Delete a scheduled post below to add another.
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={schedule}
+          disabled={busy || atLimit || !text.trim() || over}
+          className="mt-3 w-full rounded-lg bg-casper-violet px-3 py-2 text-[11px] font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+        >
+          {busy ? 'Scheduling…' : 'Schedule post'}
+        </button>
+        {error && <p className="mt-2 text-[10px] text-rose-400">✗ {error}</p>}
+        {notice && <p className="mt-2 text-[10px] text-emerald-300">{notice}</p>}
+        {isPaused && pending.length > 0 && (
+          <p className="mt-2 text-[10px] text-casper-ink/40">
+            Heads up: scheduled posts still publish on their day even though the engine is paused.
+          </p>
+        )}
+      </Section>
+
+      {pending.length > 0 && (
+        <Section title="Scheduled">
+          <ul className="space-y-2">
+            {pending
+              .slice()
+              .sort((a, b) => a.scheduledAt - b.scheduledAt)
+              .map((p) => (
+                <PostRow key={p.id} post={p} onDelete={() => remove(p.id)} />
+              ))}
+          </ul>
+        </Section>
+      )}
+
+      {history.length > 0 && (
+        <Section title="Recent">
+          <ul className="space-y-2">
+            {history
+              .slice()
+              .sort((a, b) => (b.postedAt ?? b.createdAt) - (a.postedAt ?? a.createdAt))
+              .slice(0, 10)
+              .map((p) => (
+                <PostRow key={p.id} post={p} onDelete={() => remove(p.id)} />
+              ))}
+          </ul>
+        </Section>
+      )}
+    </div>
+  );
+};
+
+const PostRow = ({ post, onDelete }: { post: ScheduledPost; onDelete: () => void }) => {
+  const s = POST_STATUS[post.status];
+  return (
+    <li className="rounded-xl bg-casper-cloud p-2.5">
+      <div className="flex items-start gap-2">
+        {post.imageDataUrl && (
+          <img
+            src={post.imageDataUrl}
+            alt=""
+            className="h-10 w-10 flex-none rounded-md border border-casper-border object-cover"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-3 whitespace-pre-wrap text-[11px] text-casper-ink/80">
+            {post.text}
+          </p>
+          {post.link && (
+            <p className="mt-0.5 truncate text-[10px] text-casper-violet">{post.link}</p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label="Delete"
+          className="rounded px-1.5 py-0.5 text-[12px] text-rose-400 hover:bg-rose-500/10"
+        >
+          ×
+        </button>
+      </div>
+      <div className="mt-1.5 flex items-center gap-2">
+        <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${s.cls}`}>{s.label}</span>
+        <span className="text-[10px] text-casper-ink/40">{formatWhen(post.scheduledAt)}</span>
+        {post.status === 'failed' && post.error && (
+          <span className="truncate text-[10px] text-rose-400/80" title={post.error}>
+            · {post.error}
+          </span>
+        )}
+      </div>
+    </li>
+  );
 };
 
 const PLAN_LABELS: Record<SubscriptionPlan, { label: string; price: string }> = {

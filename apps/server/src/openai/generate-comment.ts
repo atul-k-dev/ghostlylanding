@@ -2,7 +2,10 @@ import type { Platform, TonePreset, CommentLength } from '@casper/shared';
 import { getOpenAI } from './client.js';
 import { buildCommentPrompt, commentMaxTokens } from './prompts.js';
 
-const MODEL = 'gpt-4o-mini';
+// GPT-5.4-mini — fast + cheap, a big step up from gpt-4o-mini for short replies.
+// (5.x API: `max_tokens` is rejected — use `max_completion_tokens`. This mini
+// model does support a custom temperature, unlike gpt-5.5.)
+const MODEL = 'gpt-5.4-mini';
 
 interface GenerateArgs {
   platform: Platform;
@@ -22,7 +25,7 @@ export const generateCommentDraft = async ({
   const completion = await client.chat.completions.create({
     model: MODEL,
     temperature: 0.7,
-    max_tokens: commentMaxTokens(length),
+    max_completion_tokens: commentMaxTokens(length),
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: postText.slice(0, 4_000) },

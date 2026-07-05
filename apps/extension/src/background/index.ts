@@ -35,6 +35,12 @@ import {
   setQueue,
   getSchedulerState,
   setSchedulerState,
+  getScheduledPosts,
+  setScheduledPosts,
+  MAX_SCHEDULED_POSTS,
+  tweetLimitFor,
+  effectivePostLength,
+  type ScheduledPost,
 } from '../lib/storage.js';
 
 const BUILD_STAMP = 'casper-build-2026-06-05-homefeed-v2';
@@ -115,6 +121,10 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   RECORD_ACTION: handleRecordAction as AsyncHandler<unknown, unknown>,
   UPDATE_PREFERENCES: handleUpdatePreferences as AsyncHandler<unknown, unknown>,
   DRAFT_COMMENT: handleDraftComment as AsyncHandler<unknown, unknown>,
+  GENERATE_POST: handleGeneratePost as AsyncHandler<unknown, unknown>,
+  LIST_SCHEDULED_POSTS: handleListScheduledPosts as AsyncHandler<unknown, unknown>,
+  SCHEDULE_POST: handleSchedulePost as AsyncHandler<unknown, unknown>,
+  DELETE_SCHEDULED_POST: handleDeleteScheduledPost as AsyncHandler<unknown, unknown>,
   LIST_DRAFTS: handleListDrafts as AsyncHandler<unknown, unknown>,
   APPROVE_DRAFT: handleApproveDraft as AsyncHandler<unknown, unknown>,
   REJECT_DRAFT: handleRejectDraft as AsyncHandler<unknown, unknown>,
@@ -455,6 +465,102 @@ async function handleDraftComment(payload: unknown) {
     body: { platform, postText, postUrl, tone, length },
   });
   return resp;
+}
+
+/** Draft an original tweet from a short description via the server (OpenAI). */
+async function handleGeneratePost(payload: unknown) {
+  const { description, link } = (payload ?? {}) as { description?: string; link?: string };
+  if (!description || typeof description !== 'string' || description.trim().length === 0) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'description required' } };
+  }
+  const settings = await getSettings();
+  const tone: TonePreset = TONE_PRESETS.includes(settings.tone) ? settings.tone : 'friendly';
+  const maxChars = tweetLimitFor(settings.xAccountPlan, settings.postLength);
+  const resp = await apiFetch<{ text: string }>('/api/posts/generate', {
+    method: 'POST',
+    body: {
+      description: description.trim().slice(0, 1_000),
+      tone,
+      maxChars,
+      ...(link && typeof link === 'string' && link.trim() ? { link: link.trim() } : {}),
+    },
+  });
+  return resp;
+}
+
+async function handleListScheduledPosts() {
+  const posts = await getScheduledPosts();
+  return { ok: true, data: { posts, max: MAX_SCHEDULED_POSTS } };
+}
+
+/** Add a post to the local schedule, enforcing the max-scheduled cap. */
+async function handleSchedulePost(payload: unknown) {
+  const { text, link, imageDataUrl, scheduledAt } = (payload ?? {}) as {
+    text?: string;
+    link?: string;
+    imageDataUrl?: string | null;
+    scheduledAt?: number;
+  };
+  if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'Post text is required.' } };
+  }
+  // Enforce X's char limit as the source of truth — the free/pro limit from the
+  // user's account setting — counting the attached link the way X does (23 chars),
+  // so a post can never be scheduled that would exceed the limit once published,
+  // even if the UI check were bypassed.
+  const settings = await getSettings();
+  const limit = tweetLimitFor(settings.xAccountPlan, settings.postLength);
+  const linkStr = link && typeof link === 'string' ? link.trim() : '';
+  if (effectivePostLength(text.trim(), linkStr) > limit) {
+    return {
+      ok: false,
+      error: { code: 'too_long', message: `Post exceeds the ${limit}-character limit.` },
+    };
+  }
+  if (typeof scheduledAt !== 'number' || !Number.isFinite(scheduledAt)) {
+    return { ok: false, error: { code: 'invalid_time', message: 'Pick a valid schedule time.' } };
+  }
+  if (imageDataUrl && typeof imageDataUrl === 'string' && imageDataUrl.length > 4_000_000) {
+    return { ok: false, error: { code: 'image_too_big', message: 'Image is too large (max ~3 MB).' } };
+  }
+
+  const posts = await getScheduledPosts();
+  const pending = posts.filter((p) => p.status === 'scheduled' || p.status === 'publishing');
+  if (pending.length >= MAX_SCHEDULED_POSTS) {
+    return {
+      ok: false,
+      error: {
+        code: 'limit_reached',
+        message: `You can have up to ${MAX_SCHEDULED_POSTS} posts scheduled at once. Delete one first.`,
+      },
+    };
+  }
+
+  const post: ScheduledPost = {
+    id: crypto.randomUUID(),
+    text: text.trim(),
+    link: link && typeof link === 'string' ? link.trim() : '',
+    imageDataUrl: imageDataUrl && typeof imageDataUrl === 'string' ? imageDataUrl : null,
+    scheduledAt,
+    status: 'scheduled',
+    createdAt: Date.now(),
+  };
+  await setScheduledPosts([...posts, post]);
+
+  // If it's already due (past time), kick a tick so it publishes promptly.
+  if (scheduledAt <= Date.now()) void handleTick();
+
+  return { ok: true, data: { post } };
+}
+
+async function handleDeleteScheduledPost(payload: unknown) {
+  const { id } = (payload ?? {}) as { id?: string };
+  if (!id || typeof id !== 'string') {
+    return { ok: false, error: { code: 'missing_id', message: 'id required' } };
+  }
+  const posts = await getScheduledPosts();
+  await setScheduledPosts(posts.filter((p) => p.id !== id));
+  return { ok: true, data: { id } };
 }
 
 async function handleListDrafts(payload: unknown) {

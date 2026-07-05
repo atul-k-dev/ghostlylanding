@@ -55,6 +55,17 @@ export type ContentRequest =
       payload: Record<string, never>;
     }
   | {
+      type: 'PUBLISH_POST';
+      payload: {
+        /** The tweet body. */
+        text: string;
+        /** Optional link, appended so X unfurls it. */
+        link?: string;
+        /** Optional image as a data URL, attached to the compose box. */
+        imageDataUrl?: string | null;
+      };
+    }
+  | {
       type: 'FOLLOW_BACK';
       payload: {
         max: number;
@@ -157,6 +168,10 @@ export type ContentResponse =
   | {
       type: 'OWN_HANDLE_RESULT';
       payload: { handle: string | null };
+    }
+  | {
+      type: 'PUBLISH_RESULT';
+      payload: { posted: boolean; error?: string };
     }
   | {
       type: 'FOLLOW_BACK_RESULT';

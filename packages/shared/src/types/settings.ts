@@ -89,7 +89,25 @@ export interface ExtensionSettings {
   /** Auto follow-back: periodically follow people who follow you (Twitter/X).
    *  Uses the follow daily cap + whitelist; counts toward the free-tier limit. */
   followBack: boolean;
+  /**
+   * The user's X account type. Sets the character limit for scheduled posts:
+   * 'free' = 280, 'pro' (X Premium) = long-form. Defaults to 'free' since that's
+   * what most accounts are. Purely about post length — not the Ghostly plan.
+   */
+  xAccountPlan: XAccountPlan;
+  /**
+   * Target length for scheduled posts — only applies on a Pro account (Free is
+   * always 280). Sets both the character limit and how long the AI drafts:
+   * short ≈ 280, mid ≈ 1,000, long ≈ 4,000 characters.
+   */
+  postLength: PostLength;
 }
+
+/** X account type — drives the scheduled-post character limit. */
+export type XAccountPlan = 'free' | 'pro';
+
+/** Target length for scheduled posts on a Pro (X Premium) account. */
+export type PostLength = 'short' | 'mid' | 'long';
 
 /**
  * Daily counter for a single platform.

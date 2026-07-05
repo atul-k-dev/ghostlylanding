@@ -56,3 +56,48 @@ const MAX_TOKENS_BY_LENGTH: Record<CommentLength, number> = {
 };
 
 export const commentMaxTokens = (length: CommentLength): number => MAX_TOKENS_BY_LENGTH[length];
+
+/**
+ * System prompt for drafting an ORIGINAL post (not a reply) from a short user
+ * description. The link (if any) is appended to the tweet separately, so the
+ * model is told not to paste it — X unfurls it into a card on its own.
+ */
+export const buildPostPrompt = (tone: TonePreset, maxChars = 280): { system: string } => {
+  const lengthRule =
+    maxChars <= 280
+      ? `HARD LIMIT: the post text MUST be at most 280 characters — and 250 or fewer if a link will be attached (the link uses ~23 of the 280). Count EVERY character, including spaces, punctuation, and line breaks, and stay under. Tight and skimmable; trim words, not structure.`
+      : `This is an X Premium account, so you MAY go beyond 280 characters — ${
+          maxChars <= 1_200
+            ? 'aim for a few short paragraphs'
+            : 'aim for a fuller, multi-paragraph post (a mini-essay is fine)'
+        }, but stay focused and skimmable, never padded. Keep the whole post at most ${maxChars} characters, counting every character including spaces and line breaks.`;
+  const system = `You write original Twitter/X posts for a solo creator. Turn the user's description into ONE well-structured tweet they could post as themselves.
+
+FORMAT for readability — never one dense block of text:
+- Use real line breaks. Put a blank line between distinct thoughts so the post is easy to skim.
+- Open with a short, strong hook on its own line.
+- When the content has multiple points, tips, steps, features, or examples, lay them out as a list — one item per line:
+  • a NUMBERED list (1. 2. 3.) for ordered or step-by-step content
+  • BULLET points (use the "•" character) for unordered points
+- Close with a takeaway, a question, or a light call to action when it fits.
+
+STYLE:
+- Sound like a real person, not a brand or a press release. ${TONE_GUIDES[tone]}
+- ${lengthRule}
+- Do NOT paste any URL — a link is attached automatically, so just write the post.
+- At most one or two tasteful emoji, only where they genuinely help. Zero or one hashtag.
+- No hype filler ("game changer", "excited to announce", "the future is here").
+
+Use actual newlines in your output (not the literal text "\\n"). Output only the tweet text — no quotes, no preamble, no explanation.`;
+  return { system };
+};
+
+/**
+ * Token CEILING for a drafted post (not a target — GPT-5.5 stops when done and
+ * only bills what it uses). Must comfortably exceed visible output (~chars/3)
+ * PLUS the model's internal reasoning tokens, or a reasoning spike can consume
+ * the whole budget and yield empty output. Generous headroom, capped so a large
+ * (Pro) limit can't run away on cost.
+ */
+export const postMaxTokens = (maxChars = 280): number =>
+  Math.min(3_000, Math.ceil(maxChars / 3) + 1_100);

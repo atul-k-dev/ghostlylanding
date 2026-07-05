@@ -12,6 +12,7 @@ import { meRouter } from './routes/me.js';
 import { accountRouter } from './routes/account.js';
 import { actionsRouter } from './routes/actions.js';
 import { commentsRouter } from './routes/comments.js';
+import { postsRouter } from './routes/posts.js';
 import { billingRouter } from './routes/billing.js';
 import { billingWebhookRouter } from './routes/billing-webhook.js';
 import { returnPagesRouter } from './routes/return-pages.js';
@@ -82,6 +83,7 @@ export const createApp = (): Express => {
   app.use('/api/account', accountRouter);
   app.use('/api/actions', actionsRouter);
   app.use('/api/comments', commentsRouter);
+  app.use('/api/posts', postsRouter);
   app.use('/api/billing', billingRouter);
   app.use('/api/admin', adminRouter);
 

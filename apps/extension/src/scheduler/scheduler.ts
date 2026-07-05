@@ -42,6 +42,7 @@ import {
 import { executeTask } from './executor.js';
 import { appendActionLog, flushActionLog, shouldFlush } from './action-log.js';
 import { getTargetState, setTargetState } from '../lib/storage.js';
+import { maybePublishDuePost, isPublishing, reviveScheduledPosts } from './scheduled-posts.js';
 
 export const SCHEDULER_ALARM = 'casper.scheduler.tick';
 const TICK_PERIOD_MINUTES = 0.5; // 30 seconds
@@ -88,6 +89,9 @@ export const installScheduler = async (): Promise<void> => {
   if (purged > 0) console.log(`[casper] purged ${purged} stale/stub tasks on startup`);
   // Repair any 'running' tasks left over from a dropped service worker
   await reviveRunningTasks();
+  // A scheduled post left mid-publish by an SW restart is marked failed (never
+  // silently retried) so we can't double-post to the user's timeline.
+  await reviveScheduledPosts();
   const existing = await chrome.alarms.get(SCHEDULER_ALARM);
   if (!existing) {
     await chrome.alarms.create(SCHEDULER_ALARM, {
@@ -100,6 +104,16 @@ export const installScheduler = async (): Promise<void> => {
 
 export const handleTick = async (): Promise<void> => {
   try {
+    // Scheduled posts publish at their scheduled time regardless of the Active
+    // pill (the user scheduled them explicitly). Handle this FIRST, and keep it
+    // isolated from the autopilot: skip while a post is mid-publish or while an
+    // autopilot task is in flight, so we never open two tabs at once. At most one
+    // post per tick; when one fires we yield the rest of this tick to it.
+    if (isPublishing()) return;
+    if (!(await hasRunningTask())) {
+      if (await maybePublishDuePost()) return;
+    }
+
     const settings = await getSettings();
     const schedState = await getSchedulerState();
 

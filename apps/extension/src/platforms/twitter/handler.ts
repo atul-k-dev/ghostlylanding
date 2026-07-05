@@ -11,6 +11,7 @@ import { scanProfile, scanHomeFeed, likeCurrentPost } from './dom.js';
 import { submitComment } from './comment.js';
 import { scanFollowers, followCurrentProfile, getOwnHandle, followBackInList } from './follow.js';
 import { runHomeAutopilot } from './autopilot.js';
+import { publishPost } from './compose.js';
 
 export const installTwitterHandler = (): void => {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -70,6 +71,12 @@ export const installTwitterHandler = (): void => {
             type: 'OWN_HANDLE_RESULT',
             payload: { handle: getOwnHandle() },
           };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'PUBLISH_POST') {
+          const result = await publishPost(req.payload);
+          const resp: ContentResponse = { type: 'PUBLISH_RESULT', payload: result };
           sendResponse(resp);
           return;
         }

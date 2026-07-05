@@ -25,6 +25,12 @@ The **home-feed autopilot** opens one tab, smoothly scrolls your timeline, and a
 - **Repost / Retweet** matching posts.
 - **Quote-tweet** matching posts with a short AI commentary.
 
+## Create & schedule posts
+- **Draft with AI** — describe your post in a line; AI writes the tweet (editable before you schedule), using the same OpenAI setup as replies. Add an optional **link** (auto-unfurled) and **image**.
+- **Schedule by day** — pick a day; Ghostly247 posts it through your own X session that day, the next time your browser is open and signed in. If the browser is closed all day, it goes out the next time you open the extension after that day.
+- **Account type (Free / Pro)** — a toggle sets the post length. Free caps at 280 characters (default, since most accounts are free). Pro (X Premium) unlocks long-form and adds a **Short (≈280) / Medium (≈1,000) / Long (≈4,000)** length picker. The character counter, the AI draft length, and scheduling all follow the selected limit, and the count includes an attached link (23 chars, the way X counts it). On Free, drafts are hard-guaranteed to fit 280 (server retries then trims).
+- **Up to 5 scheduled** at a time. Posts publish even while the engine is paused; delete any scheduled post to cancel it. Live status (Scheduled → Posting → Posted / Failed) in the popup's **Schedule** tab.
+
 ## Targeting & discovery
 - **Target creators** — add handles; Ghostly visits their profile, likes fresh posts, and scans their followers to follow.
 - **Auto follow-back** — periodically follows back people who follow you (whitelist-aware).
