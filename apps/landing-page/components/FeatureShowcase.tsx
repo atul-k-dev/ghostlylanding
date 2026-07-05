@@ -2,12 +2,19 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-type Feature = { title: string; desc: string; icon: React.ReactNode };
+type Feature = {
+  title: string;
+  desc: string;
+  accent: string; // hex, e.g. "#a855f7" — drives the card's color
+  badge: string;
+  badgeIcon: React.ReactNode;
+  icon: React.ReactNode;
+};
 
-const icon = (paths: React.ReactNode) => (
+const mk = (size: number, paths: React.ReactNode) => (
   <svg
-    width="24"
-    height="24"
+    width={size}
+    height={size}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -18,11 +25,81 @@ const icon = (paths: React.ReactNode) => (
     {paths}
   </svg>
 );
+const icon = (paths: React.ReactNode) => mk(24, paths);
+const bico = (paths: React.ReactNode) => mk(12, paths);
+
+// Badge glyphs
+const SHIELD = bico(<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />);
+const STAR = bico(
+  <polygon points="12 2 15 8.2 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 9 8.2" />,
+);
+const SPARKLE = bico(<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />);
+const TREND = bico(
+  <>
+    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+    <polyline points="17 6 23 6 23 12" />
+  </>,
+);
+const TARGET = bico(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="4" />
+  </>,
+);
+const ZAP = bico(<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />);
+const BOOKMARK = bico(<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />);
+const CALENDAR = bico(
+  <>
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </>,
+);
+const PENCIL = bico(<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />);
+const MAIL = bico(
+  <>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m3 7 9 6 9-6" />
+  </>,
+);
+const LOCK = bico(
+  <>
+    <rect x="3" y="11" width="18" height="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </>,
+);
 
 const FEATURES: Feature[] = [
   {
+    title: "Human Pacing",
+    desc: "Random delays keep your account safe and natural.",
+    accent: "#fb7185",
+    badge: "Safe",
+    badgeIcon: SHIELD,
+    icon: icon(
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <polyline points="12 7 12 12 15 14" />
+      </>,
+    ),
+  },
+  {
+    title: "Auto-Like",
+    desc: "Likes the posts that fit your intent.",
+    accent: "#f43f5e",
+    badge: "Smart",
+    badgeIcon: STAR,
+    icon: icon(
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l7.84-7.84a5.5 5.5 0 0 0 0-7.78z" />,
+    ),
+  },
+  {
     title: "AI Replies",
-    desc: "Tone-matched replies, written for you",
+    desc: "Tone-matched replies, written just for you.",
+    accent: "#a855f7",
+    badge: "AI-Powered",
+    badgeIcon: SPARKLE,
     icon: icon(
       <>
         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" />
@@ -31,15 +108,25 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: "Auto-Like",
-    desc: "Likes the posts that fit your intent",
+    title: "Follow-Back",
+    desc: "Follows back your new followers.",
+    accent: "#f59e0b",
+    badge: "Growth",
+    badgeIcon: TREND,
     icon: icon(
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l7.84-7.84a5.5 5.5 0 0 0 0-7.78z" />,
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="m17 11 2 2 4-4" />
+      </>,
     ),
   },
   {
     title: "Auto-Follow",
-    desc: "Follows the right creators for you",
+    desc: "Follows the right creators that match your vibe.",
+    accent: "#22c55e",
+    badge: "Smart",
+    badgeIcon: TARGET,
     icon: icon(
       <>
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -50,24 +137,11 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: "Follow-Back",
-    desc: "Follows back your new followers",
-    icon: icon(
-      <>
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <polyline points="16 11 18 13 22 9" />
-      </>,
-    ),
-  },
-  {
-    title: "Bookmark",
-    desc: "Quietly saves great posts for later",
-    icon: icon(<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />),
-  },
-  {
     title: "Repost",
-    desc: "Amplifies posts worth sharing",
+    desc: "Amplifies posts worth sharing.",
+    accent: "#3b82f6",
+    badge: "Engage",
+    badgeIcon: ZAP,
     icon: icon(
       <>
         <polyline points="17 1 21 5 17 9" />
@@ -78,19 +152,19 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: "Quote-Tweet",
-    desc: "Your take, with AI commentary",
-    icon: icon(
-      <>
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <line x1="7" y1="7.5" x2="15" y2="7.5" />
-        <rect x="7" y="11" width="10" height="6" rx="1" />
-      </>,
-    ),
+    title: "Bookmark",
+    desc: "Quietly saves great posts for later.",
+    accent: "#eab308",
+    badge: "Save",
+    badgeIcon: BOOKMARK,
+    icon: icon(<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />),
   },
   {
     title: "Schedule Posts",
-    desc: "Draft & schedule original posts with AI",
+    desc: "Draft & schedule original posts with AI.",
+    accent: "#8b5cf6",
+    badge: "Plan",
+    badgeIcon: CALENDAR,
     icon: icon(
       <>
         <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -101,18 +175,24 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: "Daily Recap",
-    desc: "An end-of-day email of every action",
+    title: "Quote-Tweet",
+    desc: "Your take, with AI commentary.",
+    accent: "#06b6d4",
+    badge: "Create",
+    badgeIcon: PENCIL,
     icon: icon(
       <>
-        <rect x="3" y="5" width="18" height="14" rx="2" />
-        <path d="m3 7 9 6 9-6" />
+        <path d="M10 11H7a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6c0 2-1 3-3 4" />
+        <path d="M20 11h-3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6c0 2-1 3-3 4" />
       </>,
     ),
   },
   {
     title: "Kill Switch",
-    desc: "One tap pauses everything instantly",
+    desc: "One tap pauses everything instantly.",
+    accent: "#ef4444",
+    badge: "Control",
+    badgeIcon: SHIELD,
     icon: icon(
       <>
         <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
@@ -121,18 +201,24 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: "Human Pacing",
-    desc: "Random delays keep your account safe",
+    title: "Daily Recap",
+    desc: "An end-of-day email of every action.",
+    accent: "#14b8a6",
+    badge: "Insight",
+    badgeIcon: MAIL,
     icon: icon(
       <>
-        <circle cx="12" cy="12" r="9" />
-        <polyline points="12 7 12 12 15 14" />
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m3 7 9 6 9-6" />
       </>,
     ),
   },
   {
     title: "In Your Browser",
-    desc: "Runs as you — no credentials collected",
+    desc: "Runs as you — no credentials collected.",
+    accent: "#3b82f6",
+    badge: "Private",
+    badgeIcon: LOCK,
     icon: icon(
       <>
         <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -144,16 +230,71 @@ const FEATURES: Feature[] = [
   },
 ];
 
+const CHEVRON = (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m9 18 6-6-6-6" />
+  </svg>
+);
+
 function Card({ f }: { f: Feature }) {
+  const a = f.accent;
   return (
-    <div className="group flex items-start gap-3.5 rounded-2xl border border-border bg-card/40 p-4 backdrop-blur-sm transition-colors duration-300 hover:border-accent/40">
-      <div className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-linear-to-br from-accent/25 to-accent/5 text-accent shadow-sm ring-1 ring-inset ring-accent/15 transition-transform duration-300 group-hover:scale-105">
-        {f.icon}
+    <div
+      className="group relative overflow-hidden rounded-2xl border p-4 pl-5 transition-colors duration-300"
+      style={{ borderColor: `${a}26`, background: "#0d0d0f" }}
+    >
+      {/* soft colored glow behind the icon */}
+      <span
+        className="pointer-events-none absolute inset-0"
+        style={{ background: `radial-gradient(150px 100px at 14% 24%, ${a}22, transparent 70%)` }}
+      />
+      {/* left accent bar */}
+      <span
+        className="absolute left-0 inset-y-3 w-1 rounded-r-full"
+        style={{ background: a, boxShadow: `0 0 12px ${a}88` }}
+      />
+
+      <div className="relative flex gap-3.5">
+        <div
+          className="flex h-12 w-12 flex-none items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105"
+          style={{
+            background: `linear-gradient(135deg, ${a}38, ${a}0d)`,
+            border: `1px solid ${a}33`,
+            color: a,
+            boxShadow: `0 0 18px -6px ${a}77`,
+          }}
+        >
+          {f.icon}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-[15px] font-semibold leading-tight text-fg">{f.title}</h3>
+            <span
+              className="flex flex-none items-center gap-1 rounded-full border bg-white/[0.03] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+              style={{ borderColor: `${a}55`, color: a }}
+            >
+              {f.badgeIcon}
+              {f.badge}
+            </span>
+          </div>
+          <p className="mt-1 pr-9 text-[13px] leading-snug text-muted-fg">{f.desc}</p>
+        </div>
       </div>
-      <div className="min-w-0">
-        <p className="text-[15px] font-semibold leading-tight text-fg">{f.title}</p>
-        <p className="mt-1 text-[13px] leading-snug text-muted-fg">{f.desc}</p>
-      </div>
+
+      {/* chevron */}
+      <span className="absolute bottom-3.5 right-3 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted-fg transition-colors duration-300 group-hover:text-fg">
+        {CHEVRON}
+      </span>
     </div>
   );
 }
@@ -191,12 +332,12 @@ export function FeatureShowcase() {
   const col2 = FEATURES.filter((_, i) => i % 2 === 1);
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="grid h-full grid-cols-2 gap-4 px-4 py-4 md:px-6 lg:px-8">
+      <div className="grid h-full grid-cols-2 gap-3 px-2.5 py-4 md:px-3 lg:px-4">
         <div className="overflow-hidden">
-          <Column items={col1} direction="down" duration={34} />
+          <Column items={col1} direction="down" duration={38} />
         </div>
         <div className="overflow-hidden">
-          <Column items={col2} direction="up" duration={40} />
+          <Column items={col2} direction="up" duration={44} />
         </div>
       </div>
       {/* Fade the columns into the section background, top and bottom. */}
