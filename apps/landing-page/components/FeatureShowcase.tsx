@@ -280,7 +280,7 @@ function Card({ f }: { f: Feature }) {
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-[15px] font-semibold leading-tight text-fg">{f.title}</h3>
             <span
-              className="flex flex-none items-center gap-1 rounded-full border bg-white/[0.03] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+              className="flex flex-none items-center gap-1 rounded-full border bg-white/3 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
               style={{ borderColor: `${a}55`, color: a }}
             >
               {f.badgeIcon}

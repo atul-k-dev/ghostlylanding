@@ -1,10 +1,9 @@
 import { FAQ } from "@/components/FAQ";
 import { Testimonials } from "@/components/Testimonials";
-import { FeaturesGrid } from "@/components/FeaturesGrid";
+import { Features } from "@/components/Features";
 import { Footer } from "@/components/Footer";
 import { Hero } from "@/components/Hero";
 import { HowToUse } from "@/components/HowToUse";
-import { FeaturesSticky } from "@/components/FeaturesSticky";
 import { Compare } from "@/components/Compare";
 import { Pricing } from "@/components/Pricing";
 import { CTA } from "@/components/CTA";
@@ -55,13 +54,10 @@ export default function HomePage() {
           </div>
         </SectionWrapper>
         <SectionWrapper>
-          <FeaturesGrid />
+          <Features />
         </SectionWrapper>
         <SectionWrapper>
           <HowToUse />
-        </SectionWrapper>
-        <SectionWrapper>
-          <FeaturesSticky />
         </SectionWrapper>
         <SectionWrapper>
           <Compare />
