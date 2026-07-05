@@ -6,12 +6,12 @@ type Feature = { title: string; desc: string; icon: React.ReactNode };
 
 const icon = (paths: React.ReactNode) => (
   <svg
-    width="20"
-    height="20"
+    width="24"
+    height="24"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="2"
+    strokeWidth="1.9"
     strokeLinecap="round"
     strokeLinejoin="round"
   >
@@ -23,7 +23,12 @@ const FEATURES: Feature[] = [
   {
     title: "AI Replies",
     desc: "Tone-matched replies, written for you",
-    icon: icon(<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />),
+    icon: icon(
+      <>
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" />
+        <path d="M8.5 12h.01M12 12h.01M15.5 12h.01" />
+      </>,
+    ),
   },
   {
     title: "Auto-Like",
@@ -49,10 +54,9 @@ const FEATURES: Feature[] = [
     desc: "Follows back your new followers",
     icon: icon(
       <>
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        <polyline points="16 11 18 13 22 9" />
       </>,
     ),
   },
@@ -76,7 +80,13 @@ const FEATURES: Feature[] = [
   {
     title: "Quote-Tweet",
     desc: "Your take, with AI commentary",
-    icon: icon(<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />),
+    icon: icon(
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <line x1="7" y1="7.5" x2="15" y2="7.5" />
+        <rect x="7" y="11" width="10" height="6" rx="1" />
+      </>,
+    ),
   },
   {
     title: "Schedule Posts",
@@ -96,7 +106,7 @@ const FEATURES: Feature[] = [
     icon: icon(
       <>
         <rect x="3" y="5" width="18" height="14" rx="2" />
-        <path d="m4 7 8 6 8-6" />
+        <path d="m3 7 9 6 9-6" />
       </>,
     ),
   },
@@ -115,27 +125,34 @@ const FEATURES: Feature[] = [
     desc: "Random delays keep your account safe",
     icon: icon(
       <>
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
+        <circle cx="12" cy="12" r="9" />
+        <polyline points="12 7 12 12 15 14" />
       </>,
     ),
   },
   {
     title: "In Your Browser",
     desc: "Runs as you — no credentials collected",
-    icon: icon(<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />),
+    icon: icon(
+      <>
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <line x1="2" y1="9" x2="22" y2="9" />
+        <circle cx="5.5" cy="6.5" r="0.6" fill="currentColor" stroke="none" />
+        <circle cx="8" cy="6.5" r="0.6" fill="currentColor" stroke="none" />
+      </>,
+    ),
   },
 ];
 
 function Card({ f }: { f: Feature }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-border bg-card/40 p-4 backdrop-blur-sm">
-      <div className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-accent/10 text-accent">
+    <div className="group flex items-start gap-3.5 rounded-2xl border border-border bg-card/40 p-4 backdrop-blur-sm transition-colors duration-300 hover:border-accent/40">
+      <div className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-linear-to-br from-accent/25 to-accent/5 text-accent shadow-sm ring-1 ring-inset ring-accent/15 transition-transform duration-300 group-hover:scale-105">
         {f.icon}
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-semibold leading-tight text-fg">{f.title}</p>
-        <p className="mt-1 text-xs leading-snug text-muted-fg">{f.desc}</p>
+        <p className="text-[15px] font-semibold leading-tight text-fg">{f.title}</p>
+        <p className="mt-1 text-[13px] leading-snug text-muted-fg">{f.desc}</p>
       </div>
     </div>
   );
@@ -183,8 +200,8 @@ export function FeatureShowcase() {
         </div>
       </div>
       {/* Fade the columns into the section background, top and bottom. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-bg to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-bg to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-linear-to-b from-bg to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-linear-to-t from-bg to-transparent" />
     </div>
   );
 }
