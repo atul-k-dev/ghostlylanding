@@ -1749,7 +1749,7 @@ const HomeFeedSection = ({
               <p className="mt-2 text-[10px] text-casper-ink/40">
                 Ghostly247 posts a short, relevant reply automatically. Bounded by your daily caps &
                 relevance keywords — toggle the Active pill to stop everything instantly. Free plan:
-                5 actions per month (likes + replies + follows). Needs your Ghostly247 server running.
+                50 actions per month (likes + replies + follows). Needs your Ghostly247 server running.
               </p>
             )}
           </div>

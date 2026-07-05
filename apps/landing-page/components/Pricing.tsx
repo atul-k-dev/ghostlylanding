@@ -4,7 +4,7 @@ import { INSTALL_URL } from "@/lib/install";
 import { FadeInStagger } from "./animations/FadeInStagger";
 
 const FREE_FEATURES = [
-  "5 actions per month, resets monthly",
+  "50 actions per month, resets monthly",
   "Every feature unlocked — nothing crippled",
   "Auto-like, follow & follow-back",
   "Action log + one-tap kill switch",

@@ -483,7 +483,7 @@ const runInlineAutopilot = async (
     30_000,
     sessionMs - (Date.now() - sessionStartedAt) - SESSION_END_BUFFER_MS,
   );
-  // The only free-tier limit: 5 actions per month (likes + replies + follows
+  // The only free-tier limit: 50 actions per month (likes + replies + follows
   // combined). Pro is uncapped. Every feature works for both.
   const monthlyLeft = pro
     ? Number.MAX_SAFE_INTEGER

@@ -116,7 +116,7 @@ export function HowToUse() {
         {/* Footer CTA */}
         <FadeIn y={20} className="mt-12 sm:mt-16 flex flex-col items-center text-center gap-4">
           <p className="font-inter text-[14px] text-iron-slate max-w-[460px]">
-            Free to start — 5 actions a month, no card required. Upgrade to Pro for unlimited actions
+            Free to start — 50 actions a month, no card required. Upgrade to Pro for unlimited actions
             whenever you are ready.
           </p>
           <a

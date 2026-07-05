@@ -26,7 +26,7 @@ const FAQS: QA[] = [
   },
   {
     q: "What does the free plan include?",
-    a: "Every feature is unlocked on the free plan \u2014 nothing is crippled. The only limit is 5 actions per month (likes, replies, follows and the rest combined), which resets each month. Pro removes the cap for $14.99/month, and you can cancel any time in one click.",
+    a: "Every feature is unlocked on the free plan \u2014 nothing is crippled. The only limit is 50 actions per month (likes, replies, follows and the rest combined), which resets each month. Pro removes the cap for $14.99/month, and you can cancel any time in one click.",
   },
   {
     q: "What happens to my data if I delete my account?",

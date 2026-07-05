@@ -39,9 +39,9 @@ export interface User {
   preferences: UserPreferences;
 }
 
-/** Free tier limits: 5 actions per month, 1 platform, no AI comments. */
+/** Free tier limits: 50 actions per month, 1 platform, no AI comments. */
 export const FREE_TIER = {
-  monthlyActions: 5,
+  monthlyActions: 50,
   maxPlatforms: 1,
   aiCommentsEnabled: false,
 } as const;
