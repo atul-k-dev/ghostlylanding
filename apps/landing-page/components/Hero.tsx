@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoLoop from "./LogoLoop";
-import PixelCard from "./PixelCard";
+import { FeatureShowcase } from "./FeatureShowcase";
 import { FadeInStagger } from "./animations/FadeInStagger";
 import { NumberTicker } from "./animations/NumberTicker";
 import { GhostLogo } from "./GhostLogo";
@@ -182,31 +182,9 @@ export function Hero() {
             </FadeInStagger>
           </div>
 
-          {/* RIGHT COLUMN */}
-          <div className="w-full md:w-1/2 relative min-h-[450px] shrink-0  hidden sm:flex flex-col bg-bg">
-            {/* Top status bar inside right column */}
-            <div className="absolute top-6 left-6 right-6 flex justify-between items-center z-10">
-              <div className="text-fg/80 text-[10px] font-mono tracking-[0.15em] bg-card/80 px-2 py-1 rounded-sm border border-border">
-                ALL SYSTEMS OPERATIONAL
-              </div>
-
-            </div>
-
-            {/* Product demo video */}
-            <div className="flex-1 w-full h-full min-h-[440px] p-3 md:p-5 lg:p-7">
-              <PixelCard variant="pink" className="w-full h-full rounded-xl">
-                <video
-                  src="/Ghostly.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="metadata"
-                  aria-label="Ghostly247 product demo"
-                  className="absolute inset-0 h-full w-full object-contain"
-                />
-              </PixelCard>
-            </div>
+          {/* RIGHT COLUMN — auto-scrolling showcase of everything Ghostly247 does */}
+          <div className="w-full md:w-1/2 relative min-h-[450px] shrink-0 hidden sm:flex flex-col bg-bg overflow-hidden">
+            <FeatureShowcase />
           </div>
 
           {/* Crosshairs for Hero Bottom */}

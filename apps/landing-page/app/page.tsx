@@ -9,6 +9,7 @@ import { Compare } from "@/components/Compare";
 import { Pricing } from "@/components/Pricing";
 import { CTA } from "@/components/CTA";
 import { Crosshair } from "@/components/Crosshair";
+import PixelCard from "@/components/PixelCard";
 import React from "react";
 
 function SectionWrapper({ children, hideTopBorder }: { children: React.ReactNode, hideTopBorder?: boolean }) {
@@ -33,6 +34,26 @@ export default function HomePage() {
       
       {/* Global wrapper for remaining sections to maintain the 1500px width and side borders */}
       <div className="mx-auto w-full max-w-[1500px] flex flex-col relative z-10 border-x border-border bg-bg">
+        {/* Full-width product demo video, right after the hero */}
+        <SectionWrapper>
+          <div className="p-4 md:p-6 lg:p-8">
+            <PixelCard
+              variant="pink"
+              className="w-full rounded-2xl h-[320px] sm:h-[440px] lg:h-[560px]"
+            >
+              <video
+                src="/Ghostly.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="Ghostly247 product demo"
+                className="absolute inset-0 h-full w-full object-contain"
+              />
+            </PixelCard>
+          </div>
+        </SectionWrapper>
         <SectionWrapper>
           <FeaturesGrid />
         </SectionWrapper>
