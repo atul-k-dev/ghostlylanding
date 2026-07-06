@@ -4,7 +4,7 @@ export default defineManifest({
   manifest_version: 3,
   name: 'Ghostly247 — Twitter/X Growth Autopilot',
   description:
-    'Grow your Twitter/X on autopilot — auto-likes, AI replies, follows, bookmarks, reposts & quotes, all from your own browser.',
+    'Twitter/X growth autopilot — auto-like, AI reply, follow, repost & quote, plus AI create & schedule posts and a daily recap email.',
   version: '2.0.0',
   icons: {
     16: 'icons/icon-16.png',
