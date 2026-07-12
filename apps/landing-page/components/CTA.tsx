@@ -1,6 +1,7 @@
 import React from "react";
 import { FadeInStagger } from "./animations/FadeInStagger";
 import { RevealText } from "./animations/RevealText";
+import { INSTALL_URL } from "@/lib/install";
 
 export function CTA() {
   return (
@@ -36,7 +37,9 @@ export function CTA() {
 
         {/* CTA Button */}
         <a
-          href="#"
+          href={INSTALL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3.5 sm:px-9 sm:py-4 text-[14.5px] sm:text-[15px] font-semibold text-black transition-all hover:bg-gray-200"
         >
           Get Started for Free

@@ -6,6 +6,7 @@ import { FeatureShowcase } from "./FeatureShowcase";
 import { FadeInStagger } from "./animations/FadeInStagger";
 import { NumberTicker } from "./animations/NumberTicker";
 import { GhostLogo } from "./GhostLogo";
+import { INSTALL_URL } from "@/lib/install";
 
 const featureChip = (label: string, icon: React.ReactNode) => ({
   node: (
@@ -102,9 +103,14 @@ export function Hero() {
             ))}
           </nav>
 
-          <button className="hidden md:block border border-white/50 px-5 py-2 text-sm font-medium hover:bg-white hover:text-black transition-colors rounded-sm text-muted-fg">
+          <a
+            href={INSTALL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden md:block border border-white/50 px-5 py-2 text-sm font-medium hover:bg-white hover:text-black transition-colors rounded-sm text-muted-fg"
+          >
             Get Started
-          </button>
+          </a>
 
           {/* Hamburger Menu Button */}
           <button 
@@ -135,9 +141,15 @@ export function Hero() {
                 <a href="#how-to-use" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-accent transition-colors flex items-center justify-center gap-2 w-full py-4 border-b border-border/50">HOW TO USE</a>
                 <a href="#testimonials" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-accent transition-colors flex items-center justify-center gap-2 w-full py-4 border-b border-border/50">TESTIMONIALS</a>
                 <a href="#pricing" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-accent transition-colors flex items-center justify-center gap-2 w-full py-4 border-b border-border/50">PRICING</a>
-                <button className="mt-8 border border-white/50 px-10 py-4 text-sm font-medium hover:bg-white hover:text-black transition-colors rounded-sm text-fg">
+                <a
+                  href={INSTALL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="mt-8 border border-white/50 px-10 py-4 text-sm font-medium hover:bg-white hover:text-black transition-colors rounded-sm text-fg"
+                >
                   Get Started
-                </button>
+                </a>
               </nav>
             </motion.div>
           )}
@@ -175,9 +187,14 @@ export function Hero() {
                 <a href="#features" className="w-full sm:w-auto border border-white/50 hover:border-white text-muted-fg hover:text-fg px-7 py-3.5 text-sm font-medium transition-colors rounded-sm text-center">
                   View Features
                 </a>
-                <button className="w-full sm:w-auto bg-primary text-fg hover:bg-accent px-7 py-3.5 text-sm font-semibold transition-colors rounded-sm text-center">
+                <a
+                  href={INSTALL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto bg-primary text-fg hover:bg-accent px-7 py-3.5 text-sm font-semibold transition-colors rounded-sm text-center"
+                >
                   Get Started Free
-                </button>
+                </a>
               </div>
             </FadeInStagger>
           </div>
