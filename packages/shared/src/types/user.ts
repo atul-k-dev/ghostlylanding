@@ -1,7 +1,21 @@
 import type { Platform, TonePreset } from './platform.js';
 
-export const SUBSCRIPTION_PLANS = ['free', 'monthly'] as const;
+export const SUBSCRIPTION_PLANS = ['free', 'weekly', 'monthly'] as const;
 export type SubscriptionPlan = (typeof SUBSCRIPTION_PLANS)[number];
+
+/** The paid plans, cheapest billing period first. */
+export type PaidPlan = Exclude<SubscriptionPlan, 'free'>;
+export const PAID_PLANS = ['weekly', 'monthly'] as const satisfies readonly PaidPlan[];
+
+/**
+ * Display pricing — one definition so the popup, the server, and the docs can't
+ * drift apart. The actual amount charged is whatever the Stripe Price says;
+ * these strings must be kept in step with it.
+ */
+export const PLAN_PRICING: Record<PaidPlan, { label: string; amount: string; per: string }> = {
+  weekly: { label: 'Pro · Weekly', amount: '$3.99', per: 'week' },
+  monthly: { label: 'Pro · Monthly', amount: '$12.99', per: 'month' },
+};
 
 export const SUBSCRIPTION_STATUSES = [
   'free',

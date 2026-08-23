@@ -52,6 +52,8 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   sessionMinutes: 60,
   // Show the work happening (foreground tabs) by default.
   visibleMode: true,
+  // Browse like a human — open profiles/posts to act, then return to the feed.
+  interactiveMode: true,
   activeHours: { startHour: 9, endHour: 22 },
   accountAgeMonths: { twitter: null, linkedin: null },
   targetCreators: [],

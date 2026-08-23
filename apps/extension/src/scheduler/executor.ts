@@ -554,6 +554,7 @@ const runInlineAutopilot = async (
           quote: doQuote,
           keywords,
           excludeKeywords: hf.excludeKeywords,
+          interactive: settings.interactiveMode !== false,
           freshnessHours: FRESH_WINDOW_HOURS,
           maxLikes,
           maxComments,

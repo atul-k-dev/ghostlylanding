@@ -12,7 +12,8 @@
 import type { ActionType } from '@casper/shared';
 import { TWITTER_SELECTORS as S } from './selectors.js';
 import { waitFor, smoothScrollBy, wait } from './dom.js';
-import { typeIntoComposer } from './comment.js';
+import { typeIntoComposer, submitComment } from './comment.js';
+import { followCurrentProfile } from './follow.js';
 import type { HomeAutopilotOptions, HomeAutopilotResult } from '../common/content-messages.js';
 
 const randomInt = (min: number, max: number): number =>
@@ -36,6 +37,9 @@ const recordAction = async (
 interface PostMeta {
   postId: string;
   postUrl: string;
+  /** In-app path of the post (`/handle/status/id`) — the href on the anchor we
+   *  click to open it without a full page load. */
+  permalinkPath: string;
   authorHandle: string | null;
   text: string;
   publishedAt: string | null;
@@ -59,10 +63,21 @@ const readArticle = (article: HTMLElement): PostMeta | null => {
   return {
     postId: idMatch[1],
     postUrl,
+    permalinkPath: (href.split('?')[0] ?? href).replace(/\/$/, ''),
     authorHandle: handleMatch?.[1] ?? null,
     text: (article.querySelector<HTMLElement>(S.postText)?.textContent ?? '').trim(),
     publishedAt: time?.getAttribute('datetime') ?? null,
   };
+};
+
+/** Re-find a post in the CURRENT DOM by id. After an in-app navigation the feed
+ *  re-renders, so every element captured before the trip is detached — anything
+ *  that wants to keep working on a post has to look it up again. */
+const findArticleById = (postId: string): HTMLElement | null => {
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(S.postArticle))) {
+    if (readArticle(el)?.postId === postId) return el;
+  }
+  return null;
 };
 
 const isFresh = (publishedAt: string | null, hours: number): boolean => {
@@ -368,6 +383,179 @@ const quoteInArticle = async (
   return { posted: false, draftId: draft.id, error: 'quote composer did not clear after submit' };
 };
 
+/* ---------------------------------------------------------------------------
+ * Interactive browsing — leaving the feed and coming back.
+ *
+ * X is a single-page app: clicking a link it already rendered routes with
+ * pushState and never reloads the document, so THIS content script stays alive
+ * for the whole trip. That matters — the service worker is awaiting our single
+ * RUN_HOME reply, and a full page load would tear us down and kill the session.
+ * So we always travel by clicking a real anchor, never by assigning location.
+ * ------------------------------------------------------------------------- */
+
+/** The in-app link inside this post that points at `path`, if X rendered one. */
+const anchorTo = (article: HTMLElement, path: string): HTMLAnchorElement | null => {
+  const want = path.toLowerCase();
+  const links = Array.from(
+    article.querySelectorAll<HTMLAnchorElement>('a[role="link"][href^="/"], a[href^="/"]'),
+  );
+  return (
+    links.find((a) => (a.getAttribute('href') ?? '').split('?')[0]?.toLowerCase() === want) ?? null
+  );
+};
+
+const pathIs = (path: string): boolean =>
+  location.pathname.toLowerCase().replace(/\/$/, '') === path.toLowerCase().replace(/\/$/, '');
+
+/** Click an in-app link and wait for the router to land on `expectedPath`. */
+const clickThrough = async (
+  anchor: HTMLAnchorElement,
+  expectedPath: string,
+  timeoutMs = 8_000,
+): Promise<boolean> => {
+  anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await wait(500);
+  anchor.click();
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (pathIs(expectedPath)) return true;
+    await wait(200);
+  }
+  return false;
+};
+
+/**
+ * Head back to the feed we came from and wait for it to render, restoring the
+ * scroll position so the session resumes where it left off instead of starting
+ * over from the top of the timeline.
+ */
+const returnToFeed = async (fromPath: string, scrollY: number): Promise<boolean> => {
+  if (!pathIs(fromPath)) {
+    history.back();
+    const start = Date.now();
+    while (Date.now() - start < 10_000 && !pathIs(fromPath)) {
+      await wait(250);
+    }
+  }
+  if (!pathIs(fromPath)) {
+    // Back didn't land where we expected — fall back to the Home nav link.
+    const home = document.querySelector<HTMLAnchorElement>('a[data-testid="AppTabBar_Home_Link"]');
+    if (!home) return false;
+    home.click();
+    await wait(1_500);
+  }
+  if (!(await waitFor(S.postArticle, 12_000))) return false;
+  window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior });
+  await wait(700);
+  return true;
+};
+
+interface ProfileVisit {
+  /** True once we've left the feed — every element captured before the trip is
+   *  detached by the time we're back, so the caller must re-query. */
+  navigated: boolean;
+  followed: boolean;
+  /** Their latest post, if we liked it while we were there. */
+  liked: { postUrl: string; postId: string } | null;
+  error?: string;
+}
+
+/**
+ * Open the author's profile, follow them from the profile header, optionally
+ * like their most recent post while we're there, then come back to the feed —
+ * the way a person who spotted someone interesting in their timeline behaves.
+ * Always returns to the feed, even when the follow fails.
+ */
+const visitProfileAndFollow = async (
+  article: HTMLElement,
+  handle: string,
+  alsoLike: boolean,
+): Promise<ProfileVisit> => {
+  const profilePath = `/${handle}`;
+  const anchor = anchorTo(article, profilePath);
+  if (!anchor) {
+    return { navigated: false, followed: false, liked: null, error: 'no author link on post' };
+  }
+
+  const fromPath = location.pathname;
+  const scrollY = window.scrollY;
+
+  if (!(await clickThrough(anchor, profilePath))) {
+    await returnToFeed(fromPath, scrollY);
+    return { navigated: true, followed: false, liked: null, error: 'profile never opened' };
+  }
+
+  const visit: ProfileVisit = { navigated: true, followed: false, liked: null };
+  try {
+    // Look at the profile for a beat before acting, like a person reading it.
+    await wait(randomInt(1_200, 2_400));
+    const outcome = await followCurrentProfile();
+    visit.followed = outcome.followed;
+    if (!outcome.followed && outcome.error) visit.error = outcome.error;
+
+    if (alsoLike) {
+      const top = await waitFor<HTMLElement>(S.postArticle, 6_000);
+      const topMeta = top ? readArticle(top) : null;
+      if (top && topMeta && (await likeInArticle(top)) === 'liked') {
+        visit.liked = { postUrl: topMeta.postUrl, postId: topMeta.postId };
+      }
+    }
+  } catch (err) {
+    visit.error = err instanceof Error ? err.message : 'profile visit failed';
+  } finally {
+    await wait(randomInt(600, 1_400));
+    await returnToFeed(fromPath, scrollY);
+  }
+  return visit;
+};
+
+/**
+ * Open the post's own page and reply there, then come back — what someone does
+ * when a post is worth more than a scroll-past. The draft is generated BEFORE
+ * we navigate so we're never parked on the post page waiting on the network.
+ */
+const replyOnPostPage = async (
+  article: HTMLElement,
+  meta: PostMeta,
+  platform: string,
+): Promise<{ navigated: boolean; posted: boolean; draftId?: string; error?: string }> => {
+  const anchor = anchorTo(article, meta.permalinkPath);
+  if (!anchor) return { navigated: false, posted: false, error: 'no permalink on post' };
+
+  const draft = await generateDraft(platform, meta.text, meta.postUrl);
+  if (!draft.ok) return { navigated: false, posted: false, error: draft.error };
+
+  const fromPath = location.pathname;
+  const scrollY = window.scrollY;
+
+  if (!(await clickThrough(anchor, meta.permalinkPath))) {
+    await returnToFeed(fromPath, scrollY);
+    return { navigated: true, posted: false, draftId: draft.id, error: 'post page never opened' };
+  }
+
+  try {
+    // Read the post first, then reply in its own inline composer.
+    await wait(randomInt(1_000, 2_000));
+    const r = await submitComment(draft.draftText);
+    return {
+      navigated: true,
+      posted: r.posted,
+      draftId: draft.id,
+      ...(r.error ? { error: r.error } : {}),
+    };
+  } catch (err) {
+    return {
+      navigated: true,
+      posted: false,
+      draftId: draft.id,
+      error: err instanceof Error ? err.message : 'reply flow error',
+    };
+  } finally {
+    await wait(randomInt(600, 1_200));
+    await returnToFeed(fromPath, scrollY);
+  }
+};
+
 export const runHomeAutopilot = async (
   opts: HomeAutopilotOptions,
 ): Promise<HomeAutopilotResult> => {
@@ -554,7 +742,12 @@ export const runHomeAutopilot = async (
         }
       }
 
-      // AUTO-REPLY (generate + post inline)
+      // AUTO-REPLY — on the post's own page when interactive, otherwise in the
+      // timeline's reply modal. `live` is this post's element in the CURRENT
+      // DOM: a trip off the feed detaches `article`, so anything after an
+      // excursion has to work from the re-queried node instead.
+      let live: HTMLElement | null = article;
+      let didNavigate = false;
       if (
         opts.comment &&
         meta.text &&
@@ -563,7 +756,13 @@ export const runHomeAutopilot = async (
         total() < opts.totalBudget
       ) {
         try {
-          const r = await commentInArticle(article, meta, opts.platform);
+          const r = opts.interactive
+            ? await replyOnPostPage(article, meta, opts.platform)
+            : { navigated: false, ...(await commentInArticle(article, meta, opts.platform)) };
+          if (r.navigated) {
+            didNavigate = true;
+            live = findArticleById(meta.postId);
+          }
           if (r.posted) {
             result.commented.push({
               postUrl: meta.postUrl,
@@ -583,23 +782,54 @@ export const runHomeAutopilot = async (
           }
         } catch (err) {
           dismissComposer();
+          // An interactive reply that threw may have left the feed anyway, so
+          // treat this post's element as stale rather than clicking a dead node.
+          if (opts.interactive) {
+            didNavigate = true;
+            live = findArticleById(meta.postId);
+          }
           result.commentError = err instanceof Error ? err.message : 'comment flow error';
         }
       }
 
-      // FOLLOW (best-effort inline)
-      if (opts.follow && follows < opts.maxFollows && meta.authorHandle && total() < opts.totalBudget) {
+      // FOLLOW — open their profile and follow from the header the way a person
+      // would (interactive), otherwise use the tweet's ••• menu without leaving.
+      if (
+        opts.follow &&
+        live &&
+        follows < opts.maxFollows &&
+        meta.authorHandle &&
+        total() < opts.totalBudget
+      ) {
+        const profileUrl = `https://x.com/${meta.authorHandle}`;
         try {
-          const r = await followAuthorInline(article);
-          if (r === 'followed') {
-            result.followed.push({
-              handle: meta.authorHandle,
-              profileUrl: `https://x.com/${meta.authorHandle}`,
-            });
+          if (opts.interactive) {
+            // Give their latest post a like while we're on the profile — but
+            // only if liking is on and both budgets can absorb the extra action.
+            const alsoLike =
+              opts.like && likes < opts.maxLikes && total() + 1 < opts.totalBudget;
+            const visit = await visitProfileAndFollow(live, meta.authorHandle, alsoLike);
+            if (visit.navigated) didNavigate = true;
+            if (visit.followed) {
+              result.followed.push({ handle: meta.authorHandle, profileUrl });
+              follows++;
+              await recordAction(opts.platform, 'follow', {
+                handle: meta.authorHandle,
+                profileUrl,
+              });
+            }
+            if (visit.liked) {
+              result.liked.push({ ...visit.liked, authorHandle: meta.authorHandle });
+              likes++;
+              await recordAction(opts.platform, 'like', visit.liked);
+            }
+            if (visit.followed || visit.liked) await pause();
+          } else if ((await followAuthorInline(live)) === 'followed') {
+            result.followed.push({ handle: meta.authorHandle, profileUrl });
             follows++;
             await recordAction(opts.platform, 'follow', {
               handle: meta.authorHandle,
-              profileUrl: `https://x.com/${meta.authorHandle}`,
+              profileUrl,
             });
             await pause();
           }
@@ -607,6 +837,10 @@ export const runHomeAutopilot = async (
           /* skip this follow */
         }
       }
+
+      // A trip off the feed re-renders the timeline, so every element captured
+      // for this pass is detached now. Restart the pass and re-query.
+      if (didNavigate) break;
     }
 
     if (!budgetLeft()) break;

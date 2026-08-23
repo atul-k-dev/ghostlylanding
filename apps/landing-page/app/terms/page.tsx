@@ -115,7 +115,7 @@ export default function TermsPage() {
 
       <H2>8. Subscriptions &amp; billing</H2>
       <UL>
-        <li>Ghostly247 offers a free tier and a paid &ldquo;Pro&rdquo; plan at $14.99/month.</li>
+        <li>Ghostly247 offers a free tier and a paid &ldquo;Pro&rdquo; plan, billed at $12.99/month or $3.99/week.</li>
         <li>Payments are processed by Stripe. Subscriptions renew automatically until canceled.</li>
         <li>You can cancel anytime from the billing portal; access continues until the period ends.</li>
         <li>Except where required by law, payments are non-refundable.</li>

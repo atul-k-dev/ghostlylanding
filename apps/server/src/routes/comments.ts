@@ -10,6 +10,7 @@ import { rateLimit } from '../middleware/rate-limit.js';
 import { generateCommentDraft } from '../openai/generate-comment.js';
 import { moderate } from '../openai/moderation.js';
 import { hasOpenAI } from '../openai/client.js';
+import { humanizeReply } from '../openai/humanize.js';
 import { CommentDraftModel } from '../models/comment-draft.model.js';
 import { UserModel } from '../models/user.model.js';
 import type { Types } from 'mongoose';
@@ -90,7 +91,9 @@ commentsRouter.post(
           id: existing._id.toString(),
           platform: existing.platform,
           postUrl: existing.postUrl,
-          draftText: existing.draftText,
+          // Sanitize on the way out too — a draft stored before the humanizer
+          // existed would otherwise still be served with its quote marks.
+          draftText: humanizeReply(existing.draftText),
           tone: existing.tone,
           status: existing.status,
           createdAt: existing.createdAt.toISOString(),

@@ -46,6 +46,7 @@ export const config = {
   stripeSecretKey: optional('STRIPE_SECRET_KEY'),
   stripeWebhookSecret: optional('STRIPE_WEBHOOK_SECRET'),
   stripePrices: {
+    weekly: optional('STRIPE_PRICE_WEEKLY'),
     monthly: optional('STRIPE_PRICE_MONTHLY'),
   },
 } as const;

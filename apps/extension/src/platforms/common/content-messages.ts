@@ -90,6 +90,13 @@ export interface HomeAutopilotOptions {
   keywords: string[];
   /** Blocklist — posts containing any of these are skipped entirely. */
   excludeKeywords: string[];
+  /**
+   * Navigate the way a person does: open the author's profile to follow them
+   * there (and glance at their latest post), open a post's own page to reply on
+   * it, then come back to the feed. Navigation is in-app only (clicking the
+   * links X already renders) so this content script survives the trip.
+   */
+  interactive: boolean;
   freshnessHours: number;
   maxLikes: number;
   maxComments: number;

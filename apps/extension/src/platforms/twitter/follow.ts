@@ -133,6 +133,15 @@ export const scanFollowers = async (max = 20): Promise<ScannedFollower[]> => {
   return out;
 };
 
+/**
+ * Profile-header lookups scope to the main column: a profile page also renders
+ * "Follow" buttons in the right-hand "Who to follow" sidebar, and an unscoped
+ * query can pick one of those and follow a stranger instead of the person whose
+ * profile we opened.
+ */
+const profileRoot = (): ParentNode =>
+  document.querySelector('[data-testid="primaryColumn"]') ?? document;
+
 const findFollowButton = (root: ParentNode = document): HTMLButtonElement | null => {
   // Prefer testid match on the focal profile header.
   const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>(S.followButton));
@@ -157,21 +166,21 @@ export const followCurrentProfile = async (): Promise<{
   // Wait for the profile primary column to render at least one follow/unfollow button.
   const start = Date.now();
   while (Date.now() - start < 15_000) {
-    if (isCurrentlyFollowing()) return { followed: false, alreadyFollowing: true };
-    if (findFollowButton()) break;
+    if (isCurrentlyFollowing(profileRoot())) return { followed: false, alreadyFollowing: true };
+    if (findFollowButton(profileRoot())) break;
     await sleep(300);
   }
 
-  if (isCurrentlyFollowing()) return { followed: false, alreadyFollowing: true };
+  if (isCurrentlyFollowing(profileRoot())) return { followed: false, alreadyFollowing: true };
 
-  const btn = findFollowButton();
+  const btn = findFollowButton(profileRoot());
   if (!btn) return { followed: false, alreadyFollowing: false, error: 'follow button not found' };
 
   btn.click();
 
   for (let i = 0; i < 14; i++) {
     await sleep(350);
-    if (isCurrentlyFollowing()) return { followed: true, alreadyFollowing: false };
+    if (isCurrentlyFollowing(profileRoot())) return { followed: true, alreadyFollowing: false };
   }
   return { followed: false, alreadyFollowing: false, error: 'state did not flip to following' };
 };

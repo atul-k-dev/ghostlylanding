@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import type { SubscriptionPlan } from '@casper/shared';
+import { PAID_PLANS, type SubscriptionPlan } from '@casper/shared';
 import { config } from '../config.js';
 
 let cached: Stripe | null = null;
@@ -28,7 +28,7 @@ export const priceIdForPlan = (plan: SubscriptionPlan): string | null => {
 
 /** Reverse lookup: given a Price ID, return the plan key (or null). */
 export const planForPriceId = (priceId: string): SubscriptionPlan | null => {
-  for (const plan of ['monthly'] as const) {
+  for (const plan of PAID_PLANS) {
     if (config.stripePrices[plan] === priceId) return plan;
   }
   return null;

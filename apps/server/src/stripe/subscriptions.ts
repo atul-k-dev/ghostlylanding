@@ -1,4 +1,5 @@
 import type Stripe from 'stripe';
+import type { SubscriptionPlan } from '@casper/shared';
 import { UserModel } from '../models/user.model.js';
 import { planForPriceId } from './client.js';
 
@@ -24,6 +25,15 @@ const mapStatus = (s: Stripe.Subscription.Status): string => {
 };
 
 /**
+ * Fallback plan when the Price ID isn't one we have configured (a legacy price,
+ * or an env var that isn't set on this deployment). Now that there are two
+ * billing periods, read the interval off the price rather than assuming monthly
+ * — otherwise a weekly subscriber gets labelled as monthly in the UI.
+ */
+const planFromInterval = (price: Stripe.Price | undefined): SubscriptionPlan =>
+  price?.recurring?.interval === 'week' ? 'weekly' : 'monthly';
+
+/**
  * Persist a Stripe subscription onto the user. Shared by the webhook (async,
  * canonical) and the checkout confirm endpoint (sync, so Pro is granted the
  * instant the user returns even if the webhook is slow / not running locally).
@@ -44,7 +54,7 @@ export const applySubscription = async (userId: string, sub: Stripe.Subscription
     {
       stripeSubscriptionId: sub.id,
       subscriptionStatus: status === 'trialing' ? 'trialing' : mapStatus(status),
-      subscriptionPlan: plan ?? 'monthly',
+      subscriptionPlan: plan ?? planFromInterval(item?.price),
       currentPeriodEnd: periodEndUnix ? new Date(periodEndUnix * 1000) : null,
     },
     { new: true },

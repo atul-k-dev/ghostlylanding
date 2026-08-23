@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ok, err, isPro, SUBSCRIPTION_PLANS } from '@casper/shared';
+import { ok, err, isPro, SUBSCRIPTION_PLANS, PAID_PLANS } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -15,7 +15,7 @@ export const billingRouter = Router();
 
 const checkoutSchema = z.object({
   plan: z.enum(SUBSCRIPTION_PLANS).refine((p) => p !== 'free', {
-    message: 'plan must be monthly',
+    message: `plan must be one of: ${PAID_PLANS.join(', ')}`,
   }),
 });
 

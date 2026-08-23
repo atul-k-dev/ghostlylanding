@@ -2,6 +2,7 @@ import type OpenAI from 'openai';
 import type { TonePreset } from '@casper/shared';
 import { getOpenAI } from './client.js';
 import { buildPostPrompt, postMaxTokens } from './prompts.js';
+import { stripWrappingQuotes } from './humanize.js';
 
 /**
  * X counts an attached link as 23 chars (t.co) and the publisher joins it with
@@ -69,7 +70,7 @@ export const generatePostText = async ({
       reasoning_effort: 'low',
       messages,
     });
-    return stripQuotes(c.choices[0]?.message?.content?.trim() ?? '');
+    return stripWrappingQuotes(c.choices[0]?.message?.content?.trim() ?? '');
   };
 
   let text = await complete([
@@ -97,13 +98,3 @@ export const generatePostText = async ({
   return text;
 };
 
-const stripQuotes = (s: string): string => {
-  const trimmed = s.trim();
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith('“') && trimmed.endsWith('”'))
-  ) {
-    return trimmed.slice(1, -1).trim();
-  }
-  return trimmed;
-};

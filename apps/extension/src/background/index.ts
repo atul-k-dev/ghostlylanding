@@ -10,7 +10,7 @@ import type {
   CommentLength,
   ActionType,
 } from '@casper/shared';
-import { PLATFORMS, ACTION_TYPES, TONE_PRESETS, COMMENT_LENGTHS, isPro, bumpMonthly } from '@casper/shared';
+import { PLATFORMS, ACTION_TYPES, TONE_PRESETS, COMMENT_LENGTHS, PAID_PLANS, isPro, bumpMonthly } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
 import {
   getAuth,
@@ -638,7 +638,7 @@ async function handleRefreshMe() {
 
 async function handleStartCheckout(payload: unknown) {
   const { plan } = (payload ?? {}) as { plan?: string };
-  if (!plan || !['monthly'].includes(plan)) {
+  if (!plan || !(PAID_PLANS as readonly string[]).includes(plan)) {
     return { ok: false, error: { code: 'invalid_plan', message: 'plan required' } };
   }
   const resp = await apiFetch<{ url: string; sessionId: string }>(

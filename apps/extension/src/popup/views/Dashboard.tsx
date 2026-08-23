@@ -12,7 +12,14 @@ import type {
   PostLength,
   User,
 } from '@casper/shared';
-import { TONE_PRESETS, COMMENT_LENGTHS, FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
+import {
+  TONE_PRESETS,
+  COMMENT_LENGTHS,
+  FREE_TIER,
+  PLAN_PRICING,
+  isPro,
+  monthlyActionsUsed,
+} from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import {
   getSettings,
@@ -538,6 +545,33 @@ const SettingsTab = ({
         </label>
         <p className="mt-1.5 text-[10px] text-casper-ink/40">
           Turn off to let Ghostly247 work quietly in the background.
+        </p>
+      </Section>
+
+      <Section
+        title="Browse like a human"
+        subtitle="Open profiles and posts to act on them, then head back to the feed."
+      >
+        <label className="flex items-center justify-between">
+          <span className="text-xs font-medium text-casper-ink">Interactive browsing</span>
+          <button
+            type="button"
+            onClick={() =>
+              onChange({ ...settings, interactiveMode: !settings.interactiveMode })
+            }
+            aria-pressed={settings.interactiveMode}
+            className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
+              settings.interactiveMode
+                ? 'bg-emerald-500/15 text-emerald-300'
+                : 'bg-casper-ink/10 text-casper-ink/60'
+            }`}
+          >
+            {settings.interactiveMode ? 'On' : 'Off'}
+          </button>
+        </label>
+        <p className="mt-1.5 text-[10px] text-casper-ink/40">
+          Follows open the creator&rsquo;s profile (and give their latest post a like), replies
+          open the post&rsquo;s own page. Turn off to do everything from the timeline instead.
         </p>
       </Section>
 
@@ -1257,7 +1291,14 @@ const PostRow = ({ post, onDelete }: { post: ScheduledPost; onDelete: () => void
 
 const PLAN_LABELS: Record<SubscriptionPlan, { label: string; price: string }> = {
   free: { label: 'Free', price: '$0' },
-  monthly: { label: 'Pro · Monthly', price: '$14.99/mo' },
+  weekly: {
+    label: PLAN_PRICING.weekly.label,
+    price: `${PLAN_PRICING.weekly.amount}/wk`,
+  },
+  monthly: {
+    label: PLAN_PRICING.monthly.label,
+    price: `${PLAN_PRICING.monthly.amount}/mo`,
+  },
 };
 
 const PlanSection = () => {
@@ -1393,11 +1434,18 @@ const PlanSection = () => {
       ) : (
         <div className="space-y-1.5">
           <UpgradeButton
-            label="Monthly · $14.99"
-            sub="Cancel anytime"
+            label={`Monthly · ${PLAN_PRICING.monthly.amount}`}
+            sub="Best value · cancel anytime"
             highlight={true}
             busy={busy === 'monthly'}
             onClick={() => upgrade('monthly')}
+          />
+          <UpgradeButton
+            label={`Weekly · ${PLAN_PRICING.weekly.amount}`}
+            sub="Try it for a week · cancel anytime"
+            highlight={false}
+            busy={busy === 'weekly'}
+            onClick={() => upgrade('weekly')}
           />
         </div>
       )}

@@ -1,6 +1,7 @@
 import type { Platform, TonePreset, CommentLength } from '@casper/shared';
 import { getOpenAI } from './client.js';
 import { buildCommentPrompt, commentMaxTokens } from './prompts.js';
+import { humanizeReply } from './humanize.js';
 
 // GPT-5.4-mini — fast + cheap, a big step up from gpt-4o-mini for short replies.
 // (5.x API: `max_tokens` is rejected — use `max_completion_tokens`. This mini
@@ -24,7 +25,9 @@ export const generateCommentDraft = async ({
   const { system } = buildCommentPrompt({ platform, tone, length });
   const completion = await client.chat.completions.create({
     model: MODEL,
-    temperature: 0.7,
+    // High enough that replies don't collapse into the same few constructions
+    // post after post — repetition is what makes a feed of replies read as bot.
+    temperature: 0.9,
     max_completion_tokens: commentMaxTokens(length),
     messages: [
       { role: 'system', content: system },
@@ -32,17 +35,8 @@ export const generateCommentDraft = async ({
     ],
   });
   const text = completion.choices[0]?.message?.content?.trim() ?? '';
-  return stripQuotes(text);
+  // Strip the punctuation tells (quote marks, curly apostrophes, em dashes)
+  // the model slips in even when the prompt forbids them.
+  return humanizeReply(text);
 };
 
-const stripQuotes = (s: string): string => {
-  // Drop wrapping quotes models sometimes return
-  const trimmed = s.trim();
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith('“') && trimmed.endsWith('”'))
-  ) {
-    return trimmed.slice(1, -1).trim();
-  }
-  return trimmed;
-};

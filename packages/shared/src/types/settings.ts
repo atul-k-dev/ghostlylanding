@@ -80,6 +80,13 @@ export interface ExtensionSettings {
    * works quietly in background tabs.
    */
   visibleMode: boolean;
+  /**
+   * Browse like a person instead of doing everything from the timeline: open an
+   * author's profile to follow them there, open a post's own page to reply on
+   * it, then come back to the feed. Off = every action happens inline in the
+   * feed (faster, but every action looks identical to X).
+   */
+  interactiveMode: boolean;
   activeHours: ActiveHours;
   accountAgeMonths: AccountAge;
   targetCreators: TargetCreator[];
