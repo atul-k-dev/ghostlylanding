@@ -22,7 +22,7 @@ export const buildManifest = (apiBaseUrl: string) => {
     name: 'Ghostly247 — Twitter/X Growth Autopilot',
     description:
       'Twitter/X growth autopilot — auto-like, AI reply, follow, repost & quote, plus AI create & schedule posts and a daily recap email.',
-    version: '2.0.0',
+    version: '2.1.0',
     icons: {
       16: 'icons/icon-16.png',
       32: 'icons/icon-32.png',
