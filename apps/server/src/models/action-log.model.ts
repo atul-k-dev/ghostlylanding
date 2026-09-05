@@ -4,6 +4,8 @@ import { ACTION_TYPES, PLATFORMS } from '@casper/shared';
 const actionLogSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    /** Client-generated dedupe key; absent on entries from older extensions. */
+    clientId: { type: String, default: null },
     platform: { type: String, enum: PLATFORMS, required: true },
     actionType: { type: String, enum: ACTION_TYPES, required: true },
     targetUrl: { type: String, required: true },
@@ -16,5 +18,11 @@ const actionLogSchema = new Schema(
 );
 
 actionLogSchema.index({ userId: 1, timestamp: -1 });
+// Idempotency: one row per (user, clientId). Partial so the many legacy rows
+// with no clientId don't all collide on null.
+actionLogSchema.index(
+  { userId: 1, clientId: 1 },
+  { unique: true, partialFilterExpression: { clientId: { $type: 'string' } } },
+);
 
 export const ActionLogModel = model('ActionLog', actionLogSchema);

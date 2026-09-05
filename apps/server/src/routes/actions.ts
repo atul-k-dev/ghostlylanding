@@ -7,11 +7,14 @@ import { validate } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rate-limit.js';
 import { ActionLogModel } from '../models/action-log.model.js';
 import { UserModel } from '../models/user.model.js';
-import type { Types } from 'mongoose';
+import { Types } from 'mongoose';
 
 export const actionsRouter = Router();
 
 const entrySchema = z.object({
+  /** Dedupe key from the client. Optional: extensions older than this change
+   *  don't send one, and those entries fall back to plain inserts. */
+  clientId: z.string().min(8).max(64).optional(),
   platform: z.enum(PLATFORMS),
   actionType: z.enum(ACTION_TYPES),
   targetUrl: z.string().url().max(2048),
@@ -63,8 +66,12 @@ actionsRouter.post(
         { $set: { 'preferences.timezone': timezone } },
       ).catch((e) => req.log.warn({ err: e }, 'timezone sync failed (non-fatal)'));
     }
+    // A real ObjectId, not the JWT's string: bulkWrite filters bypass Mongoose's
+    // casting, so a string here would match nothing and re-insert every entry.
+    const userId = new Types.ObjectId(req.auth.sub);
     const docs = entries.map((e) => ({
-      userId: req.auth!.sub,
+      userId,
+      clientId: e.clientId ?? null,
       platform: e.platform,
       actionType: e.actionType,
       targetUrl: e.targetUrl,
@@ -73,8 +80,42 @@ actionsRouter.post(
       errorMessage: e.errorMessage ?? null,
       timestamp: new Date(e.timestamp),
     }));
-    const inserted = await ActionLogModel.insertMany(docs, { ordered: false });
-    const successCount = docs.filter((d) => d.success).length;
+
+    // Only entries that were actually NEW may move the monthly counter. The
+    // extension keeps its buffer whenever a flush appears to fail — including a
+    // lost response to a request we already committed — so a retry re-sends
+    // actions we already have. Counting those again would burn a free user's
+    // 50-action allowance on work Ghostly did once.
+    const identified = docs.filter((d) => d.clientId !== null);
+    const anonymous = docs.filter((d) => d.clientId === null);
+
+    let insertedCount = 0;
+    let successCount = 0;
+
+    if (identified.length > 0) {
+      // Upsert on (userId, clientId): `upsertedIds` tells us exactly which rows
+      // were new, which a plain insertMany with duplicate-key errors would not.
+      const result = await ActionLogModel.bulkWrite(
+        identified.map((d) => ({
+          updateOne: {
+            filter: { userId: d.userId, clientId: d.clientId },
+            update: { $setOnInsert: d },
+            upsert: true,
+          },
+        })),
+        { ordered: false },
+      );
+      const newIndexes = new Set(Object.keys(result.upsertedIds ?? {}).map(Number));
+      insertedCount += newIndexes.size;
+      successCount += identified.filter((d, i) => newIndexes.has(i) && d.success).length;
+    }
+
+    if (anonymous.length > 0) {
+      // Legacy clients: no dedupe key to work with, so behave as before.
+      const inserted = await ActionLogModel.insertMany(anonymous, { ordered: false });
+      insertedCount += inserted.length;
+      successCount += anonymous.filter((d) => d.success).length;
+    }
     let monthlyActionCount: number | undefined;
     if (successCount > 0) {
       const periodKey = currentPeriodKey();
@@ -93,7 +134,8 @@ actionsRouter.post(
     }
     res.json(
       ok({
-        inserted: inserted.length,
+        inserted: insertedCount,
+        duplicates: docs.length - insertedCount,
         ...(monthlyActionCount !== undefined ? { monthlyActionCount } : {}),
       }),
     );

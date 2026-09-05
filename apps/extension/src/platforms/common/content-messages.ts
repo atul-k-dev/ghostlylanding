@@ -3,6 +3,10 @@
  * scripts. Distinct from the popup ↔ SW envelope in @casper/shared.
  */
 
+/** Growth-scan payloads — defined next to the scraper that produces them. */
+export type { ProfileStats, ScrapedOutcome } from '../twitter/stats.js';
+import type { ProfileStats, ScrapedOutcome } from '../twitter/stats.js';
+
 export interface ScannedPost {
   postUrl: string;
   postId: string;
@@ -63,7 +67,17 @@ export type ContentRequest =
         link?: string;
         /** Optional image as a data URL, attached to the compose box. */
         imageDataUrl?: string | null;
+        /** Follow-up tweets, posted as one thread after `text`. */
+        thread?: string[];
       };
+    }
+  | {
+      type: 'READ_PROFILE_STATS';
+      payload: Record<string, never>;
+    }
+  | {
+      type: 'COLLECT_OWN_POSTS';
+      payload: { handle: string; max: number };
     }
   | {
       type: 'FOLLOW_BACK';
@@ -119,7 +133,15 @@ export interface HomeAutopilotOptions {
    * stop on staleness (the home feed is infinite + fresh).
    */
   stopAfterStaleRun: number;
-  /** Post IDs to skip for commenting (already replied to). */
+  /**
+   * Hold replies for review instead of posting them. The draft is generated the
+   * same way, then handed to the background for the queue — nothing is typed
+   * into X, so no action is recorded and no cap is spent until the user says yes.
+   */
+  replyApproval: boolean;
+  /** Skip posts that are replies inside someone else's thread (low reach). */
+  skipReplies: boolean;
+  /** Post IDs to skip for commenting (already replied to, or awaiting review). */
   skipCommentIds: string[];
   /** Post IDs to skip for quote-tweeting (already quoted). */
   skipQuoteIds: string[];
@@ -130,6 +152,8 @@ export interface HomeAutopilotOptions {
 export interface HomeAutopilotResult {
   liked: { postUrl: string; postId: string; authorHandle: string | null }[];
   commented: { postUrl: string; postId: string; draftId?: string }[];
+  /** Replies drafted and parked for review (approval mode) — NOT posted. */
+  queued: { postUrl: string; postId: string; draftId?: string }[];
   followed: { handle: string; profileUrl: string | null }[];
   bookmarked: { postUrl: string; postId: string }[];
   reposted: { postUrl: string; postId: string }[];
@@ -179,6 +203,14 @@ export type ContentResponse =
   | {
       type: 'PUBLISH_RESULT';
       payload: { posted: boolean; error?: string };
+    }
+  | {
+      type: 'PROFILE_STATS_RESULT';
+      payload: { stats: ProfileStats | null };
+    }
+  | {
+      type: 'OWN_POSTS_RESULT';
+      payload: { outcomes: ScrapedOutcome[] };
     }
   | {
       type: 'FOLLOW_BACK_RESULT';

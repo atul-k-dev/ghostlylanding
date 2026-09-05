@@ -18,7 +18,12 @@ export const config = {
   port: Number(required('PORT', '4000')),
   logLevel: required('LOG_LEVEL', 'debug'),
   mongoUri: optional('MONGODB_URI'),
-  mongoMaxPool: Number(required('MONGO_MAX_POOL_SIZE', '50')),
+  // 10, not 50: on a shared Atlas cluster the ~500-connection ceiling is split
+  // across every app pointed at it. A handful of projects each claiming 50 is
+  // how you exhaust it — and then EVERY project on the cluster starts failing
+  // to connect, including this one. This workload is short HTTP requests; 10 is
+  // ample. Raise it only on a dedicated cluster.
+  mongoMaxPool: Number(required('MONGO_MAX_POOL_SIZE', '10')),
   mongoMinPool: Number(required('MONGO_MIN_POOL_SIZE', '2')),
   jwtSecret: optional('JWT_SECRET'),
   jwtExpiresIn: required('JWT_EXPIRES_IN', '30d'),

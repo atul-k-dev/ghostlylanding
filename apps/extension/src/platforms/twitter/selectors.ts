@@ -5,7 +5,12 @@
  * NOTE: Twitter ships UI changes frequently. Expect to maintain this file.
  */
 
-export const TWITTER_SELECTORS = {
+/**
+ * The selectors we ship in the bundle. Treated as the FALLBACK: the server can
+ * serve a newer map (see lib/selector-config.ts), so an X DOM change is fixed by
+ * a server deploy in minutes rather than a Chrome Web Store review in days.
+ */
+export const TWITTER_SELECTOR_DEFAULTS = {
   /** A single tweet article in any timeline. */
   postArticle: 'article[data-testid="tweet"]',
   /** Timestamp element on a post — its <a> ancestor is the permalink. */
@@ -55,12 +60,83 @@ export const TWITTER_SELECTORS = {
   unfollowButton: 'button[data-testid$="-unfollow"], button[data-testid="unfollow"]',
   /** Fallback for older variants via aria-label. */
   followButtonAria: 'button[aria-label^="Follow @" i]',
+
+  /* -- Composer: threads --------------------------------------------------- */
+  /** The "+" that appends another tweet to the thread in the composer. */
+  composeAddButton: '[data-testid="addButton"]',
+
+  /* -- Growth scoreboard: profile header counters -------------------------- */
+  /** The main content column — where the "N posts" subtitle lives. */
+  primaryColumn: '[data-testid="primaryColumn"]',
+  /** "N Followers" link on a profile header. X uses /verified_followers on
+   *  accounts that have it and plain /followers everywhere else. */
+  verifiedFollowersLink: 'a[href$="/verified_followers"]',
+  followersLink: 'a[href$="/followers"]',
+  /** "N Following" link on a profile header. */
+  followingLink: 'a[href$="/following"]',
 } as const;
+
+export type SelectorKey = keyof typeof TWITTER_SELECTOR_DEFAULTS;
+
+/**
+ * The live selector map every DOM module reads. Deliberately mutable and
+ * accessed as `S.someKey` at call time, so applying a remote override updates
+ * every consumer at once without threading config through six modules.
+ */
+export const TWITTER_SELECTORS: Record<SelectorKey, string> = { ...TWITTER_SELECTOR_DEFAULTS };
+
+/** Is this a syntactically valid CSS selector? Checked against a detached node
+ *  so it costs nothing and never touches the page. */
+const isValidSelector = (selector: string): boolean => {
+  try {
+    document.createDocumentFragment().querySelector(selector);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Merge a remote selector map over the bundled one.
+ *
+ * Hostile-input rules, because this arrives over the network and a bad value
+ * would break automation for every user at once:
+ *   - unknown keys are ignored (a remote map can never invent new selectors)
+ *   - non-string / empty values are ignored
+ *   - selectors that don't PARSE are ignored — an invalid one would make every
+ *     querySelector call throw, which is worse than the stale selector it
+ *     replaces
+ * Returns how many overrides were actually applied.
+ */
+export const applySelectorOverrides = (overrides: Record<string, unknown>): number => {
+  let applied = 0;
+  for (const [key, value] of Object.entries(overrides)) {
+    if (!(key in TWITTER_SELECTOR_DEFAULTS)) continue;
+    if (typeof value !== 'string' || value.trim().length === 0) continue;
+    if (!isValidSelector(value)) continue;
+    TWITTER_SELECTORS[key as SelectorKey] = value;
+    applied++;
+  }
+  return applied;
+};
+
+/** Drop every override and go back to what shipped in the bundle. */
+export const resetSelectors = (): void => {
+  Object.assign(TWITTER_SELECTORS, TWITTER_SELECTOR_DEFAULTS);
+};
 
 export const buildProfileUrl = (handle: string): string => {
   const clean = handle.replace(/^@/, '').trim();
   return `https://x.com/${encodeURIComponent(clean)}`;
 };
+
+/**
+ * X search on the **Latest** tab (`f=live`) — reverse-chronological, so the top
+ * of the page is what was posted seconds ago. That ordering is the whole point:
+ * it's what lets Ghostly reply early instead of four hundredth.
+ */
+export const buildSearchUrl = (query: string): string =>
+  `https://x.com/search?q=${encodeURIComponent(query.trim())}&f=live`;
 
 export const buildFollowersUrl = (handle: string): string => {
   const clean = handle.replace(/^@/, '').trim();

@@ -82,6 +82,7 @@ export const maybePublishDuePost = async (): Promise<boolean> => {
           payload: {
             text: due.text,
             ...(due.link ? { link: due.link } : {}),
+            ...(due.thread && due.thread.length > 0 ? { thread: due.thread } : {}),
             imageDataUrl: due.imageDataUrl,
           },
         },

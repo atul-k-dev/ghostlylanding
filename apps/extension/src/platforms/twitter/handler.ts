@@ -12,8 +12,9 @@ import { submitComment } from './comment.js';
 import { scanFollowers, followCurrentProfile, getOwnHandle, followBackInList } from './follow.js';
 import { runHomeAutopilot } from './autopilot.js';
 import { publishPost } from './compose.js';
+import { readProfileStats, collectOwnPostOutcomes } from './stats.js';
 
-export const installTwitterHandler = (): void => {
+export const installTwitterHandler = (ready: Promise<void> = Promise.resolve()): void => {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const req = message as ContentRequest | undefined;
     if (!req || typeof req !== 'object' || typeof req.type !== 'string') {
@@ -21,6 +22,8 @@ export const installTwitterHandler = (): void => {
     }
     (async () => {
       try {
+        // Selector overrides must be in place before the first query runs.
+        await ready;
         if (req.type === 'SCAN_PROFILE') {
           const posts = await scanProfile(20);
           const resp: ContentResponse = { type: 'SCAN_RESULT', payload: { posts } };
@@ -77,6 +80,18 @@ export const installTwitterHandler = (): void => {
         if (req.type === 'PUBLISH_POST') {
           const result = await publishPost(req.payload);
           const resp: ContentResponse = { type: 'PUBLISH_RESULT', payload: result };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'READ_PROFILE_STATS') {
+          const stats = await readProfileStats();
+          const resp: ContentResponse = { type: 'PROFILE_STATS_RESULT', payload: { stats } };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'COLLECT_OWN_POSTS') {
+          const outcomes = await collectOwnPostOutcomes(req.payload.handle, req.payload.max ?? 40);
+          const resp: ContentResponse = { type: 'OWN_POSTS_RESULT', payload: { outcomes } };
           sendResponse(resp);
           return;
         }

@@ -6,6 +6,9 @@ import { rateLimit } from '../middleware/rate-limit.js';
 import { UserModel } from '../models/user.model.js';
 import { ActionLogModel } from '../models/action-log.model.js';
 import { CommentDraftModel } from '../models/comment-draft.model.js';
+import { GrowthSnapshotModel } from '../models/growth-snapshot.model.js';
+import { PostOutcomeModel } from '../models/post-outcome.model.js';
+import { DiagnosticModel } from '../models/diagnostic.model.js';
 import { getStripe, hasStripe } from '../stripe/client.js';
 
 export const accountRouter = Router();
@@ -50,32 +53,32 @@ accountRouter.delete(
       }
     }
 
-    const [actionLogs, drafts] = await Promise.all([
+    // EVERY collection keyed by userId must be listed here. When you add one,
+    // add it here in the same change — "delete my account" is a promise in
+    // FEATURES.md and a legal obligation, not a tidy-up.
+    const [actionLogs, drafts, snapshots, outcomes, diagnostics] = await Promise.all([
       ActionLogModel.deleteMany({ userId }),
       CommentDraftModel.deleteMany({ userId }),
+      GrowthSnapshotModel.deleteMany({ userId }),
+      PostOutcomeModel.deleteMany({ userId }),
+      DiagnosticModel.deleteMany({ userId }),
     ]);
+    // The user document goes last: while it exists the account is still
+    // identifiable, so a failure part-way through leaves data we can retry
+    // deleting rather than orphaned rows no request can reach.
     if (user) await user.deleteOne();
 
-    req.log.info(
-      {
-        userId,
-        deleted: {
-          user: user ? 1 : 0,
-          actionLogs: actionLogs.deletedCount,
-          drafts: drafts.deletedCount,
-        },
-      },
-      'account wiped',
-    );
+    const deleted = {
+      user: user ? 1 : 0,
+      actionLogs: actionLogs.deletedCount,
+      drafts: drafts.deletedCount,
+      growthSnapshots: snapshots.deletedCount,
+      postOutcomes: outcomes.deletedCount,
+      diagnostics: diagnostics.deletedCount,
+    };
 
-    res.json(
-      ok({
-        deleted: {
-          user: user ? 1 : 0,
-          actionLogs: actionLogs.deletedCount,
-          drafts: drafts.deletedCount,
-        },
-      }),
-    );
+    req.log.info({ userId, deleted }, 'account wiped');
+
+    res.json(ok({ deleted }));
   }),
 );

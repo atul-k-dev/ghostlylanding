@@ -6,6 +6,7 @@ import { logger } from '../logger.js';
 import { getStripe, hasStripe } from '../stripe/client.js';
 import { applySubscription } from '../stripe/subscriptions.js';
 import { UserModel } from '../models/user.model.js';
+import { WebhookEventModel } from '../models/webhook-event.model.js';
 
 export const billingWebhookRouter = Router();
 
@@ -43,11 +44,34 @@ billingWebhookRouter.post(
       return;
     }
 
+    // Claim the event before handling it. The unique index on eventId makes this
+    // the atomic gate: whoever inserts first handles it, everyone else (a Stripe
+    // retry, or a second instance) sees the duplicate-key error and returns 200
+    // without re-running the handler.
+    try {
+      await WebhookEventModel.create({ eventId: event.id, type: event.type });
+    } catch (e) {
+      const duplicate = (e as { code?: number }).code === 11000;
+      if (duplicate) {
+        logger.info({ eventId: event.id, type: event.type }, 'stripe webhook already handled');
+        res.json(ok({ received: true, duplicate: true }));
+        return;
+      }
+      // Couldn't record the claim for some other reason. Fail loudly so Stripe
+      // retries rather than silently skipping a subscription change.
+      logger.error({ err: e, eventId: event.id }, 'could not record stripe event');
+      res.status(500).json(err('claim_failed', 'Could not record event'));
+      return;
+    }
+
     try {
       await handleEvent(event);
       res.json(ok({ received: true }));
     } catch (e) {
       logger.error({ err: e, type: event.type }, 'stripe webhook handler failed');
+      // Release the claim so Stripe's retry actually re-runs the handler
+      // instead of being waved through as a duplicate.
+      await WebhookEventModel.deleteOne({ eventId: event.id }).catch(() => undefined);
       res.status(500).json(err('handler_error', 'Failed to handle event'));
     }
   },

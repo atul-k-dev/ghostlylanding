@@ -19,14 +19,36 @@ const LENGTH_GUIDES: Record<CommentLength, string> = {
   3: 'Write THREE sentences — 30 to 40 words total. Three beats. It MUST be three full sentences, not one or two; still tight and human, never a wall of text.',
 };
 
+/**
+ * The learned-voice block, appended to a prompt when the user has trained one.
+ *
+ * It deliberately OVERRIDES the tone preset rather than blending with it: a
+ * preset is our guess at how they sound, the profile is measured from what they
+ * actually wrote, and asking a model to satisfy both produces the average of the
+ * two — which sounds like neither.
+ */
+const voiceInstruction = (voice?: string | null): string => {
+  const v = voice?.trim();
+  if (!v) return '';
+  return `
+
+HOW THIS PERSON WRITES — this OVERRIDES the vibe/tone note above. Where the two disagree, follow this:
+${v}
+
+Match those habits. Do not imitate the topics, only the voice.`;
+};
+
 export const buildCommentPrompt = ({
   platform,
   tone,
   length,
+  voice,
 }: {
   platform: Platform;
   tone: TonePreset;
   length: CommentLength;
+  /** Learned style guide, when the user has trained one. */
+  voice?: string | null;
 }): { system: string } => {
   const system = `You're a real person scrolling ${platform}, thumbing out a quick reply to someone's post. It has to read like a human typed it on a phone, not like an assistant wrote it.
 
@@ -49,7 +71,7 @@ Never:
 - Use emojis unless the post itself uses them.
 - Pad with empty words just to hit the length — every sentence must say something real.
 
-Output only the reply text — no quotes, no preamble.`;
+Output only the reply text — no quotes, no preamble.${voiceInstruction(voice)}`;
   return { system };
 };
 
@@ -67,7 +89,11 @@ export const commentMaxTokens = (length: CommentLength): number => MAX_TOKENS_BY
  * description. The link (if any) is appended to the tweet separately, so the
  * model is told not to paste it — X unfurls it into a card on its own.
  */
-export const buildPostPrompt = (tone: TonePreset, maxChars = 280): { system: string } => {
+export const buildPostPrompt = (
+  tone: TonePreset,
+  maxChars = 280,
+  voice?: string | null,
+): { system: string } => {
   const lengthRule =
     maxChars <= 280
       ? `HARD LIMIT: the post text MUST be at most 280 characters — and 250 or fewer if a link will be attached (the link uses ~23 of the 280). Count EVERY character, including spaces, punctuation, and line breaks, and stay under. Tight and skimmable; trim words, not structure.`
@@ -93,7 +119,7 @@ STYLE:
 - At most one or two tasteful emoji, only where they genuinely help. Zero or one hashtag.
 - No hype filler ("game changer", "excited to announce", "the future is here").
 
-Use actual newlines in your output (not the literal text "\\n"). Output only the tweet text — no quotes, no preamble, no explanation.`;
+Use actual newlines in your output (not the literal text "\\n"). Output only the tweet text — no quotes, no preamble, no explanation.${voiceInstruction(voice)}`;
   return { system };
 };
 

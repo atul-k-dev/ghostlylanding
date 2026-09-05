@@ -129,6 +129,8 @@ commentsRouter.post(
         tone,
         length: length as CommentLength,
         postText,
+        // A trained voice overrides the tone preset inside the prompt.
+        voice: user.voiceProfile?.summary ?? null,
       });
     } catch (e) {
       req.log.error({ err: e }, 'comment generation failed');

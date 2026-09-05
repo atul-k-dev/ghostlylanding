@@ -25,9 +25,11 @@ export class ErrorBoundary extends React.Component<
       // Dynamic import — keeps the boundary independent of any storage shape change.
       void import('../lib/storage.js').then(({ appendDiagnostic }) =>
         appendDiagnostic({
-          kind: 'auth_failure',
-          context: 'popup_render',
-          detail: error.message.slice(0, 240),
+          // Was 'auth_failure', which is not what a render crash is — it made
+          // every popup bug look like a sign-in problem on the health view.
+          kind: 'crash',
+          context: 'popup:render',
+          detail: `${error.message}\n${(info.componentStack ?? '').slice(0, 300)}`.slice(0, 480),
         }),
       );
     } catch {

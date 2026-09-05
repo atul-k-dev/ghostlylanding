@@ -36,6 +36,8 @@ interface GenerateArgs {
   link?: string;
   /** Character limit for the post (280 for free X accounts, larger for Premium). */
   maxChars?: number;
+  /** The user's learned style guide, when they've trained one. */
+  voice?: string | null;
 }
 
 /**
@@ -49,12 +51,13 @@ export const generatePostText = async ({
   description,
   link,
   maxChars = 280,
+  voice,
 }: GenerateArgs): Promise<string> => {
   const client = getOpenAI();
   // The link is appended at post time and counts toward the limit, so the
   // generated TEXT must fit the limit minus the link's cost.
   const textBudget = Math.max(50, maxChars - (link && link.trim() ? LINK_CHAR_COST : 0));
-  const { system } = buildPostPrompt(tone, maxChars);
+  const { system } = buildPostPrompt(tone, maxChars, voice);
   const user = link
     ? `${description.slice(0, 2_000)}\n\n(For context only — a link about "${link.slice(0, 400)}" will be attached automatically; do not write the URL.)`
     : description.slice(0, 2_000);

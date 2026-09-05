@@ -13,6 +13,10 @@ import { accountRouter } from './routes/account.js';
 import { actionsRouter } from './routes/actions.js';
 import { commentsRouter } from './routes/comments.js';
 import { postsRouter } from './routes/posts.js';
+import { growthRouter } from './routes/growth.js';
+import { voiceRouter } from './routes/voice.js';
+import { configRouter } from './routes/config.js';
+import { diagnosticsRouter } from './routes/diagnostics.js';
 import { billingRouter } from './routes/billing.js';
 import { billingWebhookRouter } from './routes/billing-webhook.js';
 import { returnPagesRouter } from './routes/return-pages.js';
@@ -84,6 +88,10 @@ export const createApp = (): Express => {
   app.use('/api/actions', actionsRouter);
   app.use('/api/comments', commentsRouter);
   app.use('/api/posts', postsRouter);
+  app.use('/api/growth', growthRouter);
+  app.use('/api/voice', voiceRouter);
+  app.use('/api/config', configRouter);
+  app.use('/api/diagnostics', diagnosticsRouter);
   app.use('/api/billing', billingRouter);
   app.use('/api/admin', adminRouter);
 
@@ -96,7 +104,20 @@ export const createApp = (): Express => {
 
   app.use((error: Error, req: Request, res: Response, _next: NextFunction) => {
     req.log.error({ error }, 'unhandled error');
-    res.status(500).json(err('internal_error', 'Something went wrong'));
+    // Hand back the request id (already on the response header and in every log
+    // line for this request), so a support report can be traced to the exact
+    // failure instead of "it broke this morning".
+    const requestId = res.getHeader('x-request-id');
+    res
+      .status(500)
+      .json(
+        err(
+          'internal_error',
+          typeof requestId === 'string'
+            ? `Something went wrong. Reference: ${requestId}`
+            : 'Something went wrong',
+        ),
+      );
   });
 
   return app;

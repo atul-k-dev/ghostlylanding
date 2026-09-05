@@ -13,7 +13,9 @@ import type { ActionType } from '@casper/shared';
 import { TWITTER_SELECTORS as S } from './selectors.js';
 import { waitFor, smoothScrollBy, wait } from './dom.js';
 import { typeIntoComposer, submitComment } from './comment.js';
-import { followCurrentProfile } from './follow.js';
+import { followCurrentProfile, getOwnHandle } from './follow.js';
+import { looksLikeReply } from './stats.js';
+import { isRelevant, isExcluded, MIN_REPLY_POST_CHARS } from '../common/relevance.js';
 import type { HomeAutopilotOptions, HomeAutopilotResult } from '../common/content-messages.js';
 
 const randomInt = (min: number, max: number): number =>
@@ -87,20 +89,6 @@ const isFresh = (publishedAt: string | null, hours: number): boolean => {
   return Date.now() - t <= hours * 60 * 60 * 1000;
 };
 
-const matchesAny = (text: string, keywords: string[]): boolean => {
-  const hay = text.toLowerCase();
-  return keywords.some((k) => {
-    const needle = k.trim().toLowerCase();
-    return needle.length > 0 && hay.includes(needle);
-  });
-};
-
-const isRelevant = (text: string, keywords: string[]): boolean =>
-  keywords.length === 0 || matchesAny(text, keywords);
-
-/** A post is excluded if it contains any blocklist keyword. */
-const isExcluded = (text: string, excludeKeywords: string[]): boolean =>
-  excludeKeywords.length > 0 && matchesAny(text, excludeKeywords);
 
 /** Like the post inside this article. Returns the outcome. */
 const likeInArticle = async (article: HTMLElement): Promise<'liked' | 'already' | 'skip'> => {
@@ -138,6 +126,38 @@ const generateDraft = async (
     return { ok: false, error: msg };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'background unreachable' };
+  }
+};
+
+/**
+ * Park a generated reply in the review queue instead of posting it.
+ *
+ * Returns 'full' when the queue has no room — the caller stops drafting rather
+ * than burning model calls on drafts that would be dropped.
+ */
+const queueDraftForReview = async (
+  platform: string,
+  meta: PostMeta,
+  draft: { id: string; draftText: string },
+): Promise<'queued' | 'full' | 'error'> => {
+  try {
+    const resp = (await chrome.runtime.sendMessage({
+      type: 'QUEUE_REPLY',
+      payload: {
+        id: draft.id,
+        platform,
+        postId: meta.postId,
+        postUrl: meta.postUrl,
+        postText: meta.text,
+        authorHandle: meta.authorHandle,
+        draftText: draft.draftText,
+      },
+    })) as { ok?: boolean; data?: { queued?: boolean; full?: boolean } } | undefined;
+    if (resp?.ok && resp.data?.queued) return 'queued';
+    if (resp?.data?.full) return 'full';
+    return 'error';
+  } catch {
+    return 'error';
   }
 };
 
@@ -562,6 +582,7 @@ export const runHomeAutopilot = async (
   const result: HomeAutopilotResult = {
     liked: [],
     commented: [],
+    queued: [],
     followed: [],
     bookmarked: [],
     reposted: [],
@@ -573,6 +594,10 @@ export const runHomeAutopilot = async (
   // report it. Otherwise we keep one tab open and working until time's up.
   const firstArticle = await waitFor(S.postArticle, 12_000);
   if (!firstArticle) return result;
+
+  // Resolved once per session from the sidebar — cheap, and it lets us skip our
+  // own posts without a round-trip to the service worker for every article.
+  const ownHandle = getOwnHandle();
 
   const processed = new Set<string>();
   const skip = new Set(opts.skipCommentIds);
@@ -641,6 +666,19 @@ export const runHomeAutopilot = async (
         continue;
       }
       staleStreak = 0;
+      // Never act on our own posts. They show up in the home timeline and on our
+      // own profile, and liking or replying to yourself is the single most
+      // obvious "this account is automated" tell there is.
+      if (
+        ownHandle &&
+        meta.authorHandle &&
+        meta.authorHandle.toLowerCase() === ownHandle.toLowerCase()
+      ) {
+        continue;
+      }
+      // A post that is itself a reply is buried in someone else's thread —
+      // engaging it spends the day's budget on the lowest-reach posts around.
+      if (opts.skipReplies && looksLikeReply(article)) continue;
       if (!isRelevant(meta.text, opts.keywords)) continue;
       if (isExcluded(meta.text, opts.excludeKeywords)) continue;
 
@@ -694,7 +732,7 @@ export const runHomeAutopilot = async (
       let quotedThisPost = false;
       if (
         opts.quote &&
-        meta.text &&
+        meta.text.length >= MIN_REPLY_POST_CHARS &&
         !skipQuote.has(meta.postId) &&
         quotes < opts.maxQuotes &&
         total() < opts.totalBudget
@@ -750,35 +788,65 @@ export const runHomeAutopilot = async (
       let didNavigate = false;
       if (
         opts.comment &&
-        meta.text &&
+        // Too short to answer: the model would be inventing a reaction to "this."
+        meta.text.length >= MIN_REPLY_POST_CHARS &&
         !skip.has(meta.postId) &&
         comments < opts.maxComments &&
         total() < opts.totalBudget
       ) {
         try {
-          const r = opts.interactive
-            ? await replyOnPostPage(article, meta, opts.platform)
-            : { navigated: false, ...(await commentInArticle(article, meta, opts.platform)) };
-          if (r.navigated) {
-            didNavigate = true;
-            live = findArticleById(meta.postId);
-          }
-          if (r.posted) {
-            result.commented.push({
-              postUrl: meta.postUrl,
-              postId: meta.postId,
-              ...(r.draftId ? { draftId: r.draftId } : {}),
-            });
-            comments++;
-            skip.add(meta.postId);
-            await recordAction(opts.platform, 'comment', {
-              postUrl: meta.postUrl,
-              postId: meta.postId,
-              ...(r.draftId ? { draftId: r.draftId } : {}),
-            });
-            await pause();
-          } else if (r.error) {
-            result.commentError = r.error;
+          if (opts.replyApproval) {
+            // Approval mode: draft it and park it for review. Nothing is typed
+            // into X, so no action is recorded and no daily cap is spent — that
+            // happens later, when the user approves and it posts normally.
+            const draft = await generateDraft(opts.platform, meta.text, meta.postUrl);
+            if (!draft.ok) {
+              result.commentError = draft.error;
+            } else {
+              const outcome = await queueDraftForReview(opts.platform, meta, draft);
+              if (outcome === 'queued') {
+                result.queued.push({
+                  postUrl: meta.postUrl,
+                  postId: meta.postId,
+                  draftId: draft.id,
+                });
+                comments++;
+                skip.add(meta.postId);
+                await pause();
+              } else if (outcome === 'full') {
+                // Nowhere to put further drafts — stop drafting for the rest of
+                // this session, but keep liking/following as we scroll.
+                comments = opts.maxComments;
+                result.commentError = 'Review queue is full — approve or skip a few replies.';
+              } else {
+                result.commentError = 'Could not queue the draft for review.';
+              }
+            }
+          } else {
+            const r = opts.interactive
+              ? await replyOnPostPage(article, meta, opts.platform)
+              : { navigated: false, ...(await commentInArticle(article, meta, opts.platform)) };
+            if (r.navigated) {
+              didNavigate = true;
+              live = findArticleById(meta.postId);
+            }
+            if (r.posted) {
+              result.commented.push({
+                postUrl: meta.postUrl,
+                postId: meta.postId,
+                ...(r.draftId ? { draftId: r.draftId } : {}),
+              });
+              comments++;
+              skip.add(meta.postId);
+              await recordAction(opts.platform, 'comment', {
+                postUrl: meta.postUrl,
+                postId: meta.postId,
+                ...(r.draftId ? { draftId: r.draftId } : {}),
+              });
+              await pause();
+            } else if (r.error) {
+              result.commentError = r.error;
+            }
           }
         } catch (err) {
           dismissComposer();

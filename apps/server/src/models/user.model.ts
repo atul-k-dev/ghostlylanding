@@ -31,6 +31,19 @@ const preferencesSchema = new Schema(
   { _id: false },
 );
 
+/**
+ * Learned writing style. Only the distilled guide is stored — never the posts it
+ * was distilled from, which are processed in memory during training and dropped.
+ */
+const voiceProfileSchema = new Schema(
+  {
+    summary: { type: String, required: true, maxlength: 2_000 },
+    sampleCount: { type: Number, required: true, min: 0 },
+    trainedAt: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
 const userSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 80 },
@@ -67,6 +80,8 @@ const userSchema = new Schema(
     isBanned: { type: Boolean, default: false },
     /** Timestamp of the most recent ban; null when not banned. */
     bannedAt: { type: Date, default: null },
+    /** Learned writing style; null until the user trains one. */
+    voiceProfile: { type: voiceProfileSchema, default: null },
     /** "YYYY-MM-DD" (user-local) of the last day we sent an activity recap for —
      *  dedupe so the end-of-day email goes out at most once per day. */
     lastDailySummaryDate: { type: String, default: null },
@@ -100,6 +115,13 @@ export const toUserDTO = (
     actionPeriodKey: doc.actionPeriodKey ?? null,
     isAdmin: doc.isAdmin ?? false,
     isBanned: doc.isBanned ?? false,
+    voiceProfile: doc.voiceProfile
+      ? {
+          summary: doc.voiceProfile.summary,
+          sampleCount: doc.voiceProfile.sampleCount,
+          trainedAt: doc.voiceProfile.trainedAt.toISOString(),
+        }
+      : null,
     preferences: {
       enabledPlatforms: prefs.enabledPlatforms,
       tone: prefs.tone,

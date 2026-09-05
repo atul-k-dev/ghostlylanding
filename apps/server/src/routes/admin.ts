@@ -8,6 +8,10 @@ import { validate } from '../middleware/validate.js';
 import { UserModel } from '../models/user.model.js';
 import { ActionLogModel } from '../models/action-log.model.js';
 import { CommentDraftModel } from '../models/comment-draft.model.js';
+import { DiagnosticModel } from '../models/diagnostic.model.js';
+import { RemoteConfigModel, SELECTOR_CONFIG_KEY } from '../models/remote-config.model.js';
+import { isSelectorKey } from '../config/selectors.js';
+import { resolveSelectorConfig } from './config.js';
 import { getRevenueOverview } from '../stripe/revenue.js';
 
 export const adminRouter = Router();
@@ -438,5 +442,144 @@ adminRouter.get(
     });
 
     res.json(ok({ drafts, total, page, limit }));
+  }),
+);
+
+/* -- Health: is the automation actually working out there? -----------------
+ * Diagnostics arrive from every extension. A spike in `selector_miss` for one
+ * context is what an X DOM change looks like from our side — and it's the
+ * difference between finding out today and finding out from support email next
+ * week.
+ * ---------------------------------------------------------------------- */
+
+const healthSchema = z.object({
+  hours: z.coerce.number().int().positive().max(168).default(24),
+});
+
+adminRouter.get(
+  '/health',
+  validate(healthSchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const { hours } = req.query as unknown as z.infer<typeof healthSchema>;
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+    // Same window immediately before this one, so the UI can show whether a
+    // number is a spike or just Tuesday.
+    const prevSince = new Date(since.getTime() - hours * 60 * 60 * 1000);
+
+    const groupByKindContext = [
+      {
+        $group: {
+          _id: { kind: '$kind', context: '$context' },
+          count: { $sum: 1 },
+          users: { $addToSet: '$userId' },
+          lastAt: { $max: '$at' },
+        },
+      },
+      { $sort: { count: -1 as const } },
+      { $limit: 40 },
+    ];
+
+    const [current, previous, totals] = await Promise.all([
+      DiagnosticModel.aggregate([{ $match: { at: { $gte: since } } }, ...groupByKindContext]),
+      DiagnosticModel.aggregate([
+        { $match: { at: { $gte: prevSince, $lt: since } } },
+        { $group: { _id: { kind: '$kind', context: '$context' }, count: { $sum: 1 } } },
+      ]),
+      DiagnosticModel.aggregate<{ _id: string; count: number }>([
+        { $match: { at: { $gte: since } } },
+        { $group: { _id: '$kind', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const prevByKey = new Map<string, number>(
+      previous.map((p: { _id: { kind: string; context: string }; count: number }) => [
+        `${p._id.kind}:${p._id.context}`,
+        p.count,
+      ]),
+    );
+
+    const issues = current.map(
+      (row: {
+        _id: { kind: string; context: string };
+        count: number;
+        users: unknown[];
+        lastAt: Date;
+      }) => {
+        const previousCount = prevByKey.get(`${row._id.kind}:${row._id.context}`) ?? 0;
+        return {
+          kind: row._id.kind,
+          context: row._id.context,
+          count: row.count,
+          // Distinct users matters more than raw count: one user with a broken
+          // browser is noise, forty users on one selector is an outage.
+          affectedUsers: row.users.length,
+          previousCount,
+          lastAt: row.lastAt.toISOString(),
+        };
+      },
+    );
+
+    const byKind: Record<string, number> = {};
+    for (const t of totals) byKind[t._id] = t.count;
+
+    const selectorConfig = await resolveSelectorConfig();
+
+    res.json(
+      ok({
+        hours,
+        since: since.toISOString(),
+        byKind,
+        issues,
+        selectorConfig: {
+          version: selectorConfig.version,
+          overrideCount: Object.keys(selectorConfig.selectors).length,
+          overrides: selectorConfig.selectors,
+        },
+      }),
+    );
+  }),
+);
+
+// -- PUT /selectors — break-glass DOM fix, no deploy -------------------------
+const selectorsSchema = z.object({
+  // Keys are validated against SELECTOR_KEYS below; an empty object clears the
+  // override and returns everyone to the bundled/file map.
+  selectors: z.record(z.string().min(1).max(400)),
+  version: z.string().min(1).max(32).optional(),
+});
+
+adminRouter.put(
+  '/selectors',
+  validate(selectorsSchema),
+  asyncHandler(async (req, res) => {
+    const { selectors, version } = req.body as z.infer<typeof selectorsSchema>;
+
+    // Reject unknown keys loudly rather than storing a typo that silently does
+    // nothing — during an incident that's an hour lost.
+    const unknown = Object.keys(selectors).filter((k) => !isSelectorKey(k));
+    if (unknown.length > 0) {
+      res
+        .status(400)
+        .json(err('unknown_selector_key', `Not selector keys: ${unknown.join(', ')}`));
+      return;
+    }
+
+    const nextVersion = version ?? `override-${new Date().toISOString().slice(0, 16)}`;
+    await RemoteConfigModel.updateOne(
+      { key: SELECTOR_CONFIG_KEY },
+      {
+        $set: {
+          selectors,
+          version: nextVersion,
+          updatedBy: req.auth?.sub ?? null,
+        },
+      },
+      { upsert: true },
+    );
+    req.log.warn(
+      { admin: req.auth?.sub, keys: Object.keys(selectors), version: nextVersion },
+      'selector override updated',
+    );
+    res.json(ok(await resolveSelectorConfig()));
   }),
 );

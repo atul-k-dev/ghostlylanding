@@ -6,6 +6,8 @@ import type {
   XAccountPlan,
   PostLength,
 } from '@casper/shared';
+import type { PendingReply } from '@casper/shared';
+import { REPLY_QUEUE_MAX } from '@casper/shared';
 import type { QueuedTask, SchedulerState, TargetStateMap } from '../scheduler/types.js';
 
 export const STORAGE_KEYS = {
@@ -25,6 +27,8 @@ export const STORAGE_KEYS = {
   pendingReset: 'casper.pendingReset',
   ownHandle: 'casper.ownHandle',
   scheduledPosts: 'casper.scheduledPosts',
+  pendingReplies: 'casper.pendingReplies',
+  selectorConfig: 'casper.selectorConfig',
 } as const;
 
 export interface StoredAuth {
@@ -57,6 +61,15 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   activeHours: { startHour: 9, endHour: 22 },
   accountAgeMonths: { twitter: null, linkedin: null },
   targetCreators: [],
+  // Topic feeds are opt-in — the user has to say what they care about.
+  searchQueries: [],
+  contentTopics: [],
+  // Early replies are only useful once there are target creators to watch, and
+  // they add tab activity, so they're off until the user asks for them.
+  earlyReply: false,
+  // Skip buried thread-replies by default: they cost the same daily budget as a
+  // top-level post and reach a fraction of the audience.
+  skipReplies: true,
   whitelist: [],
   caps: {
     twitter: {
@@ -91,6 +104,9 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
     excludeKeywords: [],
   },
   followBack: false,
+  // Hold replies for review by default — a new user should see what Ghostly
+  // writes under their name before any of it is public.
+  replyApproval: true,
   // Most accounts are free — default to the 280-char limit for scheduled posts.
   xAccountPlan: 'free',
   // Pro-only length target; harmless default for free accounts.
@@ -129,12 +145,19 @@ export const getSettings = async (): Promise<ExtensionSettings> => {
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
+    // Reply approval defaults ON for NEW installs (see DEFAULT_SETTINGS) but must
+    // not switch on under someone already running: an existing user whose replies
+    // suddenly stopped going out would read that as the extension breaking, not
+    // as a new safety feature. They opt in from Settings.
+    replyApproval: stored.replyApproval ?? false,
     // Caps are code-managed (no UI editor), so always use the current defaults —
     // otherwise a previously-persisted value would pin old, lower limits.
     caps: DEFAULT_SETTINGS.caps,
     activeHours: { ...DEFAULT_SETTINGS.activeHours, ...stored.activeHours },
     accountAgeMonths: { ...DEFAULT_SETTINGS.accountAgeMonths, ...stored.accountAgeMonths },
     targetCreators: onlyTwitter(stored.targetCreators),
+    searchQueries: stored.searchQueries ?? [],
+    contentTopics: stored.contentTopics ?? [],
     whitelist: onlyTwitter(stored.whitelist),
     homeFeed: {
       ...DEFAULT_SETTINGS.homeFeed,
@@ -361,13 +384,19 @@ export type DiagnosticKind =
   | 'network_error'
   | 'auth_failure'
   | 'rate_limited'
-  | 'auto_pause';
+  | 'auto_pause'
+  /** An unexpected exception. Everything above is a failure we anticipated;
+   *  this is the bucket for the ones we didn't, which otherwise vanish. */
+  | 'crash';
 
 export interface DiagnosticEntry {
   at: string; // ISO timestamp
   kind: DiagnosticKind;
   context: string; // human label
   detail?: string;
+  /** True once reported to the server. Entries stay in the local ring buffer
+   *  either way — the user's Diagnostics panel is their own history. */
+  sent?: boolean;
 }
 
 const DIAG_MAX = 100;
@@ -384,8 +413,41 @@ export const appendDiagnostic = async (entry: Omit<DiagnosticEntry, 'at'>): Prom
   await chrome.storage.local.set({ [STORAGE_KEYS.diagnostics]: list });
 };
 
+export const setDiagnostics = async (list: DiagnosticEntry[]): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.diagnostics]: list.slice(0, DIAG_MAX) });
+};
+
 export const clearDiagnostics = async (): Promise<void> => {
   await chrome.storage.local.set({ [STORAGE_KEYS.diagnostics]: [] });
+};
+
+/* -- remote selector config ------------------------------------------------
+ * The server can serve corrected DOM selectors so an X change doesn't wait on a
+ * Chrome Web Store review. The cached copy lives here with every other piece of
+ * local state; fetching and applying it lives in lib/selector-config.ts.
+ * ---------------------------------------------------------------------- */
+
+export interface SelectorConfig {
+  /** Server-set version string — shown in logs so support can tell which map a
+   *  user is running. */
+  version: string;
+  /** Partial map of selector key → CSS selector. */
+  selectors: Record<string, string>;
+  /** ms epoch of the last successful fetch. */
+  fetchedAt: number;
+}
+
+export const getStoredSelectorConfig = async (): Promise<SelectorConfig | null> => {
+  try {
+    const got = await chrome.storage.local.get(STORAGE_KEYS.selectorConfig);
+    return (got[STORAGE_KEYS.selectorConfig] as SelectorConfig | undefined) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+export const setSelectorConfig = async (config: SelectorConfig): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.selectorConfig]: config });
 };
 
 // -- pending password reset -------------------------------------------------
@@ -419,8 +481,12 @@ export const clearPendingReset = async (): Promise<void> => {
 };
 
 // -- scheduled posts (create + schedule original tweets) --------------------
-/** The most posts a user may have queued (status 'scheduled') at once. */
-export const MAX_SCHEDULED_POSTS = 5;
+/**
+ * The most posts a user may have queued (status 'scheduled') at once. A real
+ * content calendar is a few weeks deep; the old limit of 5 meant refilling the
+ * queue every couple of days, which is the chore scheduling is meant to remove.
+ */
+export const MAX_SCHEDULED_POSTS = 25;
 
 /** X's per-post character limit for standard (non-Premium / 'free') accounts. */
 export const TWEET_CHAR_LIMIT = 280;
@@ -452,8 +518,9 @@ const LINK_CHAR_COST = 25;
  */
 export const effectivePostLength = (text: string, link: string): number =>
   text.length + (link.trim() ? LINK_CHAR_COST : 0);
-/** Keep total history bounded (drop oldest posted/failed beyond this). */
-const SCHEDULED_POSTS_MAX_TOTAL = 25;
+/** Keep total history bounded (drop oldest posted/failed beyond this). Must
+ *  exceed MAX_SCHEDULED_POSTS, or a full queue would leave no room for history. */
+const SCHEDULED_POSTS_MAX_TOTAL = 60;
 
 export type ScheduledPostStatus = 'scheduled' | 'publishing' | 'posted' | 'failed';
 
@@ -465,9 +532,14 @@ export interface ScheduledPost {
   link: string;
   /** Optional image as a data URL — stored locally, attached at post time. */
   imageDataUrl: string | null;
-  /** ms epoch for the START of the day the post should publish on. It becomes due
-   *  at this instant and fires on or after it — the next time the extension runs
-   *  (so a post whose day was missed goes out the next time the browser opens). */
+  /**
+   * The rest of a thread: one string per follow-up tweet, posted in order after
+   * `text`. Empty or absent for a single post.
+   */
+  thread?: string[];
+  /** ms epoch of the exact moment the post should publish. It becomes due at
+   *  this instant and fires on or after it — the next time the extension runs
+   *  (so a post whose slot was missed goes out the next time the browser opens). */
   scheduledAt: number;
   status: ScheduledPostStatus;
   createdAt: number;
@@ -497,6 +569,46 @@ export const setScheduledPosts = async (posts: ScheduledPost[]): Promise<void> =
 };
 
 // -- cached own X handle (for auto follow-back) ------------------------------
+/* -- reply approval queue -------------------------------------------------
+ * Drafts awaiting the user's yes. Local, not server-side: reviewing a reply
+ * needs the source post's text beside it, and the server stores only its hash.
+ * ---------------------------------------------------------------------- */
+
+export const getPendingReplies = async (): Promise<PendingReply[]> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.pendingReplies);
+  return (got[STORAGE_KEYS.pendingReplies] as PendingReply[] | undefined) ?? [];
+};
+
+export const setPendingReplies = async (list: PendingReply[]): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.pendingReplies]: list });
+};
+
+/**
+ * Add a draft to the review queue. Returns false when the queue is FULL — the
+ * caller then stops drafting, rather than us evicting someone's oldest draft
+ * (a paid-for model call nobody ever saw). Same-post duplicates are ignored.
+ */
+export const queuePendingReply = async (reply: PendingReply): Promise<boolean> => {
+  const list = await getPendingReplies();
+  if (list.length >= REPLY_QUEUE_MAX) return false;
+  if (list.some((r) => r.postId === reply.postId && r.platform === reply.platform)) return true;
+  list.push(reply);
+  await setPendingReplies(list);
+  return true;
+};
+
+/** Remove one draft by id, returning it so the caller can act on it. */
+export const takePendingReply = async (id: string): Promise<PendingReply | null> => {
+  const list = await getPendingReplies();
+  const found = list.find((r) => r.id === id) ?? null;
+  if (found) await setPendingReplies(list.filter((r) => r.id !== id));
+  return found;
+};
+
+/** How many more drafts the queue can hold right now. */
+export const pendingReplySpace = async (): Promise<number> =>
+  Math.max(0, REPLY_QUEUE_MAX - (await getPendingReplies()).length);
+
 export const getOwnHandle = async (): Promise<string | null> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.ownHandle);
   return (got[STORAGE_KEYS.ownHandle] as string | undefined) ?? null;

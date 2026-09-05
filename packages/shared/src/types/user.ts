@@ -1,4 +1,5 @@
 import type { Platform, TonePreset } from './platform.js';
+import type { VoiceProfile } from './voice.js';
 
 export const SUBSCRIPTION_PLANS = ['free', 'weekly', 'monthly'] as const;
 export type SubscriptionPlan = (typeof SUBSCRIPTION_PLANS)[number];
@@ -50,6 +51,9 @@ export interface User {
   isAdmin?: boolean;
   /** When true the account is suspended — blocked from sign-in and all API use. */
   isBanned?: boolean;
+  /** Learned writing style, when the user has trained one. Overrides the tone
+   *  preset for replies, quotes, and drafted posts. */
+  voiceProfile?: VoiceProfile | null;
   preferences: UserPreferences;
 }
 

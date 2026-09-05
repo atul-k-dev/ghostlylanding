@@ -176,6 +176,29 @@ export interface RevenueOverview {
   recentPayments: RevenuePayment[];
 }
 
+export interface HealthIssue {
+  kind: string;
+  context: string;
+  count: number;
+  /** Distinct users hit — the number that separates an outage from one bad browser. */
+  affectedUsers: number;
+  /** Same measure over the preceding window of equal length. */
+  previousCount: number;
+  lastAt: string;
+}
+
+export interface HealthResponse {
+  hours: number;
+  since: string;
+  byKind: Record<string, number>;
+  issues: HealthIssue[];
+  selectorConfig: {
+    version: string;
+    overrideCount: number;
+    overrides: Record<string, string>;
+  };
+}
+
 export interface UsersResponse {
   users: UserRow[];
   total: number;

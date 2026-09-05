@@ -14,9 +14,17 @@ import { apiFetch } from '../lib/api.js';
 const FLUSH_BATCH_SIZE = 10;
 const FLUSH_INTERVAL_MS = 5 * 60 * 1000;
 
+/** Unique per logged action — the server's dedupe key across flush retries. */
+const clientId = (): string =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `a_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
 export const appendActionLog = async (entry: ActionLogInput): Promise<void> => {
   const buf = await getActionLogBuffer();
-  buf.push(entry);
+  // Stamped once, here — NOT at flush time. A retried flush must send the same
+  // id it sent before, or the server can't tell the retry from a new action.
+  buf.push({ clientId: clientId(), ...entry });
   await setActionLogBuffer(buf);
 };
 
@@ -41,7 +49,13 @@ export const flushActionLog = async (): Promise<{ sent: number; kept: number }> 
   const settings = await getSettings();
   const resp = await apiFetch<{ inserted: number; monthlyActionCount?: number }>(
     '/api/actions/log',
-    { method: 'POST', body: { entries: buf, timezone: settings.timezone } },
+    {
+      method: 'POST',
+      body: { entries: buf, timezone: settings.timezone },
+      // Safe to retry: every entry carries a clientId the server dedupes on, so
+      // a repeated delivery can't double-count a user's actions or quota.
+      retries: 3,
+    },
   );
 
   if (!resp.ok) {

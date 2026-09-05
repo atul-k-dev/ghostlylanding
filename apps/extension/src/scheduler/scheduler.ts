@@ -40,7 +40,9 @@ import {
   stats as queueStats,
 } from './queue.js';
 import { executeTask } from './executor.js';
+import type { ExecutorResult, QueuedTask } from './types.js';
 import { appendActionLog, flushActionLog, shouldFlush } from './action-log.js';
+import { flushDiagnostics, shouldFlushDiagnostics } from './diagnostics-log.js';
 import { getTargetState, setTargetState } from '../lib/storage.js';
 import { maybePublishDuePost, isPublishing, reviveScheduledPosts } from './scheduled-posts.js';
 
@@ -58,6 +60,30 @@ const RESCAN_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const HOME_RESCAN_INTERVAL_MS = 3 * 60 * 1000;
 /** How often to run auto follow-back (open your followers list and follow back). */
 const FOLLOWBACK_INTERVAL_MS = 30 * 60 * 1000;
+/**
+ * How often to read the growth scoreboard (followers + how our posts performed).
+ * Once a day: the numbers are a daily series, and the read costs three tabs.
+ */
+const GROWTH_INTERVAL_MS = 20 * 60 * 60 * 1000;
+/** How often to work each saved search feed. */
+const SEARCH_INTERVAL_MS = 45 * 60 * 1000;
+/**
+ * Early-reply cadence: how often to re-check ONE target creator's profile for
+ * something brand new. Targets are visited in rotation (least-recently-checked
+ * first), so this is the interval between visits, not per creator — five
+ * creators at 6 minutes means each is seen roughly every half hour, and any post
+ * we do find is still only minutes old.
+ */
+const EARLY_REPLY_INTERVAL_MS = 6 * 60 * 1000;
+
+/**
+ * Consecutive 'degraded' runs before the engine stops itself. Degraded means we
+ * couldn't see the page at all — tab failures, or a timeline that rendered zero
+ * posts. Four in a row is not a quiet feed; it's a signed-out session or a
+ * broken selector, and grinding on opens tabs that can't do anything.
+ */
+const DEGRADED_LIMIT = 4;
+
 /** Don't auto-refill if there are already this many pending tasks. */
 const REFILL_PENDING_THRESHOLD = 5;
 
@@ -68,6 +94,14 @@ const REFILL_PENDING_THRESHOLD = 5;
  * Pinging a chrome API every 20s (under the 30s idle timeout) keeps the worker
  * alive for the whole session. Stopped the moment the engine pauses.
  */
+/**
+ * True while an on-demand growth read is in flight. The Growth tab's Refresh
+ * runs outside the queue, so the tick has no 'running' task to see — without
+ * this it could start an autopilot session in parallel and drive two tabs at
+ * once. Mirrors the `isPublishing` guard scheduled posts use.
+ */
+let growthRunning = false;
+
 let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 const startKeepAlive = (): void => {
   if (keepAliveTimer !== null) return;
@@ -110,6 +144,8 @@ export const handleTick = async (): Promise<void> => {
     // autopilot task is in flight, so we never open two tabs at once. At most one
     // post per tick; when one fires we yield the rest of this tick to it.
     if (isPublishing()) return;
+    // A manual growth read is already driving a tab — don't open another.
+    if (growthRunning) return;
     if (!(await hasRunningTask())) {
       if (await maybePublishDuePost()) return;
     }
@@ -233,6 +269,33 @@ export const handleTick = async (): Promise<void> => {
     if (result.logEntry) {
       await appendActionLog(result.logEntry);
     }
+
+    // Circuit breaker. A healthy run clears the streak; four consecutive
+    // degraded ones pause the engine and say why, instead of reopening a tab
+    // every cycle that can't do anything.
+    if (result.health) {
+      const sched = await getSchedulerState();
+      const streak = result.health === 'degraded' ? (sched.degradedStreak ?? 0) + 1 : 0;
+      await setSchedulerState({ ...sched, degradedStreak: streak });
+      if (streak >= DEGRADED_LIMIT) {
+        await setSettings({ ...settings, isPaused: true });
+        await setSchedulerState({
+          ...(await getSchedulerState()),
+          activeSince: null,
+          degradedStreak: 0,
+        });
+        stopKeepAlive();
+        await appendDiagnostic({
+          kind: 'auto_pause',
+          context: 'safety:degraded',
+          detail:
+            `Paused after ${streak} runs that couldn't read your timeline. ` +
+            'Open x.com and check you are signed in, then toggle Active to resume.',
+        });
+        await maybeFlush();
+        return;
+      }
+    }
     if (result.success && task.kind === 'action') {
       await incrementCounter(
         settings,
@@ -252,13 +315,57 @@ export const handleTick = async (): Promise<void> => {
     await maybeFlush();
   } catch (err) {
     console.error('[casper] scheduler tick error', err);
+    // The tick is the heart of the engine — a throw here means the user's
+    // automation silently stopped, so it must be reported, not just logged.
+    await appendDiagnostic({
+      kind: 'crash',
+      context: 'scheduler:tick',
+      detail:
+        err instanceof Error ? `${err.message}\n${(err.stack ?? '').slice(0, 400)}` : String(err),
+    });
+  }
+};
+
+/**
+ * Run the growth read on demand — the Growth tab's Refresh button.
+ *
+ * Deliberately bypasses the queue and the Active gate: the growth scan only
+ * READS the user's own profile, so it's safe while the engine is paused, and a
+ * user checking their numbers shouldn't have to arm the automation first. We
+ * hold the service worker awake for the duration when it isn't already (a
+ * paused engine has no keep-alive running, and three tab round-trips look idle
+ * to Chrome).
+ */
+export const runGrowthScanNow = async (): Promise<ExecutorResult> => {
+  if (growthRunning) {
+    return { success: false, errorMessage: 'a growth read is already running' };
+  }
+  const { isPaused } = await getSettings();
+  growthRunning = true;
+  if (isPaused) startKeepAlive();
+  try {
+    const task: QueuedTask = {
+      id: 'growth-manual',
+      kind: 'scan',
+      platform: 'twitter',
+      taskType: 'scan-growth',
+      payload: {},
+      enqueuedAt: new Date().toISOString(),
+      attempts: 1,
+      status: 'running',
+    };
+    return await executeTask(task);
+  } finally {
+    growthRunning = false;
+    // Only give the worker back if we're the ones who woke it — an Active
+    // session needs its keep-alive to survive this call.
+    if (isPaused) stopKeepAlive();
   }
 };
 
 const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
   const hasTargets = settings.targetCreators.length > 0;
   const homeEnabled = settings.homeFeed.enabled && settings.homeFeed.platforms.length > 0;
-  if (!hasTargets && !homeEnabled && !settings.followBack) return;
 
   const s = await queueStats();
   if (s.pending + s.running >= REFILL_PENDING_THRESHOLD) return;
@@ -266,6 +373,74 @@ const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
   const targetState = await getTargetState();
   const now = Date.now();
   let mutated = false;
+
+  // The daily growth read comes first and runs regardless of what automation is
+  // configured — it measures the account, not the automation, and a user whose
+  // targeting is switched off still wants their follower chart. It's a 'scan',
+  // so it never touches the daily caps or the free-tier allowance.
+  {
+    const key = 'growth:twitter';
+    const existing = targetState[key] ?? { lastScannedAt: 0 };
+    if (now - (existing.lastGrowthScanAt ?? 0) >= GROWTH_INTERVAL_MS) {
+      await enqueue('twitter', 'scan-growth', {});
+      existing.lastGrowthScanAt = now;
+      targetState[key] = existing;
+      mutated = true;
+    }
+  }
+
+  const hasSearches = settings.searchQueries.length > 0;
+  if (!hasTargets && !homeEnabled && !settings.followBack && !hasSearches) {
+    if (mutated) await setTargetState(targetState);
+    return;
+  }
+
+  // Early replies: visit ONE target creator per interval, least-recently-checked
+  // first, and act only on posts a few hours old. Rotating keeps the tab churn
+  // flat no matter how many creators are on the list, while still catching a new
+  // post while its reply section is short.
+  // Neither source below is worth a tab once the day's caps (or the free
+  // allowance) are spent — that's the churn the home feed already guards
+  // against. They need different checks: a search feed mirrors the home-feed
+  // toggles, while a profile visit always Likes whatever those toggles say.
+  const searchCanAct = await homeHasBudget(settings, 'twitter');
+
+  if (settings.earlyReply && hasTargets && (await profileVisitHasBudget(settings))) {
+    const key = 'early:twitter';
+    const existing = targetState[key] ?? { lastScannedAt: 0 };
+    if (now - (existing.lastScannedAt ?? 0) >= EARLY_REPLY_INTERVAL_MS) {
+      // Least-recently-visited first, read from the early-visit clock so this
+      // rotation is independent of the slow full sweep.
+      const dueFirst = [...settings.targetCreators].sort((a, b) => {
+        const ka = `early:${a.platform}:${a.handle.replace(/^@/, '')}`;
+        const kb = `early:${b.platform}:${b.handle.replace(/^@/, '')}`;
+        return (targetState[ka]?.lastScannedAt ?? 0) - (targetState[kb]?.lastScannedAt ?? 0);
+      });
+      const next = dueFirst[0];
+      if (next) {
+        await enqueue(next.platform, 'scan-profile-likes', { handle: next.handle, early: true });
+        const nk = `early:${next.platform}:${next.handle.replace(/^@/, '')}`;
+        targetState[nk] = { ...(targetState[nk] ?? { lastScannedAt: 0 }), lastScannedAt: now };
+        existing.lastScannedAt = now;
+        targetState[key] = existing;
+        mutated = true;
+      }
+    }
+  }
+
+  // Topic feeds — X search on the Latest tab, one task per saved query.
+  if (searchCanAct) {
+    for (const saved of settings.searchQueries) {
+      const key = `search:${saved.query}`;
+      const existing = targetState[key] ?? { lastScannedAt: 0 };
+      if (now - (existing.lastSearchScanAt ?? 0) >= SEARCH_INTERVAL_MS) {
+        await enqueue('twitter', 'scan-search', { query: saved.query });
+        existing.lastSearchScanAt = now;
+        targetState[key] = existing;
+        mutated = true;
+      }
+    }
+  }
 
   for (const target of settings.targetCreators) {
     const key = `${target.platform}:${target.handle.replace(/^@/, '')}`;
@@ -319,6 +494,24 @@ const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
   }
 };
 
+/**
+ * True if a profile visit could still do something. Unlike the home feed, a
+ * profile visit ALWAYS likes (that's its promise), so a like slot is enough —
+ * checking the home-feed toggles here would wrongly block early replies for a
+ * user who works targets with the home feed switched off.
+ */
+const profileVisitHasBudget = async (settings: ExtensionSettings): Promise<boolean> => {
+  const auth = await getAuth();
+  if (!isPro(auth?.user.subscriptionStatus ?? 'free')) {
+    if (monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions) return false;
+  }
+  const counters = await ensureToday(settings);
+  return (
+    isUnderCap(counters, 'twitter', 'like') ||
+    (settings.homeFeed.comment && isUnderCap(counters, 'twitter', 'comment'))
+  );
+};
+
 /** True if there's still daily + free-tier follow budget for auto follow-back. */
 const followBackHasBudget = async (settings: ExtensionSettings): Promise<boolean> => {
   const auth = await getAuth();
@@ -357,5 +550,12 @@ const maybeFlush = async (): Promise<void> => {
   if (await shouldFlush()) {
     const r = await flushActionLog();
     if (r.sent > 0) console.log(`[casper] flushed ${r.sent} action logs`);
+  }
+  // Diagnostics flush on their OWN schedule. A broken install produces no action
+  // logs at all, so anything gated on the action-log buffer would stay silent in
+  // the one case this telemetry exists for.
+  if (await shouldFlushDiagnostics()) {
+    const diagnostics = await flushDiagnostics();
+    if (diagnostics > 0) console.log(`[casper] flushed ${diagnostics} diagnostics`);
   }
 };

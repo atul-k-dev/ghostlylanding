@@ -3,5 +3,8 @@ export * from './types/user.js';
 export * from './types/action-log.js';
 export * from './types/comment-draft.js';
 export * from './types/settings.js';
+export * from './types/growth.js';
+export * from './types/voice.js';
+export * from './types/reply-queue.js';
 export * from './messages/envelope.js';
 export * from './api/response.js';

@@ -34,6 +34,26 @@ export const connectDb = async (): Promise<void> => {
   }
 };
 
+/**
+ * Watch for index build failures.
+ *
+ * Mongoose builds schema indexes automatically on startup and reports failures
+ * through a per-model 'index' event that, by default, nobody is listening to —
+ * so the app boots happily WITHOUT an index it believes exists. That matters
+ * most for the unique index on ActionLog {userId, clientId}: without it, the
+ * action-log dedupe loses its guarantee under concurrent flushes and a user's
+ * monthly quota can be double-counted again, silently.
+ */
+export const watchIndexBuilds = (): void => {
+  for (const name of mongoose.modelNames()) {
+    mongoose.model(name).on('index', (err: unknown) => {
+      if (err) {
+        logger.error({ err, model: name }, 'INDEX BUILD FAILED — queries may be slow or unsafe');
+      }
+    });
+  }
+};
+
 export const disconnectDb = async (): Promise<void> => {
   await mongoose.disconnect();
 };

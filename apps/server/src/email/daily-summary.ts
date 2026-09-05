@@ -21,6 +21,15 @@ export interface DigestFollow {
   url: string;
 }
 
+/** Optional growth line — omitted entirely until there are two readings. */
+export interface DigestGrowth {
+  followers: number;
+  /** Follower change over the measured span. */
+  change: number;
+  /** Days the change actually spans (readings can be gappy). */
+  days: number;
+}
+
 export interface DailySummaryData {
   firstName: string;
   dateLabel: string;
@@ -37,6 +46,8 @@ export interface DailySummaryData {
   moreReplies: number;
   follows: DigestFollow[];
   moreFollows: number;
+  /** Follower movement, when we have enough readings to state one honestly. */
+  growth?: DigestGrowth | null;
   unsubscribeUrl: string;
 }
 
@@ -125,6 +136,21 @@ export const renderDailySummary = (
       ${d.moreFollows > 0 ? `<p style="font-size:12px;color:${MUTED};margin:8px 0 0">+ ${d.moreFollows} more.</p>` : ''}`
       : '';
 
+  // The one line that answers "is this working?" — shown only when a real
+  // comparison exists, so we never invent a trend from a single reading.
+  const growthSection = d.growth
+    ? `
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px">
+            <tr><td style="background:${CORAL_TINT};border:1px solid ${BORDER};border-radius:14px;padding:14px 16px">
+              <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${MUTED}">Followers</div>
+              <div style="font-size:24px;font-weight:600;color:${FG};margin-top:4px">${d.growth.followers.toLocaleString()}</div>
+              <div style="font-size:13px;color:${d.growth.change >= 0 ? CORAL_BRIGHT : MUTED};margin-top:2px">
+                ${d.growth.change >= 0 ? '+' : ''}${d.growth.change.toLocaleString()} over the last ${d.growth.days} day${d.growth.days === 1 ? '' : 's'}
+              </div>
+            </td></tr>
+          </table>`
+    : '';
+
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"></head>
 <body style="margin:0;padding:0;background:${PAGE}">
@@ -141,6 +167,7 @@ export const renderDailySummary = (
           <p style="font-size:14px;color:${MUTED};line-height:1.6;margin:22px 0 18px">
             Hi ${esc(d.firstName)} — here's everything I did for you yesterday. Skim it and make sure it still feels like you. 👀
           </p>
+          ${growthSection}
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>${statTile(d.counts.like, 'Likes')}${statTile(d.counts.comment, 'Replies')}${statTile(d.counts.follow, 'Follows')}</tr>
             <tr>${statTile(d.counts.bookmark, 'Bookmarks')}${statTile(d.counts.repost, 'Reposts')}${statTile(d.counts.quote, 'Quotes')}</tr>
@@ -170,6 +197,12 @@ export const renderDailySummary = (
     ``,
     `Hi ${d.firstName}, here's everything I did for you yesterday:`,
     ``,
+    ...(d.growth
+      ? [
+          `Followers: ${d.growth.followers.toLocaleString()} (${d.growth.change >= 0 ? '+' : ''}${d.growth.change.toLocaleString()} over the last ${d.growth.days} day${d.growth.days === 1 ? '' : 's'})`,
+          ``,
+        ]
+      : []),
     `Likes: ${d.counts.like}`,
     `Replies: ${d.counts.comment}`,
     `Follows: ${d.counts.follow}`,

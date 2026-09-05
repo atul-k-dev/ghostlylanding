@@ -10,7 +10,17 @@ import type {
   CommentLength,
   ActionType,
 } from '@casper/shared';
-import { PLATFORMS, ACTION_TYPES, TONE_PRESETS, COMMENT_LENGTHS, PAID_PLANS, isPro, bumpMonthly } from '@casper/shared';
+import {
+  PLATFORMS,
+  ACTION_TYPES,
+  TONE_PRESETS,
+  COMMENT_LENGTHS,
+  PAID_PLANS,
+  VOICE_LIMITS,
+  isPro,
+  bumpMonthly,
+} from '@casper/shared';
+import type { PendingReply } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
 import {
   getAuth,
@@ -18,12 +28,25 @@ import {
   appendDiagnostic,
   markLiked,
   markCommented,
+  markDrafted,
   markFollowed,
   markQuoted,
+  getPendingReplies,
+  queuePendingReply,
+  takePendingReply,
+  getOwnHandle,
+  setOwnHandle,
   type StoredAuth,
 } from '../lib/storage.js';
-import { installScheduler, handleTick, SCHEDULER_ALARM } from '../scheduler/scheduler.js';
+import {
+  installScheduler,
+  handleTick,
+  runGrowthScanNow,
+  SCHEDULER_ALARM,
+} from '../scheduler/scheduler.js';
 import { fetchGoogleIdToken } from './google-signin.js';
+import { driveTab } from '../platforms/common/tab-driver.js';
+import { refreshSelectorConfig, SELECTOR_REFRESH_MS } from '../lib/selector-config.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog, appendActionLog } from '../scheduler/action-log.js';
 import { ensureToday, incrementCounter } from '../scheduler/counters.js';
@@ -56,11 +79,32 @@ chrome.runtime.onStartup.addListener(() => {
   void installScheduler();
 });
 
+const SELECTOR_ALARM = 'casper.selectors.refresh';
+
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === SCHEDULER_ALARM) {
     void handleTick();
   }
+  if (alarm.name === SELECTOR_ALARM) {
+    void refreshSelectorConfig().catch(() => {
+      /* stale config is fine — the bundled selectors still work */
+    });
+  }
 });
+
+/**
+ * Keep the remote selector map fresh: once on every service-worker boot (so a
+ * fix reaches a user the moment their browser wakes up) and every few hours
+ * after that. Failures are ignored — the bundled selectors are the floor.
+ */
+const installSelectorRefresh = async (): Promise<void> => {
+  void refreshSelectorConfig().catch(() => undefined);
+  const existing = await chrome.alarms.get(SELECTOR_ALARM);
+  if (!existing) {
+    const periodInMinutes = SELECTOR_REFRESH_MS / 60_000;
+    await chrome.alarms.create(SELECTOR_ALARM, { delayInMinutes: periodInMinutes, periodInMinutes });
+  }
+};
 
 /** The server's Stripe success_url path (e.g. http://localhost:4000/r/success). */
 const CHECKOUT_SUCCESS_PATH = '/r/success';
@@ -96,6 +140,7 @@ const sessionIdFromUrl = (url: string): string | undefined => {
 
 // Install on initial SW boot too (some lifecycles skip onInstalled).
 void installScheduler();
+void installSelectorRefresh();
 
 interface AsyncHandler<Req, Resp> {
   (payload: Req): Promise<Resp>;
@@ -117,11 +162,13 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   SCAN_TARGET_NOW: handleScanTargetNow as AsyncHandler<unknown, unknown>,
   SCAN_FOLLOWERS_NOW: handleScanFollowersNow as AsyncHandler<unknown, unknown>,
   SCAN_HOME_NOW: handleScanHomeNow as AsyncHandler<unknown, unknown>,
+  SCAN_SEARCH_NOW: handleScanSearchNow as AsyncHandler<unknown, unknown>,
   FOLLOW_BACK_NOW: handleFollowBackNow as AsyncHandler<unknown, unknown>,
   RECORD_ACTION: handleRecordAction as AsyncHandler<unknown, unknown>,
   UPDATE_PREFERENCES: handleUpdatePreferences as AsyncHandler<unknown, unknown>,
   DRAFT_COMMENT: handleDraftComment as AsyncHandler<unknown, unknown>,
   GENERATE_POST: handleGeneratePost as AsyncHandler<unknown, unknown>,
+  GENERATE_IDEAS: handleGenerateIdeas as AsyncHandler<unknown, unknown>,
   LIST_SCHEDULED_POSTS: handleListScheduledPosts as AsyncHandler<unknown, unknown>,
   SCHEDULE_POST: handleSchedulePost as AsyncHandler<unknown, unknown>,
   DELETE_SCHEDULED_POST: handleDeleteScheduledPost as AsyncHandler<unknown, unknown>,
@@ -129,6 +176,11 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   APPROVE_DRAFT: handleApproveDraft as AsyncHandler<unknown, unknown>,
   REJECT_DRAFT: handleRejectDraft as AsyncHandler<unknown, unknown>,
   LIST_ACTION_LOG: handleListActionLog as AsyncHandler<unknown, unknown>,
+  GET_GROWTH: handleGetGrowth as AsyncHandler<unknown, unknown>,
+  QUEUE_REPLY: handleQueueReply as AsyncHandler<unknown, unknown>,
+  TRAIN_VOICE: handleTrainVoice as AsyncHandler<unknown, unknown>,
+  CLEAR_VOICE: handleClearVoice as AsyncHandler<unknown, unknown>,
+  REFRESH_GROWTH: handleRefreshGrowth as AsyncHandler<unknown, unknown>,
   DELETE_ACCOUNT: handleDeleteAccount as AsyncHandler<unknown, unknown>,
   REFRESH_ME: handleRefreshMe as AsyncHandler<unknown, unknown>,
   START_CHECKOUT: handleStartCheckout as AsyncHandler<unknown, unknown>,
@@ -159,6 +211,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     .then(sendResponse)
     .catch((err) => {
       console.error('[casper] handler error', err);
+      // An unhandled throw in a message handler used to exist only in a console
+      // nobody reads. Record it so it reaches the fleet-health view like every
+      // other failure.
+      void appendDiagnostic({
+        kind: 'crash',
+        context: `background:${message.type}`,
+        detail: err instanceof Error ? `${err.message}\n${(err.stack ?? '').slice(0, 400)}` : String(err),
+      });
       sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
     });
   return true;
@@ -467,6 +527,26 @@ async function handleDraftComment(payload: unknown) {
   return resp;
 }
 
+/**
+ * Draft several post ideas at once — in the user's trained voice, informed by
+ * which of their own posts performed best. Suggestions only: they land in the
+ * composer, not on the schedule.
+ */
+async function handleGenerateIdeas(payload: unknown) {
+  const { count } = (payload ?? {}) as { count?: number };
+  const settings = await getSettings();
+  const tone: TonePreset = TONE_PRESETS.includes(settings.tone) ? settings.tone : 'friendly';
+  return await apiFetch<{ ideas: string[]; basedOnWinners: number }>('/api/posts/ideas', {
+    method: 'POST',
+    body: {
+      topics: settings.contentTopics.slice(0, 10),
+      count: Math.min(Math.max(count ?? 3, 1), 5),
+      maxChars: tweetLimitFor(settings.xAccountPlan, settings.postLength),
+      tone,
+    },
+  });
+}
+
 /** Draft an original tweet from a short description via the server (OpenAI). */
 async function handleGeneratePost(payload: unknown) {
   const { description, link } = (payload ?? {}) as { description?: string; link?: string };
@@ -495,11 +575,12 @@ async function handleListScheduledPosts() {
 
 /** Add a post to the local schedule, enforcing the max-scheduled cap. */
 async function handleSchedulePost(payload: unknown) {
-  const { text, link, imageDataUrl, scheduledAt } = (payload ?? {}) as {
+  const { text, link, imageDataUrl, scheduledAt, thread } = (payload ?? {}) as {
     text?: string;
     link?: string;
     imageDataUrl?: string | null;
     scheduledAt?: number;
+    thread?: string[];
   };
   if (!text || typeof text !== 'string' || text.trim().length === 0) {
     return { ok: false, error: { code: 'invalid_payload', message: 'Post text is required.' } };
@@ -519,6 +600,27 @@ async function handleSchedulePost(payload: unknown) {
   }
   if (typeof scheduledAt !== 'number' || !Number.isFinite(scheduledAt)) {
     return { ok: false, error: { code: 'invalid_time', message: 'Pick a valid schedule time.' } };
+  }
+  // Every thread tweet is published as its own post, so each must fit the limit
+  // on its own. Checked here as well as in the UI so a bypassed client can't
+  // queue a thread that will fail halfway through.
+  const threadParts = Array.isArray(thread)
+    ? thread.filter((t): t is string => typeof t === 'string').map((t) => t.trim()).filter(Boolean)
+    : [];
+  if (threadParts.length > 24) {
+    return {
+      ok: false,
+      error: { code: 'thread_too_long', message: 'A thread can have at most 25 tweets.' },
+    };
+  }
+  if (threadParts.some((t) => t.length > limit)) {
+    return {
+      ok: false,
+      error: {
+        code: 'too_long',
+        message: `Every tweet in a thread must fit the ${limit}-character limit.`,
+      },
+    };
   }
   if (imageDataUrl && typeof imageDataUrl === 'string' && imageDataUrl.length > 4_000_000) {
     return { ok: false, error: { code: 'image_too_big', message: 'Image is too large (max ~3 MB).' } };
@@ -541,6 +643,7 @@ async function handleSchedulePost(payload: unknown) {
     text: text.trim(),
     link: link && typeof link === 'string' ? link.trim() : '',
     imageDataUrl: imageDataUrl && typeof imageDataUrl === 'string' ? imageDataUrl : null,
+    ...(threadParts.length > 0 ? { thread: threadParts } : {}),
     scheduledAt,
     status: 'scheduled',
     createdAt: Date.now(),
@@ -563,43 +666,196 @@ async function handleDeleteScheduledPost(payload: unknown) {
   return { ok: true, data: { id } };
 }
 
-async function handleListDrafts(payload: unknown) {
-  const { status } = (payload ?? {}) as { status?: string };
-  const query = status ? `?status=${encodeURIComponent(status)}` : '';
-  const resp = await apiFetch<{ drafts: DraftDoc[] }>(`/api/comments/drafts${query}`);
-  return resp;
+/* -- Reply approval queue --------------------------------------------------
+ * Drafts wait in LOCAL storage, not on the server: judging a reply means seeing
+ * the post it answers, and the server keeps only that post's hash. The server's
+ * CommentDraft stays the status record, transitioned on approve/reject.
+ * ---------------------------------------------------------------------- */
+
+/** Park a freshly generated draft for review. Sent by the content script. */
+async function handleQueueReply(payload: unknown) {
+  const p = (payload ?? {}) as Partial<PendingReply>;
+  if (
+    !p.id ||
+    !p.platform ||
+    !PLATFORMS.includes(p.platform) ||
+    !p.postId ||
+    !p.postUrl ||
+    !p.draftText
+  ) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'incomplete draft' } };
+  }
+  const queued = await queuePendingReply({
+    id: p.id,
+    platform: p.platform,
+    postId: p.postId,
+    postUrl: p.postUrl,
+    postText: (p.postText ?? '').slice(0, 1_000),
+    authorHandle: p.authorHandle ?? null,
+    draftText: p.draftText,
+    createdAt: Date.now(),
+  });
+  // Only mark it drafted when it actually landed in the queue. A draft refused
+  // because the queue was full is one the user never saw — marking it would
+  // retire the post permanently. Re-drafting it later is nearly free anyway:
+  // the server dedupes on the post's text hash and hands back the same draft.
+  if (queued) await markDrafted(p.platform, p.postId);
+  return { ok: true, data: { queued, full: !queued } };
 }
 
+/** The review list, newest first. */
+async function handleListDrafts() {
+  const replies = await getPendingReplies();
+  return {
+    ok: true,
+    data: { replies: [...replies].sort((a, b) => b.createdAt - a.createdAt) },
+  };
+}
+
+/**
+ * Approve a draft: transition it on the server, then enqueue a normal `comment`
+ * task so it posts through exactly the same path an auto-reply would — caps,
+ * dedupe, action log and all. The user may have edited the text first.
+ */
 async function handleApproveDraft(payload: unknown) {
-  const { id } = (payload ?? {}) as { id?: string };
+  const { id, text } = (payload ?? {}) as { id?: string; text?: string };
   if (!id) return { ok: false, error: { code: 'missing_id', message: 'id required' } };
-  // Fetch the draft to get postUrl + text
-  const list = await apiFetch<{ drafts: DraftDoc[] }>(`/api/comments/drafts?status=pending`);
-  if (!list.ok) return list;
-  const draft = list.data.drafts.find((d) => d.id === id);
+
+  const draft = await takePendingReply(id);
   if (!draft) {
-    return { ok: false, error: { code: 'draft_not_found', message: 'No such pending draft' } };
+    return { ok: false, error: { code: 'draft_not_found', message: 'No such pending reply' } };
   }
-  const transition = await apiFetch<{ id: string; status: string }>(
-    `/api/comments/drafts/${encodeURIComponent(id)}/approve`,
-    { method: 'POST' },
-  );
-  if (!transition.ok) return transition;
+  const finalText = (typeof text === 'string' && text.trim() ? text : draft.draftText).slice(0, 2_000);
+
+  // Best-effort status update — a server hiccup must not strand an approved
+  // reply the user already said yes to, so we enqueue regardless.
+  try {
+    await apiFetch(`/api/comments/drafts/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+  } catch {
+    /* the post itself is what matters */
+  }
+
   const task = await enqueue(draft.platform, 'comment', {
     draftId: id,
     postUrl: draft.postUrl,
-    commentText: draft.draftText,
+    postId: draft.postId,
+    commentText: finalText,
   });
+  // Post it promptly rather than waiting on the next cooldown — the user is
+  // watching. Still gated by the engine being Active.
+  const sched = await getSchedulerState();
+  await setSchedulerState({ ...sched, nextEligibleAt: 0 });
+  void handleTick();
   return { ok: true, data: { taskId: task.id } };
 }
 
+/** Skip a draft: drop it locally and mark it rejected on the server. */
 async function handleRejectDraft(payload: unknown) {
   const { id } = (payload ?? {}) as { id?: string };
   if (!id) return { ok: false, error: { code: 'missing_id', message: 'id required' } };
-  return await apiFetch(
-    `/api/comments/drafts/${encodeURIComponent(id)}/reject`,
-    { method: 'POST' },
-  );
+  const draft = await takePendingReply(id);
+  if (!draft) {
+    return { ok: false, error: { code: 'draft_not_found', message: 'No such pending reply' } };
+  }
+  try {
+    await apiFetch(`/api/comments/drafts/${encodeURIComponent(id)}/reject`, { method: 'POST' });
+  } catch {
+    /* already removed locally — the server record is bookkeeping */
+  }
+  return { ok: true, data: { id } };
+}
+
+/* -- Voice training -------------------------------------------------------- */
+
+/**
+ * Read a sample of the user's own posts and have the server distil a style
+ * guide from them. Runs in a background tab (never steals focus from the popup)
+ * and resolves once the profile is stored, so the UI can show it immediately.
+ */
+async function handleTrainVoice() {
+  const own = await ensureOwnHandleForVoice();
+  if (!own) {
+    return {
+      ok: false,
+      error: {
+        code: 'handle_unknown',
+        message: 'Could not find your X account — open x.com and sign in, then try again.',
+      },
+    };
+  }
+
+  let resp;
+  try {
+    resp = await driveTab(
+      `https://x.com/${encodeURIComponent(own)}`,
+      { type: 'COLLECT_OWN_POSTS', payload: { handle: own, max: VOICE_LIMITS.maxSamples } },
+      { settleMs: 3_500, forceBackground: true },
+    );
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        code: 'read_failed',
+        message: err instanceof Error ? err.message : 'Could not read your profile',
+      },
+    };
+  }
+  if (resp.type !== 'OWN_POSTS_RESULT') {
+    return { ok: false, error: { code: 'read_failed', message: 'Could not read your posts' } };
+  }
+
+  // Only the text matters here, and only from posts with something to learn
+  // from. The samples are uploaded, analysed, and dropped — never stored.
+  const posts = resp.payload.outcomes
+    .map((o) => o.text.trim())
+    .filter((t) => t.length >= 15)
+    .slice(0, VOICE_LIMITS.maxSamples);
+
+  if (posts.length < VOICE_LIMITS.minSamples) {
+    return {
+      ok: false,
+      error: {
+        code: 'not_enough_posts',
+        message: `Found only ${posts.length} posts to learn from — Ghostly needs at least ${VOICE_LIMITS.minSamples}. Post a bit more and try again.`,
+      },
+    };
+  }
+
+  const trained = await apiFetch<User>('/api/voice/train', { method: 'POST', body: { posts } });
+  if (trained.ok) await syncUser(trained.data);
+  return trained;
+}
+
+async function handleClearVoice() {
+  const resp = await apiFetch<User>('/api/voice', { method: 'DELETE' });
+  if (resp.ok) await syncUser(resp.data);
+  return resp;
+}
+
+/** Cached @handle, else detect it from x.com once (mirrors the executor's). */
+async function ensureOwnHandleForVoice(): Promise<string | null> {
+  const cached = await getOwnHandle();
+  if (cached) return cached;
+  try {
+    const detect = await driveTab(
+      'https://x.com/home',
+      { type: 'GET_OWN_HANDLE', payload: {} },
+      { settleMs: 3_000, forceBackground: true },
+    );
+    if (detect.type === 'OWN_HANDLE_RESULT' && detect.payload.handle) {
+      await setOwnHandle(detect.payload.handle);
+      return detect.payload.handle;
+    }
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
+
+/** Write a fresh server user into local auth so the popup sees it at once. */
+async function syncUser(user: User): Promise<void> {
+  const auth = await getAuth();
+  if (auth) await setAuth({ ...auth, user });
 }
 
 async function handleScanTargetNow(payload: unknown) {
@@ -719,6 +975,25 @@ async function handleListActionLog(payload: unknown) {
   return await apiFetch(`/api/actions/log?limit=${limit}`);
 }
 
+/** Growth scoreboard for the Growth tab — the server does the aggregation. */
+async function handleGetGrowth(payload: unknown) {
+  const { days = 30 } = (payload ?? {}) as { days?: number };
+  return await apiFetch(`/api/growth/summary?days=${days}`);
+}
+
+/**
+ * "Refresh now" from the Growth tab. Runs the read inline (rather than queueing
+ * it) so it works while the engine is paused, and resolves only once the new
+ * numbers are on the server — the popup re-fetches the summary straight after.
+ */
+async function handleRefreshGrowth() {
+  const result = await runGrowthScanNow();
+  if (!result.success) {
+    return { ok: false, error: result.errorMessage ?? 'growth scan failed' };
+  }
+  return { ok: true, data: { message: result.errorMessage ?? 'updated' } };
+}
+
 async function handleDeleteAccount() {
   // Flush any buffered logs first so we don't lose history on the server
   try {
@@ -748,6 +1023,23 @@ async function handleScanHomeNow(payload: unknown) {
   // Start it right now instead of waiting up to a minute for the next alarm tick:
   // clear the action cooldown and kick a tick. Fire-and-forget so the popup
   // returns immediately rather than blocking on the whole scrolling session.
+  const sched = await getSchedulerState();
+  await setSchedulerState({ ...sched, nextEligibleAt: 0 });
+  void handleTick();
+  return { ok: true, data: { taskId: task.id } };
+}
+
+/** "Run now" on a saved topic feed — same shape as the home-feed kick. */
+async function handleScanSearchNow(payload: unknown) {
+  const { query } = (payload ?? {}) as { query?: string };
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return { ok: false, error: 'invalid_payload' };
+  }
+  const state = await getTargetState();
+  const key = `search:${query}`;
+  state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastSearchScanAt: 0 };
+  await setTargetState(state);
+  const task = await enqueue('twitter', 'scan-search', { query });
   const sched = await getSchedulerState();
   await setSchedulerState({ ...sched, nextEligibleAt: 0 });
   void handleTick();

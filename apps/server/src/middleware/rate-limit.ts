@@ -1,6 +1,10 @@
 /**
- * Minimal per-IP token-bucket rate limiter. In-memory — sufficient for a single
- * API node; swap for Redis once we scale out.
+ * Minimal token-bucket rate limiter.
+ *
+ * IN-MEMORY, and therefore per-process: counters reset on deploy, and two API
+ * instances would each allow the full quota. That's fine while we run one node.
+ * The day we scale out, this and the daily-summary job are the two things that
+ * need a shared store — see the claim comment in jobs/daily-summary.ts.
  */
 import type { Request, Response, NextFunction } from 'express';
 import { err } from '@casper/shared';
@@ -18,6 +22,16 @@ interface Options {
 
 const buckets = new Map<string, Bucket>();
 
+/**
+ * Every limiter shares this map, so each instance gets its own namespace. Two
+ * limiters with different windows that happened to produce the same key would
+ * otherwise share one bucket — whichever created it would impose ITS window and
+ * ceiling on the other, silently. Today only the global backstop uses the
+ * default key, so nothing collides; this makes that safe by construction rather
+ * than by luck.
+ */
+let limiterCount = 0;
+
 const defaultKey = (req: Request): string =>
   (req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
     req.socket.remoteAddress ||
@@ -26,8 +40,9 @@ const defaultKey = (req: Request): string =>
 export const rateLimit = (opts: Options) => {
   const { windowMs, max } = opts;
   const keyFn = opts.key ?? defaultKey;
+  const namespace = `l${limiterCount++}:`;
   return (req: Request, res: Response, next: NextFunction): void => {
-    const key = keyFn(req);
+    const key = namespace + keyFn(req);
     const now = Date.now();
     const b = buckets.get(key);
     if (!b || now >= b.refillAt) {

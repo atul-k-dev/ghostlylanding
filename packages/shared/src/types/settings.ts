@@ -62,6 +62,16 @@ export interface HomeFeedSettings {
   excludeKeywords: string[];
 }
 
+/** A live-search feed Ghostly works, e.g. "indie hackers" on the Latest tab. */
+export interface SearchQuery {
+  /** The raw X search query. Supports X's own operators (min_faves:, -filter:…). */
+  query: string;
+  addedAt: string;
+}
+
+/** Most search feeds one account can sensibly work in a session. */
+export const MAX_SEARCH_QUERIES = 5;
+
 export interface ExtensionSettings {
   isPaused: boolean;
   timezone: string;
@@ -90,12 +100,43 @@ export interface ExtensionSettings {
   activeHours: ActiveHours;
   accountAgeMonths: AccountAge;
   targetCreators: TargetCreator[];
+  /**
+   * Topic feeds: Ghostly opens X's search on the **Latest** tab and works down
+   * live posts matching the query. Unlike the home feed — which shows whoever X
+   * decides to show you — this aims at a subject you chose.
+   */
+  searchQueries: SearchQuery[];
+  /**
+   * Early replies: re-check your target creators every few minutes and engage
+   * their brand-new posts, instead of waiting for the slow 6-hourly sweep. An
+   * early reply under a bigger account is seen by their whole audience; the
+   * four-hundredth reply is seen by nobody.
+   */
+  earlyReply: boolean;
+  /**
+   * What the user posts about. Used to generate post ideas in their own voice;
+   * empty means Ghostly asks them for a topic instead of guessing.
+   */
+  contentTopics: string[];
+  /**
+   * Skip posts that are themselves replies in someone else's thread. They're
+   * buried by definition, so engaging them spends your daily budget on the
+   * lowest-reach posts in the feed.
+   */
+  skipReplies: boolean;
   whitelist: { platform: Platform; handle: string }[];
   caps: Record<Platform, PlatformCaps>;
   homeFeed: HomeFeedSettings;
   /** Auto follow-back: periodically follow people who follow you (Twitter/X).
    *  Uses the follow daily cap + whitelist; counts toward the free-tier limit. */
   followBack: boolean;
+  /**
+   * Hold generated replies for review instead of posting them straight away.
+   * Defaults ON: the first thing a new user needs is proof that what Ghostly
+   * writes under their name is worth publishing. Off = the old behaviour, where
+   * a drafted reply posts immediately.
+   */
+  replyApproval: boolean;
   /**
    * The user's X account type. Sets the character limit for scheduled posts:
    * 'free' = 280, 'pro' (X Premium) = long-form. Defaults to 'free' since that's

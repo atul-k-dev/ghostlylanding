@@ -28,22 +28,34 @@ import {
   getOwnHandle,
   setOwnHandle,
   getCommentedPosts,
+  getDraftedPosts,
   getQuotedPosts,
+  pendingReplySpace,
   getFollowedHandles,
   appendDiagnostic,
 } from '../lib/storage.js';
 import {
   buildProfileUrl as twitterProfileUrl,
   buildFollowersUrl as twitterFollowersUrl,
+  buildSearchUrl as twitterSearchUrl,
 } from '../platforms/twitter/selectors.js';
 import { apiFetch } from '../lib/api.js';
 import { ensureToday } from './counters.js';
+import { localDate } from './timegate.js';
+import { GROWTH_LIMITS } from '@casper/shared';
+import type { ScrapedOutcome } from '../platforms/common/content-messages.js';
 
 // Twitter/X is the only automated platform. (LinkedIn automation was removed.)
 const profileUrlFor = (handle: string): string => twitterProfileUrl(handle);
 const followersUrlFor = (handle: string): string => twitterFollowersUrl(handle);
 const candidateProfileUrl = (handle: string): string => twitterProfileUrl(handle);
 const HOME_URL = 'https://x.com/home';
+/**
+ * Freshness window for an early-reply visit. The normal sweep engages anything
+ * from the last 48h; early replies only want what's minutes-to-hours old, since
+ * the whole value is being near the top of the replies rather than buried.
+ */
+const EARLY_FRESH_HOURS = 3;
 
 const executeLike = async (task: QueuedTask): Promise<ExecutorResult> => {
   const postUrl = task.payload.postUrl as string | undefined;
@@ -126,7 +138,18 @@ const executeLike = async (task: QueuedTask): Promise<ExecutorResult> => {
 const executeScan = async (task: QueuedTask): Promise<ExecutorResult> => {
   const handle = task.payload.handle as string | undefined;
   if (!handle) return { success: false, errorMessage: 'missing handle' };
-  return runInlineAutopilot(task, { kind: 'profile', handle });
+  return runInlineAutopilot(task, {
+    kind: 'profile',
+    handle,
+    early: task.payload.early === true,
+  });
+};
+
+/** Live-search feed — work X's "Latest" tab for one saved query. */
+const executeSearchScan = async (task: QueuedTask): Promise<ExecutorResult> => {
+  const query = task.payload.query as string | undefined;
+  if (!query) return { success: false, errorMessage: 'missing query' };
+  return runInlineAutopilot(task, { kind: 'search', query });
 };
 
 const executeComment = async (task: QueuedTask): Promise<ExecutorResult> => {
@@ -401,7 +424,10 @@ const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
 
 /** Where the inline autopilot runs: the user's home timeline, or one creator's
  *  profile (the "Posts" button / auto-rescan). */
-type AutopilotSource = { kind: 'home' } | { kind: 'profile'; handle: string };
+type AutopilotSource =
+  | { kind: 'home' }
+  | { kind: 'profile'; handle: string; /** Early-reply visit: only brand-new posts. */ early?: boolean }
+  | { kind: 'search'; query: string };
 
 /**
  * Inline autopilot (Twitter/X) — ONE tab smoothly scrolls the timeline (home OR
@@ -423,23 +449,38 @@ const runInlineAutopilot = async (
   const hf = settings.homeFeed;
   const platform = task.platform;
   const isProfile = source.kind === 'profile';
-  const targetUrl = isProfile ? profileUrlFor(source.handle) : HOME_URL;
-  const label = isProfile ? `profile @${source.handle.replace(/^@/, '')}` : 'home';
+  const isSearch = source.kind === 'search';
+  const targetUrl = isProfile
+    ? profileUrlFor(source.handle)
+    : isSearch
+      ? twitterSearchUrl(source.query)
+      : HOME_URL;
+  const label = isProfile
+    ? `profile @${source.handle.replace(/^@/, '')}${source.early ? ' (early)' : ''}`
+    : isSearch
+      ? `search "${source.query}"`
+      : 'home';
 
   // What to do. Home mirrors the home-feed toggles; a profile visit always Likes
   // (and mirrors the other content toggles) but never Follows the single author.
+  // A search feed mirrors home — following the people it surfaces is the point,
+  // since they're new to the user by definition.
   const doLike = isProfile ? true : hf.like;
   const doComment = hf.comment;
   const doFollow = isProfile ? false : hf.follow;
   const doBookmark = hf.bookmark;
   const doRepost = hf.repost;
   const doQuote = hf.quote;
-  // On a profile the user already chose this creator → engage all their posts;
-  // on home, filter by relevance. The blocklist applies either way.
-  const keywords = isProfile ? [] : hf.keywords;
-  // A profile is reverse-chronological: once we pass a run of older-than-fresh
-  // posts we've left the fresh zone, so stop. 0 = never (home is infinite/fresh).
-  const stopAfterStaleRun = isProfile ? 8 : 0;
+  // On a profile the user chose this creator, and a search query IS the filter —
+  // so neither needs the home-feed keywords. The blocklist applies to all three.
+  const keywords = isProfile || isSearch ? [] : hf.keywords;
+  // Profiles and the search Latest tab are both reverse-chronological: once we
+  // pass a run of older-than-fresh posts there's nothing newer below, so stop.
+  // 0 = never (the home feed is ranked, not chronological).
+  const stopAfterStaleRun = isProfile || isSearch ? 8 : 0;
+  // An early-reply visit only cares about what was posted in the last few hours —
+  // that's what makes the reply early rather than just eventual.
+  const freshnessHours = isProfile && source.early ? EARLY_FRESH_HOURS : FRESH_WINDOW_HOURS;
 
   const auth = await getAuth();
   const pro = isPro(auth?.user.subscriptionStatus ?? 'free');
@@ -466,7 +507,13 @@ const runInlineAutopilot = async (
   // so we hand the content script the FULL remaining daily budget, not a slice.
   const maxLikes = doLike ? remaining('like') : 0;
   const maxFollows = doFollow ? remaining('follow') : 0;
-  const maxComments = doComment ? remaining('comment') : 0;
+  // With approval on, a "reply" costs a model call and a queue slot rather than
+  // a post — so the session's drafting budget is ALSO bounded by the room left
+  // in the review queue. Without this we'd pay to generate drafts the queue
+  // would refuse, and drafting far past the daily cap would leave the user a
+  // backlog they can't post today anyway.
+  const queueSpace = settings.replyApproval ? await pendingReplySpace() : Number.MAX_SAFE_INTEGER;
+  const maxComments = doComment ? Math.min(remaining('comment'), queueSpace) : 0;
   const maxBookmarks = doBookmark ? remaining('bookmark') : 0;
   const maxReposts = doRepost ? remaining('repost') : 0;
   const maxQuotes = doQuote ? remaining('quote') : 0;
@@ -518,7 +565,10 @@ const runInlineAutopilot = async (
     await appendDiagnostic({
       kind: 'rate_limited',
       context: `${platform}:comment`,
-      detail: 'Daily reply cap reached for today.',
+      detail:
+        settings.replyApproval && queueSpace === 0
+          ? 'Review queue is full — approve or skip a few replies to free up room.'
+          : 'Daily reply cap reached for today.',
     });
   }
 
@@ -529,7 +579,12 @@ const runInlineAutopilot = async (
       .filter((k) => k.startsWith(prefix))
       .map((k) => k.slice(prefix.length))
       .slice(0, 500);
-  const skipCommentIds = stripPrefix(await getCommentedPosts());
+  // Posts we've already replied to, plus any whose draft is sitting in the
+  // review queue — re-drafting a reply the user hasn't answered yet would pay
+  // for the same post twice and clutter the queue with duplicates.
+  const skipCommentIds = [
+    ...new Set([...stripPrefix(await getCommentedPosts()), ...stripPrefix(await getDraftedPosts())]),
+  ].slice(0, 500);
   const skipQuoteIds = stripPrefix(await getQuotedPosts());
 
   console.log(
@@ -555,7 +610,9 @@ const runInlineAutopilot = async (
           keywords,
           excludeKeywords: hf.excludeKeywords,
           interactive: settings.interactiveMode !== false,
-          freshnessHours: FRESH_WINDOW_HOURS,
+          replyApproval: settings.replyApproval !== false,
+          skipReplies: settings.skipReplies !== false,
+          freshnessHours,
           maxLikes,
           maxComments,
           maxFollows,
@@ -577,6 +634,7 @@ const runInlineAutopilot = async (
     console.warn(`[casper] ${label} ${platform}: tab driver failed —`, err);
     return {
       success: false,
+      health: 'degraded',
       errorMessage: err instanceof Error ? err.message : 'tab driver failed',
     };
   }
@@ -585,14 +643,17 @@ const runInlineAutopilot = async (
     console.warn(`[casper] ${label} ${platform}: unexpected response`, resp);
     return {
       success: false,
+      health: 'degraded',
       errorMessage: resp.type === 'ERROR' ? resp.payload.message : 'unexpected home response',
     };
   }
 
-  const { liked, commented, followed, bookmarked, reposted, quoted, scanned } = resp.payload;
+  const { liked, commented, queued, followed, bookmarked, reposted, quoted, scanned } =
+    resp.payload;
   console.log(
     `[casper] ${label} ${platform}: result — scanned=${scanned} liked=${liked.length} ` +
-      `commented=${commented.length} followed=${followed.length} bookmarked=${bookmarked.length} ` +
+      `commented=${commented.length} queued=${queued.length} followed=${followed.length} ` +
+      `bookmarked=${bookmarked.length} ` +
       `reposted=${reposted.length} quoted=${quoted.length}` +
       (resp.payload.commentError ? ` commentError="${resp.payload.commentError}"` : ''),
   );
@@ -608,6 +669,7 @@ const runInlineAutopilot = async (
   const performed =
     liked.length +
     commented.length +
+    queued.length +
     followed.length +
     bookmarked.length +
     reposted.length +
@@ -626,8 +688,15 @@ const runInlineAutopilot = async (
   // a profile keys on its handle (matches the refill loop's per-target key).
   const state = await getTargetState();
   if (isProfile) {
-    const key = `${platform}:${source.handle.replace(/^@/, '')}`;
+    // Early visits keep their OWN clock. Sharing the normal key would let the
+    // fast rotation keep resetting it, so the 6-hourly deep sweep (which uses
+    // the full 48h freshness window) would never come due again.
+    const handleKey = `${platform}:${source.handle.replace(/^@/, '')}`;
+    const key = source.early ? `early:${handleKey}` : handleKey;
     state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastScannedAt: Date.now() };
+  } else if (isSearch) {
+    const key = `search:${source.query}`;
+    state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastSearchScanAt: Date.now() };
   } else {
     const key = `home:${platform}`;
     state[key] = { ...(state[key] ?? { lastScannedAt: 0 }), lastHomeScanAt: Date.now() };
@@ -651,17 +720,187 @@ const runInlineAutopilot = async (
 
   return {
     success: true,
+    // Zero posts seen means we never got a timeline — signed out, or the post
+    // selector broke. Seeing posts and acting on none is just a quiet feed.
+    health: scanned === 0 ? 'degraded' : 'ok',
     errorMessage:
       performed === 0
         ? `${label}: no actions (scanned ${scanned})`
-        : `${label}: ${liked.length} likes · ${commented.length} replies · ${followed.length} follows · ` +
-          `${bookmarked.length} bookmarks · ${reposted.length} reposts · ${quoted.length} quotes`,
+        : `${label}: ${liked.length} likes · ${commented.length} replies · ` +
+          (queued.length > 0 ? `${queued.length} awaiting review · ` : '') +
+          `${followed.length} follows · ${bookmarked.length} bookmarks · ` +
+          `${reposted.length} reposts · ${quoted.length} quotes`,
   };
 };
 
 /** Home-feed autopilot — runs the inline single-tab session on the home feed. */
 const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> =>
   runInlineAutopilot(task, { kind: 'home' });
+
+type OwnHandleOutcome =
+  | { kind: 'ok'; handle: string }
+  /** `recoverable` = expected condition (signed out), not a task failure. */
+  | { kind: 'error'; message: string; recoverable: boolean };
+
+/**
+ * The signed-in user's @handle — cached after the first detection, otherwise
+ * read once off x.com. Several flows need it (follow-back, the growth scan) and
+ * they all want the same diagnostic when the user simply isn't signed in.
+ */
+const ensureOwnHandle = async (context: string): Promise<OwnHandleOutcome> => {
+  const cached = await getOwnHandle();
+  if (cached) return { kind: 'ok', handle: cached };
+
+  let detect;
+  try {
+    detect = await driveTab(HOME_URL, { type: 'GET_OWN_HANDLE', payload: {} }, { settleMs: 3_000 });
+  } catch (err) {
+    return {
+      kind: 'error',
+      message: err instanceof Error ? err.message : 'tab driver failed',
+      recoverable: false,
+    };
+  }
+  if (detect.type === 'OWN_HANDLE_RESULT' && detect.payload.handle) {
+    await setOwnHandle(detect.payload.handle);
+    return { kind: 'ok', handle: detect.payload.handle };
+  }
+  await appendDiagnostic({
+    kind: 'selector_miss',
+    context,
+    detail: 'Could not detect your @handle on x.com — are you signed in?',
+  });
+  return { kind: 'error', message: 'could not detect your @handle', recoverable: true };
+};
+
+/**
+ * Growth scoreboard — the once-a-day read of what the automation actually GOT.
+ *
+ * Three looks, no clicks: the profile header (follower counters), the user's own
+ * "Posts & replies" timeline (how each reply performed), and a sample of their
+ * recent followers (how many were people Ghostly followed first). Because it
+ * only reads, it costs no daily cap and no free-tier allowance — it's a 'scan'
+ * task, so the scheduler never counts it.
+ *
+ * Partial failure is fine and expected: if the outcome sweep breaks we still
+ * record the follower point, because the sparkline is the headline number.
+ */
+const executeGrowthScan = async (): Promise<ExecutorResult> => {
+  const own = await ensureOwnHandle('twitter:growth');
+  if (own.kind === 'error') {
+    return { success: own.recoverable, errorMessage: `growth: ${own.message}` };
+  }
+  const handle = own.handle;
+  const settings = await getSettings();
+  const today = localDate(new Date(), settings.timezone);
+
+  // 1. Follower counters off the profile header.
+  let stats;
+  try {
+    const resp = await driveTab(
+      profileUrlFor(handle),
+      { type: 'READ_PROFILE_STATS', payload: {} },
+      { settleMs: 3_000, forceBackground: true },
+    );
+    stats = resp.type === 'PROFILE_STATS_RESULT' ? resp.payload.stats : null;
+  } catch (err) {
+    return {
+      success: false,
+      errorMessage: err instanceof Error ? err.message : 'tab driver failed',
+    };
+  }
+  if (!stats) {
+    await appendDiagnostic({
+      kind: 'selector_miss',
+      context: 'twitter:growth',
+      detail: `Could not read the follower counts on @${handle}'s profile.`,
+    });
+    return { success: false, errorMessage: 'growth: profile counters not found' };
+  }
+
+  // 2. How many of our recent followers are people WE followed first. Only
+  //    worth a tab when we've actually followed someone.
+  let followedBack: number | null = null;
+  let followedBackSample: number | null = null;
+  const followedMap = await getFollowedHandles();
+  const followedSet = new Set(
+    Object.keys(followedMap)
+      .filter((k) => k.startsWith('twitter:'))
+      .map((k) => k.slice('twitter:'.length)),
+  );
+  if (followedSet.size > 0) {
+    try {
+      const resp = await driveTab(
+        followersUrlFor(handle),
+        { type: 'SCAN_FOLLOWERS', payload: { handle, max: 150 } },
+        { settleMs: 3_500, forceBackground: true },
+      );
+      if (resp.type === 'FOLLOWERS_RESULT') {
+        const sample = resp.payload.followers;
+        followedBackSample = sample.length;
+        followedBack = sample.filter((f) =>
+          followedSet.has(f.handle.replace(/^@/, '').toLowerCase()),
+        ).length;
+      }
+    } catch (err) {
+      console.warn('[casper] growth: follower sample failed —', err);
+    }
+  }
+
+  // 3. Per-post results from our own Posts & replies timeline.
+  let outcomes: ScrapedOutcome[] = [];
+  try {
+    const resp = await driveTab(
+      `https://x.com/${encodeURIComponent(handle)}/with_replies`,
+      { type: 'COLLECT_OWN_POSTS', payload: { handle, max: GROWTH_LIMITS.maxOutcomesPerBatch } },
+      { settleMs: 3_500, forceBackground: true },
+    );
+    if (resp.type === 'OWN_POSTS_RESULT') outcomes = resp.payload.outcomes;
+  } catch (err) {
+    console.warn('[casper] growth: outcome sweep failed —', err);
+  }
+
+  // Upload. The snapshot is the point of the run, so a failure there fails the
+  // task; outcomes are a bonus and only get a console warning.
+  const snapResp = await apiFetch('/api/growth/snapshot', {
+    method: 'POST',
+    body: {
+      date: today,
+      followers: stats.followers,
+      following: stats.following,
+      posts: stats.posts,
+      ...(followedBack !== null ? { followedBack, followedBackSample } : {}),
+    },
+  });
+  if (!snapResp.ok) {
+    return { success: false, errorMessage: `growth: ${snapResp.error.message}` };
+  }
+
+  if (outcomes.length > 0) {
+    const outResp = await apiFetch('/api/growth/outcomes', {
+      method: 'POST',
+      body: { outcomes: outcomes.slice(0, GROWTH_LIMITS.maxOutcomesPerBatch) },
+    });
+    if (!outResp.ok) console.warn('[casper] growth: outcome upload failed —', outResp.error.message);
+  }
+
+  // Pace the next run (the refill loop reads this key).
+  const state = await getTargetState();
+  state['growth:twitter'] = {
+    ...(state['growth:twitter'] ?? { lastScannedAt: 0 }),
+    lastGrowthScanAt: Date.now(),
+  };
+  await setTargetState(state);
+
+  console.log(
+    `[casper] growth: ${stats.followers} followers, ${outcomes.length} posts measured` +
+      (followedBack !== null ? `, ${followedBack}/${followedBackSample} followed back` : ''),
+  );
+  return {
+    success: true,
+    errorMessage: `growth: ${stats.followers} followers · ${outcomes.length} posts measured`,
+  };
+};
 
 /**
  * Auto follow-back — open the user's own followers list and follow back people
@@ -670,31 +909,11 @@ const executeHomeScan = async (task: QueuedTask): Promise<ExecutorResult> =>
  * records each one live (RECORD_ACTION → caps + monthly count + log).
  */
 const runFollowBack = async (task: QueuedTask): Promise<ExecutorResult> => {
-  // Find the user's own handle (cached, else detect from x.com once).
-  let handle = await getOwnHandle();
-  if (!handle) {
-    let detect;
-    try {
-      detect = await driveTab(
-        HOME_URL,
-        { type: 'GET_OWN_HANDLE', payload: {} },
-        { settleMs: 3_000 },
-      );
-    } catch (err) {
-      return { success: false, errorMessage: err instanceof Error ? err.message : 'tab driver failed' };
-    }
-    if (detect.type === 'OWN_HANDLE_RESULT' && detect.payload.handle) {
-      handle = detect.payload.handle;
-      await setOwnHandle(handle);
-    } else {
-      await appendDiagnostic({
-        kind: 'selector_miss',
-        context: 'twitter:follow-back',
-        detail: 'Could not detect your @handle on x.com — are you signed in?',
-      });
-      return { success: true, errorMessage: 'follow-back: could not detect your @handle' };
-    }
+  const own = await ensureOwnHandle('twitter:follow-back');
+  if (own.kind === 'error') {
+    return { success: own.recoverable, errorMessage: `follow-back: ${own.message}` };
   }
+  const handle = own.handle;
 
   const outcome = await runInlineFollowList(task, `https://x.com/${handle}/followers`);
 
@@ -726,6 +945,10 @@ export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => 
       return executeHomeScan(task);
     case 'scan-followback':
       return runFollowBack(task);
+    case 'scan-growth':
+      return executeGrowthScan();
+    case 'scan-search':
+      return executeSearchScan(task);
     case 'comment':
       return executeComment(task);
     case 'follow':

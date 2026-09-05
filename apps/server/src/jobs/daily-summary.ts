@@ -4,14 +4,23 @@
  *
  * Timezone handling is dependency-free (Intl): we pull the last ~48h of a user's
  * action logs and bucket each entry by its local calendar date, so we never have
- * to compute UTC day boundaries. Dedup is a single `lastDailySummaryDate` marker
- * on the user. Assumes a single server instance (send-then-mark).
+ * to compute UTC day boundaries.
+ *
+ * Dedup is a single `lastDailySummaryDate` marker on the user, CLAIMED before
+ * the email is sent rather than stamped after it. Two instances (or an overlapping
+ * run after a slow pass) would otherwise both find the marker unset and both
+ * send — every user getting the same recap twice. The claim is a conditional
+ * update, so exactly one runner wins; if the send then fails we roll the marker
+ * back so the next pass can retry.
  */
 import { UserModel } from '../models/user.model.js';
 import { ActionLogModel } from '../models/action-log.model.js';
 import { CommentDraftModel } from '../models/comment-draft.model.js';
+import { GrowthSnapshotModel } from '../models/growth-snapshot.model.js';
+import { deltaOver } from '../growth/series.js';
 import { sendEmail } from '../email/resend.js';
 import { renderDailySummary, buildUnsubscribeUrl } from '../email/daily-summary.js';
+import type { DigestGrowth } from '../email/daily-summary.js';
 import { logger } from '../logger.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -144,6 +153,36 @@ export const runDailySummaryJob = async (): Promise<void> => {
         tone: String(d.tone),
       }));
 
+      // Follower movement — the "did it work?" line. Only included when there
+      // are at least two readings to compare, so the recap never implies a
+      // trend the growth scan hasn't actually measured yet.
+      let growth: DigestGrowth | null = null;
+      const snaps = await GrowthSnapshotModel.find({ userId: user._id })
+        .sort({ date: -1 })
+        .limit(31)
+        .lean();
+      if (snaps.length >= 2) {
+        const series = snaps
+          .map((snap) => ({ date: snap.date, followers: snap.followers }))
+          .reverse();
+        const week = deltaOver(series, 7);
+        const newest = series[series.length - 1];
+        if (newest && week.change !== null) {
+          growth = { followers: newest.followers, change: week.change, days: week.days };
+        }
+      }
+
+      // Claim this user's day BEFORE sending. Conditional on the marker still
+      // being unset, so concurrent runners can't both win it.
+      const claim = await UserModel.updateOne(
+        { _id: user._id, lastDailySummaryDate: { $ne: targetDay } },
+        { $set: { lastDailySummaryDate: targetDay } },
+      );
+      if (claim.modifiedCount === 0) {
+        // Someone else got there first (or already sent it) — nothing to do.
+        continue;
+      }
+
       const { subject, html, text } = renderDailySummary({
         firstName: (user.name ?? '').split(/\s+/)[0] || 'there',
         dateLabel: friendlyDate(targetDay),
@@ -153,11 +192,21 @@ export const runDailySummaryJob = async (): Promise<void> => {
         moreReplies: Math.max(0, dayDrafts.length - replies.length),
         follows: follows.slice(0, 15),
         moreFollows: Math.max(0, follows.length - 15),
+        growth,
         unsubscribeUrl: buildUnsubscribeUrl(userId),
       });
 
-      await sendEmail({ to: user.email, subject, html, text });
-      await UserModel.updateOne({ _id: user._id }, { $set: { lastDailySummaryDate: targetDay } });
+      try {
+        await sendEmail({ to: user.email, subject, html, text });
+      } catch (sendError) {
+        // Release the claim so the next hourly pass can try again — otherwise a
+        // transient email outage silently costs the user that day's recap.
+        await UserModel.updateOne(
+          { _id: user._id, lastDailySummaryDate: targetDay },
+          { $set: { lastDailySummaryDate: null } },
+        );
+        throw sendError;
+      }
       sent += 1;
       logger.info({ userId, day: targetDay, actions: dayLogs.length }, '[daily-summary] recap sent');
     } catch (e) {

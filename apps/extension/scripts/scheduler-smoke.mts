@@ -8,6 +8,7 @@ import { localDate, localHour, isWithinActiveHours, nextActionDelayMs } from '..
 import { ageMultiplier, dailyVarianceFactor, computeDailyCaps } from '../src/scheduler/quotas.js';
 import { isFresh } from '../src/platforms/common/freshness.js';
 import { extractPostId } from '../src/platforms/common/dedupe.js';
+import { parseCount } from '../src/platforms/twitter/stats.js';
 
 const fails: string[] = [];
 const assert = (cond: boolean, label: string) => {
@@ -50,7 +51,9 @@ for (let i = 0; i < 50; i++) {
 assert(!fails.some((f) => f.startsWith('nextActionDelayMs')), 'nextActionDelayMs always in [8000,45000]');
 
 // --- quotas -----------------------------------------------------------------
-assert(ageMultiplier(null) === 0.5, 'ageMultiplier(null) = 0.5 (conservative)');
+// Unknown age now trusts the configured caps as-is — quotas.ts only tightens
+// when the user explicitly says the account is young.
+assert(ageMultiplier(null) === 1.0, 'ageMultiplier(null) = 1.0 (trust configured caps)');
 assert(ageMultiplier(0) === 0.5, 'ageMultiplier(0mo) = 0.5');
 assert(ageMultiplier(5) === 0.5, 'ageMultiplier(<6mo) = 0.5');
 assert(ageMultiplier(6) === 0.75, 'ageMultiplier(6mo) = 0.75');
@@ -93,19 +96,28 @@ assert(
   extractPostId('twitter', 'https://twitter.com/elonmusk/status/9999/photo/1') === '9999',
   'twitter id ignores trailing /photo/1',
 );
+// LinkedIn automation was removed — extractPostId parses /status/ only, so a
+// LinkedIn URL is expected to yield nothing rather than an activity id.
 assert(
   extractPostId(
     'linkedin',
     'https://www.linkedin.com/feed/update/urn:li:activity:7012345678901234567/',
-  ) === '7012345678901234567',
-  'linkedin activity urn',
-);
-assert(
-  extractPostId('linkedin', 'https://www.linkedin.com/posts/foo_bar-activity-7012345-AaBb/') ===
-    '7012345',
-  'linkedin id from /posts/<slug>',
+  ) === null,
+  'linkedin urn no longer parsed (automation removed)',
 );
 assert(extractPostId('twitter', 'https://x.com/home') === null, 'twitter non-status returns null');
+
+// --- growth: count parsing --------------------------------------------------
+// The strings X actually renders in profile headers and action-row aria-labels.
+assert(parseCount('1,234 Followers') === 1234, 'parseCount thousands separator');
+assert(parseCount('12.5K Followers') === 12_500, 'parseCount K suffix');
+assert(parseCount('1.2M Followers') === 1_200_000, 'parseCount M suffix');
+assert(parseCount('3 456 Followers') === 3456, 'parseCount space-separated locale');
+assert(parseCount('0 Following') === 0, 'parseCount zero');
+assert(parseCount('27 Likes. Like') === 27, 'parseCount button aria-label');
+assert(parseCount('840 posts') === 840, 'parseCount posts subtitle');
+assert(parseCount('no numbers here') === null, 'parseCount no digits → null');
+assert(parseCount(null) === null, 'parseCount null input');
 
 // ---------------------------------------------------------------------------
 if (fails.length) {

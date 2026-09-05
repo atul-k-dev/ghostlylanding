@@ -15,7 +15,46 @@ interface PublishArgs {
   text: string;
   link?: string;
   imageDataUrl?: string | null;
+  /** Follow-up tweets, posted as one thread with `text` as the opener. */
+  thread?: string[];
 }
+
+/** The composer box for tweet `index` of a thread (0 = the opener). */
+const threadComposerSelector = (index: number): string =>
+  `div[data-testid="tweetTextarea_${index}"]`;
+
+/**
+ * Add the rest of a thread to the open composer.
+ *
+ * Returns an error string on the first step that fails. The caller MUST NOT post
+ * in that case: clicking Post with a half-built thread publishes a truncated
+ * one, which can't be fixed after the fact — the same reason the image path
+ * refuses to post without its image.
+ */
+const buildThread = async (parts: string[]): Promise<string | null> => {
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]?.trim();
+    if (!part) continue;
+
+    const addButton = document.querySelector<HTMLButtonElement>(S.composeAddButton);
+    if (!addButton || addButton.getAttribute('aria-disabled') === 'true') {
+      return `could not add tweet ${i + 2} of the thread`;
+    }
+    addButton.click();
+
+    const box = await waitFor<HTMLElement>(threadComposerSelector(i + 1), 8_000);
+    if (!box) return `thread box ${i + 2} never appeared`;
+    await typeIntoComposer(box, part);
+    await wait(400);
+
+    // Confirm the text actually registered before moving on; Lexical silently
+    // drops input if the box wasn't focused yet.
+    if ((box.innerText ?? '').trim().length === 0) {
+      return `thread tweet ${i + 2} did not register`;
+    }
+  }
+  return null;
+};
 
 const dataUrlToFile = async (dataUrl: string): Promise<File> => {
   const res = await fetch(dataUrl);
@@ -72,6 +111,14 @@ export const publishPost = async (
 
   await typeIntoComposer(composer, body);
   await wait(300);
+
+  const thread = (args.thread ?? []).map((t) => t.trim()).filter(Boolean);
+  if (thread.length > 0) {
+    const threadError = await buildThread(thread);
+    // Bail BEFORE posting — a partially built thread would publish as a
+    // truncated one, and there's no undo on a public timeline.
+    if (threadError) return { posted: false, error: threadError };
+  }
 
   if (args.imageDataUrl) {
     const attached = await attachImage(args.imageDataUrl);

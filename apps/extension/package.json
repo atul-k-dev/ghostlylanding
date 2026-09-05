@@ -7,7 +7,13 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
+    "test": "pnpm smoke && pnpm reply-queue-smoke && pnpm relevance-smoke && pnpm selectors-smoke && pnpm schedule-smoke && pnpm resilience-smoke",
     "smoke": "tsx scripts/scheduler-smoke.mts",
+    "reply-queue-smoke": "tsx scripts/reply-queue-smoke.mts",
+    "relevance-smoke": "tsx scripts/relevance-smoke.mts",
+    "selectors-smoke": "tsx scripts/selectors-smoke.mts",
+    "schedule-smoke": "tsx scripts/schedule-smoke.mts",
+    "resilience-smoke": "tsx scripts/resilience-smoke.mts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist"
   },

@@ -1,0 +1,51 @@
+# Typecheck, build, and run the offline test suites on every push and PR.
+#
+# Deliberately NOT included: `pnpm --filter @casper/server smoke`, which is an
+# end-to-end auth test that needs a running API and a real Mongo. Everything
+# here runs with no network, no database, and no secrets.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # A new push supersedes an in-flight run on the same ref.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # Taken from the root package.json "packageManager" field.
+          version: 10.14.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared types
+        # Every other workspace imports @casper/shared from its build output, so
+        # this has to happen before typecheck.
+        run: pnpm build:shared
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Test
+        run: pnpm -r test

@@ -2,11 +2,17 @@ import { useEffect, useState } from 'react';
 import type {
   ActionType,
   CountersState,
+  GrowthSummary,
+  GrowthDelta,
+  PostOutcome,
+  PendingReply,
+  VoiceProfile,
   DailyCounter,
   ExtensionSettings,
   Platform,
   SubscriptionPlan,
   TargetCreator,
+  SearchQuery,
   TonePreset,
   CommentLength,
   PostLength,
@@ -17,13 +23,19 @@ import {
   COMMENT_LENGTHS,
   FREE_TIER,
   PLAN_PRICING,
+  VOICE_LIMITS,
+  REPLY_QUEUE_MAX,
+  MAX_SEARCH_QUERIES,
   isPro,
   monthlyActionsUsed,
 } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
+import { toDateInputValue, toTimeInputValue, localDateTime } from '../../lib/schedule-time.js';
 import {
   getSettings,
   setSettings,
+  getAuth as getStoredAuth,
+  getPendingReplies,
   getSchedulerState,
   STORAGE_KEYS,
   getDiagnostics,
@@ -34,7 +46,7 @@ import {
   type ScheduledPost,
 } from '../../lib/storage.js';
 
-type Tab = 'dashboard' | 'activity' | 'schedule' | 'settings';
+type Tab = 'dashboard' | 'growth' | 'review' | 'activity' | 'schedule' | 'settings';
 
 interface ActionLogEntry {
   id: string;
@@ -55,15 +67,22 @@ interface Props {
 export const Dashboard = ({ user, onLogout }: Props) => {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [settings, setLocalSettings] = useState<ExtensionSettings | null>(null);
+  // Badge count for the Review tab — kept live so a draft queued mid-session
+  // shows up without the user hunting for it.
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     void getSettings().then(setLocalSettings);
+    void getPendingReplies().then((r) => setPendingCount(r.length));
     const listener = (
       changes: { [key: string]: chrome.storage.StorageChange },
       area: chrome.storage.AreaName,
     ) => {
       if (area === 'local' && STORAGE_KEYS.settings in changes) {
         void getSettings().then(setLocalSettings);
+      }
+      if (area === 'local' && STORAGE_KEYS.pendingReplies in changes) {
+        void getPendingReplies().then((r) => setPendingCount(r.length));
       }
     };
     chrome.storage.onChanged.addListener(listener);
@@ -90,9 +109,11 @@ export const Dashboard = ({ user, onLogout }: Props) => {
   return (
     <div className="flex h-[480px] w-[480px] flex-col">
       <Header user={user} isPaused={settings?.isPaused ?? false} onTogglePause={togglePause} />
-      <Tabs tab={tab} onChange={setTab} />
+      <Tabs tab={tab} onChange={setTab} pendingCount={pendingCount} />
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {tab === 'dashboard' && <DashboardTab settings={settings} />}
+        {tab === 'growth' && <GrowthTab />}
+        {tab === 'review' && <ReviewTab />}
         {tab === 'activity' && <ActivityTab />}
         {tab === 'schedule' && settings && (
           <ScheduleTab settings={settings} onChange={updateSettings} />
@@ -155,9 +176,19 @@ const Header = ({
   </header>
 );
 
-const Tabs = ({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) => {
+const Tabs = ({
+  tab,
+  onChange,
+  pendingCount,
+}: {
+  tab: Tab;
+  onChange: (t: Tab) => void;
+  pendingCount: number;
+}) => {
   const items: { id: Tab; label: string }[] = [
     { id: 'dashboard', label: 'Home' },
+    { id: 'growth', label: 'Growth' },
+    { id: 'review', label: 'Review' },
     { id: 'activity', label: 'Activity' },
     { id: 'schedule', label: 'Schedule' },
     { id: 'settings', label: 'Settings' },
@@ -169,13 +200,18 @@ const Tabs = ({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) => {
           key={item.id}
           type="button"
           onClick={() => onChange(item.id)}
-          className={`flex-1 px-2 py-2 text-xs font-medium transition ${
+          className={`flex flex-1 items-center justify-center gap-1 px-1 py-2 text-xs font-medium transition ${
             tab === item.id
               ? 'border-b-2 border-casper-violet text-casper-violet'
               : 'text-casper-ink/50 hover:text-casper-ink'
           }`}
         >
           {item.label}
+          {item.id === 'review' && pendingCount > 0 && (
+            <span className="rounded-full bg-casper-violet px-1.5 text-[9px] font-semibold leading-4 text-white">
+              {pendingCount}
+            </span>
+          )}
         </button>
       ))}
     </nav>
@@ -432,6 +468,54 @@ const SettingsTab = ({
   onAccountDeleted: () => void;
   userEmail: string;
 }) => {
+  // Voice profile lives on the server user; the background writes it back into
+  // local auth after training, so we read it from there and refresh on change.
+  const [voice, setVoice] = useState<VoiceProfile | null>(null);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const [voiceMsg, setVoiceMsg] = useState<string | null>(null);
+
+  const readVoice = async () => {
+    const auth = await getStoredAuth();
+    setVoice(auth?.user.voiceProfile ?? null);
+  };
+  useEffect(() => {
+    void readVoice();
+  }, []);
+
+  const trainVoice = async () => {
+    setVoiceBusy(true);
+    setVoiceMsg('Reading your recent posts…');
+    try {
+      const resp = await sendToBackground<
+        { ok: true; data: User } | { ok: false; error: { message: string } | string }
+      >({ type: 'TRAIN_VOICE', payload: {} });
+      if (resp.ok) {
+        setVoice(resp.data.voiceProfile ?? null);
+        setVoiceMsg('Done — Ghostly now writes the way you do.');
+      } else {
+        setVoiceMsg(typeof resp.error === 'string' ? resp.error : resp.error.message);
+      }
+    } catch (err) {
+      setVoiceMsg(err instanceof Error ? err.message : 'Training failed');
+    } finally {
+      setVoiceBusy(false);
+    }
+  };
+
+  const clearVoice = async () => {
+    setVoiceBusy(true);
+    try {
+      const resp = await sendToBackground<
+        { ok: true; data: User } | { ok: false; error: { message: string } | string }
+      >({ type: 'CLEAR_VOICE', payload: {} });
+      if (resp.ok) {
+        setVoice(null);
+        setVoiceMsg('Cleared — back to the tone preset.');
+      }
+    } finally {
+      setVoiceBusy(false);
+    }
+  };
   const [queueStatus, setQueueStatus] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -575,6 +659,81 @@ const SettingsTab = ({
         </p>
       </Section>
 
+      <Section
+        title="Your voice"
+        subtitle="Learn how you write, so replies sound like you and not like a preset."
+      >
+        {voice ? (
+          <div className="space-y-2">
+            <p className="rounded-lg border border-casper-border bg-casper-cloud p-2 text-[11px] leading-relaxed text-casper-ink/70">
+              {voice.summary}
+            </p>
+            <p className="text-[10px] text-casper-ink/40">
+              Learned from {voice.sampleCount} of your posts on{' '}
+              {new Date(voice.trainedAt).toLocaleDateString()}. This overrides the tone preset
+              below.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={trainVoice}
+                disabled={voiceBusy}
+                className="flex-1 rounded-lg border border-casper-border py-1.5 text-xs font-medium text-casper-ink/70 transition hover:bg-white/5 disabled:opacity-50"
+              >
+                {voiceBusy ? 'Working…' : 'Retrain'}
+              </button>
+              <button
+                type="button"
+                onClick={clearVoice}
+                disabled={voiceBusy}
+                className="rounded-lg border border-casper-border px-3 py-1.5 text-xs text-casper-ink/50 transition hover:bg-white/5 disabled:opacity-50"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-[10px] leading-relaxed text-casper-ink/50">
+              Ghostly reads your last {VOICE_LIMITS.maxSamples} posts once, works out how you
+              actually write, and uses that for every reply and drafted post. Your posts are
+              analysed and discarded — only the summary is kept.
+            </p>
+            <button
+              type="button"
+              onClick={trainVoice}
+              disabled={voiceBusy}
+              className="w-full rounded-lg bg-casper-violet py-2 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+            >
+              {voiceBusy ? 'Reading your posts…' : 'Learn my voice'}
+            </button>
+          </div>
+        )}
+        {voiceMsg && <p className="mt-2 text-[10px] text-casper-ink/50">{voiceMsg}</p>}
+      </Section>
+
+      <Section
+        title="Review before posting"
+        subtitle="Hold each generated reply in the Review tab until you approve it."
+      >
+        <label className="flex items-center gap-2 text-xs text-casper-ink/80">
+          <input
+            type="checkbox"
+            checked={settings.replyApproval !== false}
+            onChange={() =>
+              onChange({ ...settings, replyApproval: !(settings.replyApproval !== false) })
+            }
+            className="h-3.5 w-3.5 rounded border-casper-ink/20 text-casper-violet focus:ring-casper-violet/30"
+          />
+          Approve replies before they post
+        </label>
+        <p className="mt-1 text-[10px] leading-relaxed text-casper-ink/40">
+          {settings.replyApproval !== false
+            ? 'Nothing goes out under your name until you say so. Drafts wait in Review.'
+            : 'Replies post automatically as soon as they are written.'}
+        </p>
+      </Section>
+
       <Section title="Reply tone" subtitle="Voice Ghostly247 uses when it auto-replies to posts.">
         <select
           value={settings.tone}
@@ -653,6 +812,8 @@ const SettingsTab = ({
           <p className="mt-2 text-[10px] text-casper-ink/50">{followBackStatus}</p>
         )}
       </Section>
+
+      <SearchSection settings={settings} onChange={onChange} />
 
       <TargetsSection settings={settings} onChange={onChange} />
 
@@ -760,6 +921,463 @@ const MailSmallIcon = () => (
   </svg>
 );
 
+/* -- Review ---------------------------------------------------------------
+ * The approval queue. Each card shows the post being answered next to the
+ * reply Ghostly wrote, editable in place — because the whole point is that
+ * nothing goes out under the user's name until they've read it.
+ * ---------------------------------------------------------------------- */
+
+const ReviewCard = ({
+  reply,
+  onApprove,
+  onReject,
+  busy,
+}: {
+  reply: PendingReply;
+  onApprove: (id: string, text: string) => void;
+  onReject: (id: string) => void;
+  busy: boolean;
+}) => {
+  const [text, setText] = useState(reply.draftText);
+  const edited = text.trim() !== reply.draftText.trim();
+
+  return (
+    <div className="rounded-2xl border border-casper-border bg-casper-surface p-3">
+      {/* What we're replying to */}
+      <a
+        href={reply.postUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="mb-2 block rounded-xl bg-casper-cloud p-2.5 transition hover:bg-white/5"
+      >
+        {reply.authorHandle && (
+          <p className="mb-1 text-[10px] font-medium text-casper-ink/50">
+            @{reply.authorHandle.replace(/^@/, '')}
+          </p>
+        )}
+        <p className="line-clamp-4 text-[11px] leading-snug text-casper-ink/60">
+          {reply.postText || '(post text unavailable)'}
+        </p>
+      </a>
+
+      {/* What Ghostly wants to say */}
+      <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+        Your reply
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={3}
+        className="w-full resize-none rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-[12px] leading-snug focus:border-casper-violet focus:outline-none"
+      />
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onApprove(reply.id, text)}
+          disabled={busy || text.trim().length < 2}
+          className="flex-1 rounded-lg bg-casper-violet py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+        >
+          {edited ? 'Post my version' : 'Post it'}
+        </button>
+        <button
+          type="button"
+          onClick={() => onReject(reply.id)}
+          disabled={busy}
+          className="rounded-lg border border-casper-border px-3 py-1.5 text-xs text-casper-ink/60 transition hover:bg-white/5 disabled:opacity-40"
+        >
+          Skip
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const ReviewTab = () => {
+  const [replies, setReplies] = useState<PendingReply[] | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
+
+  const load = async () => {
+    const list = await getPendingReplies();
+    setReplies([...list].sort((a, b) => b.createdAt - a.createdAt));
+    setPaused((await getSettings()).isPaused);
+  };
+
+  useEffect(() => {
+    void load();
+    const listener = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      area: chrome.storage.AreaName,
+    ) => {
+      if (area === 'local' && STORAGE_KEYS.pendingReplies in changes) void load();
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, []);
+
+  const approve = async (id: string, text: string) => {
+    setBusyId(id);
+    setNote(null);
+    try {
+      const resp = await sendToBackground<
+        { ok: true; data: { taskId: string } } | { ok: false; error: { message: string } | string }
+      >({ type: 'APPROVE_DRAFT', payload: { id, text } });
+      if (resp.ok) {
+        // The engine posts it; if it's paused nothing will happen until the
+        // user arms it, so say so rather than leaving them wondering.
+        setNote(
+          paused
+            ? 'Approved — it posts as soon as you hit "● Active" up top.'
+            : 'Approved — posting it now.',
+        );
+      } else {
+        setNote(typeof resp.error === 'string' ? resp.error : resp.error.message);
+      }
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : 'Approve failed');
+    } finally {
+      setBusyId(null);
+      await load();
+    }
+  };
+
+  const reject = async (id: string) => {
+    setBusyId(id);
+    try {
+      await sendToBackground({ type: 'REJECT_DRAFT', payload: { id } });
+      setNote('Skipped — Ghostly won’t reply to that post.');
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : 'Skip failed');
+    } finally {
+      setBusyId(null);
+      await load();
+    }
+  };
+
+  if (replies === null) {
+    return <p className="py-4 text-center text-xs text-casper-ink/40">Loading…</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {note && (
+        <div className="rounded-lg bg-casper-violet/10 px-3 py-2 text-[11px] text-casper-violet">
+          {note}
+        </div>
+      )}
+
+      {replies.length === 0 ? (
+        <div className="flex h-[300px] flex-col items-center justify-center px-6 text-center">
+          <div className="mb-2 text-3xl" aria-hidden>
+            ✍️
+          </div>
+          <p className="text-xs text-casper-ink/70">Nothing waiting for you.</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-casper-ink/40">
+            When auto-reply is on, every reply Ghostly writes lands here first. Read it, edit it if
+            it isn&rsquo;t quite you, and post it — nothing goes out under your name until you say
+            so.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs font-semibold">
+              {replies.length} waiting
+              <span className="text-casper-ink/40"> / {REPLY_QUEUE_MAX}</span>
+            </p>
+            {replies.length >= REPLY_QUEUE_MAX && (
+              <p className="text-[10px] text-casper-coral">Queue full — drafting paused</p>
+            )}
+          </div>
+          {replies.map((reply) => (
+            <ReviewCard
+              key={reply.id}
+              reply={reply}
+              onApprove={approve}
+              onReject={reject}
+              busy={busyId === reply.id}
+            />
+          ))}
+        </>
+      )}
+    </div>
+  );
+};
+
+/* -- Growth ---------------------------------------------------------------
+ * The scoreboard: what the automation GOT, not what it did. Everything here
+ * comes from the daily growth scan reading the user's own profile.
+ * ---------------------------------------------------------------------- */
+
+const fmtNum = (n: number): string => n.toLocaleString();
+
+/** Follower trend. Uniform-scaled points; a single reading renders as a dot. */
+const Sparkline = ({ points }: { points: number[] }) => {
+  const W = 400;
+  const H = 64;
+  const PAD = 6;
+  if (points.length === 0) return null;
+
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  // A flat line (no growth yet) would divide by zero — park it mid-height.
+  const span = max - min || 1;
+  const x = (i: number): number => (points.length === 1 ? W / 2 : (i / (points.length - 1)) * W);
+  const y = (v: number): number =>
+    max === min ? H / 2 : H - PAD - ((v - min) / span) * (H - PAD * 2);
+
+  const line = points.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className="h-16 w-full"
+      role="img"
+      aria-label={`Follower trend over the last ${points.length} readings`}
+    >
+      <defs>
+        <linearGradient id="ghostly-spark" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f44d60" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#f44d60" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {points.length > 1 && (
+        <>
+          <polygon points={`0,${H} ${line} ${W},${H}`} fill="url(#ghostly-spark)" />
+          <polyline
+            points={line}
+            fill="none"
+            stroke="#f44d60"
+            strokeWidth="2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </>
+      )}
+      <circle
+        cx={x(points.length - 1)}
+        cy={y(points[points.length - 1] ?? 0)}
+        r="3"
+        fill="#f44d60"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+};
+
+/** One follower-change tile. Honest about short history: a 3-day-old install
+ *  reports "+12 · 3d", never a made-up month. */
+const DeltaTile = ({ label, delta }: { label: string; delta: GrowthDelta }) => {
+  const has = delta.change !== null;
+  const up = (delta.change ?? 0) > 0;
+  const down = (delta.change ?? 0) < 0;
+  return (
+    <div className="rounded-xl border border-casper-border bg-casper-surface p-3">
+      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+        {label}
+      </p>
+      <p
+        className={`mt-1 text-lg font-semibold ${
+          up ? 'text-emerald-300' : down ? 'text-rose-300' : 'text-casper-ink'
+        }`}
+      >
+        {has ? `${up ? '+' : ''}${fmtNum(delta.change ?? 0)}` : '—'}
+      </p>
+      <p className="text-[10px] text-casper-ink/40">
+        {has ? `over ${delta.days}d` : 'needs 2 readings'}
+      </p>
+    </div>
+  );
+};
+
+const TopReply = ({ post }: { post: PostOutcome }) => (
+  <a
+    href={post.url}
+    target="_blank"
+    rel="noreferrer"
+    className="block rounded-xl border border-casper-border bg-casper-surface p-2.5 transition hover:bg-white/5"
+  >
+    <div className="mb-1 flex items-center gap-3 text-[11px]">
+      <span className="font-semibold text-casper-violet">♥ {fmtNum(post.likes)}</span>
+      <span className="text-casper-ink/50">💬 {fmtNum(post.replies)}</span>
+      {post.reposts > 0 && <span className="text-casper-ink/50">🔁 {fmtNum(post.reposts)}</span>}
+      {post.views !== null && (
+        <span className="ml-auto text-[10px] text-casper-ink/35">
+          {fmtNum(post.views)} views
+        </span>
+      )}
+    </div>
+    <p className="line-clamp-2 text-[11px] leading-snug text-casper-ink/70">
+      {post.text || (post.isReply ? '(reply)' : '(post)')}
+    </p>
+  </a>
+);
+
+const GrowthTab = () => {
+  const [summary, setSummary] = useState<GrowthSummary | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = async () => {
+    try {
+      const resp = await sendToBackground<
+        { ok: true; data: GrowthSummary } | { ok: false; error: { message: string } | string }
+      >({ type: 'GET_GROWTH', payload: { days: 30 } });
+      if (resp.ok) {
+        setSummary(resp.data);
+        setError(null);
+      } else {
+        setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed');
+    } finally {
+      setLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  /** Reads the profile now. Takes a minute or two — the scan opens (background)
+   *  tabs for the profile, the followers sample, and the replies timeline. */
+  const refresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const resp = await sendToBackground<
+        { ok: true; data: { message: string } } | { ok: false; error: { message: string } | string }
+      >({ type: 'REFRESH_GROWTH', payload: {} });
+      if (!resp.ok) {
+        setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'refresh failed');
+    } finally {
+      setRefreshing(false);
+      await load();
+    }
+  };
+
+  if (!loaded) {
+    return <p className="py-4 text-center text-xs text-casper-ink/40">Loading…</p>;
+  }
+
+  const latest = summary?.latest ?? null;
+  const series = summary?.series ?? [];
+  const replies = summary?.replies;
+
+  return (
+    <div className="space-y-3">
+      {error && (
+        <div className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{error}</div>
+      )}
+
+      {latest === null ? (
+        <div className="flex h-[300px] flex-col items-center justify-center px-6 text-center">
+          <div className="mb-2 text-3xl" aria-hidden>
+            📈
+          </div>
+          <p className="text-xs text-casper-ink/70">No readings yet.</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-casper-ink/40">
+            Ghostly checks your profile once a day and notes your followers, plus how the replies
+            it left actually performed. Take the first reading now and come back tomorrow to see
+            the line move.
+          </p>
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={refreshing}
+            className="mt-4 rounded-lg bg-casper-violet px-4 py-2 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+          >
+            {refreshing ? 'Reading your profile…' : 'Take the first reading'}
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Headline: followers + trend */}
+          <div className="rounded-2xl border border-casper-border bg-casper-surface p-3">
+            <div className="flex items-baseline justify-between">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+                  Followers
+                </p>
+                <p className="text-2xl font-semibold">{fmtNum(latest.followers)}</p>
+              </div>
+              <p className="text-right text-[10px] text-casper-ink/40">
+                {fmtNum(latest.following)} following
+                {latest.posts !== null && <> · {fmtNum(latest.posts)} posts</>}
+                <span className="block">read {latest.date}</span>
+              </p>
+            </div>
+            <div className="mt-2">
+              <Sparkline points={series.map((p) => p.followers)} />
+            </div>
+          </div>
+
+          {/* Deltas */}
+          {summary && (
+            <div className="grid grid-cols-3 gap-2">
+              <DeltaTile label="Today" delta={summary.deltas.day} />
+              <DeltaTile label="7 days" delta={summary.deltas.week} />
+              <DeltaTile label="30 days" delta={summary.deltas.month} />
+            </div>
+          )}
+
+          {/* Follow-back payoff */}
+          {latest.followedBack !== null && latest.followedBackSample ? (
+            <div className="rounded-xl border border-casper-border bg-casper-surface p-3">
+              <p className="text-[11px] text-casper-ink/70">
+                <span className="font-semibold text-casper-violet">
+                  {fmtNum(latest.followedBack)}
+                </span>{' '}
+                of your last {fmtNum(latest.followedBackSample)} followers are accounts Ghostly
+                followed first.
+              </p>
+            </div>
+          ) : null}
+
+          {/* Reply performance */}
+          <div className="rounded-2xl border border-casper-border bg-casper-surface p-3">
+            <div className="mb-2 flex items-baseline justify-between">
+              <p className="text-xs font-semibold">Your replies</p>
+              <p className="text-[10px] text-casper-ink/40">
+                {replies?.tracked ?? 0} measured · {fmtNum(replies?.totalLikes ?? 0)} likes · avg{' '}
+                {replies?.avgLikes ?? 0}
+              </p>
+            </div>
+            {replies && replies.top.length > 0 ? (
+              <div className="space-y-2">
+                {replies.top.map((post) => (
+                  <TopReply key={post.tweetId} post={post} />
+                ))}
+              </div>
+            ) : (
+              <p className="py-3 text-center text-[10px] text-casper-ink/40">
+                Nothing measured yet — replies show up here after the next daily reading.
+              </p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={refreshing}
+            className="w-full rounded-lg border border-casper-border py-2 text-xs font-medium text-casper-ink/70 transition hover:bg-white/5 disabled:opacity-50"
+          >
+            {refreshing ? 'Reading your profile…' : 'Refresh now'}
+          </button>
+        </>
+      )}
+    </div>
+  );
+};
+
 const ActivityTab = () => {
   const [entries, setEntries] = useState<ActionLogEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -851,19 +1469,13 @@ const formatRelative = (iso: string): string => {
   return `${Math.floor(diff / 86_400_000)}d ago`;
 };
 
-const toDateInputValue = (d: Date): string => {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-};
-
-/** Local midnight (start of day) for a YYYY-MM-DD date string. */
-const startOfLocalDay = (dateStr: string): number => new Date(`${dateStr}T00:00:00`).getTime();
-
 const formatWhen = (ms: number): string =>
-  new Date(ms).toLocaleDateString(undefined, {
+  new Date(ms).toLocaleString(undefined, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 
 const POST_LENGTHS: { id: PostLength; label: string }[] = [
@@ -896,6 +1508,15 @@ const ScheduleTab = ({
   const [image, setImage] = useState<{ dataUrl: string; name: string } | null>(null);
   const [text, setText] = useState('');
   const [when, setWhen] = useState(() => toDateInputValue(new Date()));
+  // Default to an hour out rather than "now", so a post scheduled in a hurry
+  // doesn't fire on the very next tick before it's been read back.
+  const [atTime, setAtTime] = useState(() =>
+    toTimeInputValue(new Date(Date.now() + 60 * 60 * 1000)),
+  );
+  /** Follow-up tweets. One entry per box shown under the main text. */
+  const [thread, setThread] = useState<string[]>([]);
+  const [ideas, setIdeas] = useState<string[] | null>(null);
+  const [ideasBusy, setIdeasBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -984,9 +1605,21 @@ const ScheduleTab = ({
       setError('Pick today or a future day.');
       return;
     }
-    const ts = startOfLocalDay(when);
+    const ts = localDateTime(when, atTime);
     if (!Number.isFinite(ts)) {
-      setError('Pick a valid day.');
+      setError('Pick a valid day and time.');
+      return;
+    }
+    // A slot in the past would fire on the very next tick, which is never what
+    // someone picking a time meant.
+    if (ts < Date.now() - 60_000) {
+      setError('That time has already passed today — pick a later one.');
+      return;
+    }
+    const parts = thread.map((t) => t.trim()).filter(Boolean);
+    const tooLong = parts.find((t) => t.length > limit);
+    if (tooLong) {
+      setError(`One of the thread tweets is over the ${limit}-character limit.`);
       return;
     }
     setBusy(true);
@@ -1002,6 +1635,7 @@ const ScheduleTab = ({
           link: link.trim(),
           imageDataUrl: image?.dataUrl ?? null,
           scheduledAt: ts,
+          ...(parts.length > 0 ? { thread: parts } : {}),
         },
       });
       if (r.ok) {
@@ -1009,7 +1643,9 @@ const ScheduleTab = ({
         setLink('');
         setImage(null);
         setText('');
+        setThread([]);
         setWhen(toDateInputValue(new Date()));
+        setAtTime(toTimeInputValue(new Date(Date.now() + 60 * 60 * 1000)));
         setNotice('Scheduled ✓');
         await refresh();
       } else {
@@ -1025,6 +1661,36 @@ const ScheduleTab = ({
   const remove = async (id: string) => {
     await sendToBackground({ type: 'DELETE_SCHEDULED_POST', payload: { id } });
     await refresh();
+  };
+
+  /**
+   * Ask for a few post ideas, written in the user's trained voice and informed
+   * by which of their own posts performed. They land as suggestions, never on
+   * the schedule — publishing under someone's name stays their decision.
+   */
+  const suggest = async () => {
+    setIdeasBusy(true);
+    setError(null);
+    try {
+      const r = await sendToBackground<
+        | { ok: true; data: { ideas: string[]; basedOnWinners: number } }
+        | { ok: false; error: { message: string } | string }
+      >({ type: 'GENERATE_IDEAS', payload: { count: 3 } });
+      if (r.ok) {
+        setIdeas(r.data.ideas);
+        setNotice(
+          r.data.basedOnWinners > 0
+            ? `Drafted from your ${r.data.basedOnWinners} best-performing posts.`
+            : 'Drafted from your topics. Once the growth scan has measured a few posts, these get better.',
+        );
+      } else {
+        setError(typeof r.error === 'string' ? r.error : r.error.message);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed');
+    } finally {
+      setIdeasBusy(false);
+    }
   };
 
   // Count the way X does: the text plus the attached link (23 + a 2-char join).
@@ -1180,19 +1846,115 @@ const ScheduleTab = ({
           )
         )}
 
+        {/* Thread: each box is one more tweet after the opener. */}
+        {thread.map((part, i) => (
+          <div key={i} className="mt-2">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+                Thread · {i + 2}
+              </span>
+              <button
+                type="button"
+                onClick={() => setThread(thread.filter((_, j) => j !== i))}
+                className="text-[10px] text-casper-ink/40 transition hover:text-casper-coral"
+              >
+                Remove
+              </button>
+            </div>
+            <textarea
+              value={part}
+              onChange={(e) =>
+                setThread(thread.map((t, j) => (j === i ? e.target.value : t)))
+              }
+              rows={2}
+              placeholder="Next tweet in the thread…"
+              className={`w-full resize-none rounded-lg border bg-casper-cloud px-2 py-1.5 text-xs focus:outline-none ${
+                part.length > limit
+                  ? 'border-rose-500/50'
+                  : 'border-casper-ink/10 focus:border-casper-violet'
+              }`}
+            />
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => setThread([...thread, ''])}
+          className="mt-2 w-full rounded-lg border border-casper-border py-1.5 text-[11px] text-casper-ink/60 transition hover:bg-white/5"
+        >
+          + Add to thread
+        </button>
+
+        <div className="mt-3 border-t border-casper-border pt-3">
+          <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
+            What you post about
+          </label>
+          <input
+            value={settings.contentTopics.join(', ')}
+            onChange={(e) =>
+              onChange({
+                ...settings,
+                contentTopics: e.target.value
+                  .split(',')
+                  .map((t) => t.trim())
+                  .filter(Boolean)
+                  .slice(0, 10),
+              })
+            }
+            placeholder="building in public, design, indie hacking"
+            className="mb-2 w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={suggest}
+            disabled={ideasBusy}
+            className="w-full rounded-lg border border-casper-violet/40 bg-casper-violet/10 py-1.5 text-[11px] font-medium text-casper-violet transition hover:bg-casper-violet/20 disabled:opacity-40"
+          >
+            {ideasBusy ? 'Thinking…' : '✨ Suggest posts for me'}
+          </button>
+          {ideas && ideas.length > 0 && (
+            <div className="mt-2 space-y-1.5">
+              {ideas.map((idea, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => {
+                    setText(idea);
+                    setIdeas(null);
+                    setNotice('Loaded into the composer — edit it before you schedule.');
+                  }}
+                  className="block w-full rounded-lg border border-casper-border bg-casper-cloud p-2 text-left text-[11px] leading-snug text-casper-ink/75 transition hover:bg-white/5"
+                >
+                  {idea.length > 220 ? `${idea.slice(0, 220)}…` : idea}
+                </button>
+              ))}
+              <p className="text-[10px] text-casper-ink/40">
+                Tap one to load it into the composer. Nothing is scheduled until you say so.
+              </p>
+            </div>
+          )}
+        </div>
+
         <label className="mb-1.5 mt-3 block font-mono text-[10px] uppercase tracking-[0.12em] text-casper-ink/40">
-          Post on
+          Post at
         </label>
-        <input
-          type="date"
-          value={when}
-          min={toDateInputValue(new Date())}
-          onChange={(e) => setWhen(e.target.value)}
-          className="w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
-        />
+        <div className="flex gap-2">
+          <input
+            type="date"
+            value={when}
+            min={toDateInputValue(new Date())}
+            onChange={(e) => setWhen(e.target.value)}
+            className="flex-1 rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+          />
+          <input
+            type="time"
+            value={atTime}
+            onChange={(e) => setAtTime(e.target.value)}
+            className="w-28 rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+          />
+        </div>
         <p className="mt-1 text-[10px] text-casper-ink/40">
-          Goes out on this day the next time your browser is open. If it's closed all day, it
-          posts the next time you open Ghostly247 after that.
+          Goes out at this time, the next time your browser is open. If it's closed at that
+          moment, it posts as soon as you open Ghostly247 afterwards.
         </p>
 
         {atLimit && (
@@ -1278,7 +2040,12 @@ const PostRow = ({ post, onDelete }: { post: ScheduledPost; onDelete: () => void
       </div>
       <div className="mt-1.5 flex items-center gap-2">
         <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${s.cls}`}>{s.label}</span>
-        <span className="text-[10px] text-casper-ink/40">{formatWhen(post.scheduledAt)}</span>
+        <span className="text-[10px] text-casper-ink/40">
+          {formatWhen(post.scheduledAt)}
+          {post.thread && post.thread.length > 0 && (
+            <span className="ml-1 text-casper-violet">· thread of {post.thread.length + 1}</span>
+          )}
+        </span>
         {post.status === 'failed' && post.error && (
           <span className="truncate text-[10px] text-rose-400/80" title={post.error}>
             · {post.error}
@@ -1861,6 +2628,124 @@ const HomeFeedSection = ({
   );
 };
 
+const SearchSection = ({
+  settings,
+  onChange,
+}: {
+  settings: ExtensionSettings;
+  onChange: (s: ExtensionSettings) => void;
+}) => {
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState<string | null>(null);
+  const queries = settings.searchQueries;
+  const full = queries.length >= MAX_SEARCH_QUERIES;
+
+  const add = () => {
+    const clean = query.trim();
+    if (!clean || full) return;
+    if (queries.some((q) => q.query.toLowerCase() === clean.toLowerCase())) {
+      setQuery('');
+      return;
+    }
+    const next: SearchQuery = { query: clean, addedAt: new Date().toISOString() };
+    onChange({ ...settings, searchQueries: [...queries, next] });
+    setQuery('');
+  };
+
+  const remove = (q: SearchQuery) =>
+    onChange({ ...settings, searchQueries: queries.filter((x) => x.query !== q.query) });
+
+  const runNow = async (q: SearchQuery) => {
+    setStatus('Starting…');
+    try {
+      await sendToBackground({ type: 'SCAN_SEARCH_NOW', payload: { query: q.query } });
+      setStatus(
+        settings.isPaused
+          ? 'Queued — but the engine is Paused. Hit "● Active" up top so it runs.'
+          : `Working the Latest results for "${q.query}"…`,
+      );
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'failed');
+    }
+  };
+
+  return (
+    <Section
+      title="Topic feeds"
+      subtitle="Work X's Latest results for a topic, instead of whatever the home feed serves you."
+    >
+      <div className="flex gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && add()}
+          placeholder="indie hackers"
+          disabled={full}
+          className="flex-1 rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-sm focus:border-casper-violet focus:outline-none disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={full}
+          className="rounded-lg bg-casper-violet px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+        >
+          Add
+        </button>
+      </div>
+      <p className="mt-1 text-[10px] text-casper-ink/40">
+        {full
+          ? `That's the limit of ${MAX_SEARCH_QUERIES} feeds.`
+          : `X's search operators work here — try "indie hackers min_faves:5 -filter:replies".`}
+      </p>
+
+      {queries.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          {queries.map((q) => (
+            <div
+              key={q.query}
+              className="flex items-center gap-2 rounded-lg bg-casper-cloud px-2 py-1.5"
+            >
+              <span className="flex-1 truncate text-[11px]" title={q.query}>
+                {q.query}
+              </span>
+              <button
+                type="button"
+                onClick={() => runNow(q)}
+                className="text-[10px] text-casper-violet transition hover:opacity-80"
+              >
+                Run now
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(q)}
+                aria-label="Remove"
+                className="text-casper-ink/30 transition hover:text-casper-coral"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {status && <p className="mt-2 text-[10px] text-casper-ink/50">{status}</p>}
+
+      <label className="mt-3 flex items-center gap-2 border-t border-casper-border pt-3 text-xs text-casper-ink/80">
+        <input
+          type="checkbox"
+          checked={settings.skipReplies !== false}
+          onChange={() => onChange({ ...settings, skipReplies: !(settings.skipReplies !== false) })}
+          className="h-3.5 w-3.5 rounded border-casper-ink/20 text-casper-violet focus:ring-casper-violet/30"
+        />
+        Skip posts buried in someone else&rsquo;s thread
+      </label>
+      <p className="mt-1 text-[10px] leading-relaxed text-casper-ink/40">
+        A reply inside a thread costs the same daily budget as a top-level post and reaches a
+        fraction of the people.
+      </p>
+    </Section>
+  );
+};
+
 const TargetsSection = ({
   settings,
   onChange,
@@ -2011,6 +2896,20 @@ const TargetsSection = ({
         </ul>
       )}
       {scanStatus && <p className="mt-2 text-[10px] text-casper-ink/50">{scanStatus}</p>}
-    </Section>
+          <label className="mt-3 flex items-center gap-2 border-t border-casper-border pt-3 text-xs text-casper-ink/80">
+        <input
+          type="checkbox"
+          checked={settings.earlyReply === true}
+          onChange={() => onChange({ ...settings, earlyReply: !settings.earlyReply })}
+          className="h-3.5 w-3.5 rounded border-casper-ink/20 text-casper-violet focus:ring-casper-violet/30"
+        />
+        Reply early to new posts
+      </label>
+      <p className="mt-1 text-[10px] leading-relaxed text-casper-ink/40">
+        {settings.earlyReply
+          ? 'Checking one creator every few minutes and engaging only posts from the last few hours — so your reply lands while the thread is still short.'
+          : 'Off: creators are swept every 6 hours, so a reply may arrive long after the post did.'}
+      </p>
+</Section>
   );
 };

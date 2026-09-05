@@ -60,6 +60,13 @@ const sendWithRetry = async (
 interface DriveOptions {
   loadTimeoutMs?: number;
   settleMs?: number;
+  /**
+   * Force a background tab even when the user has "watch it work" on. For reads
+   * that produce nothing to watch (the growth scan) — and, more importantly,
+   * because a foreground tab steals focus and CLOSES the popup, which would kill
+   * any flow the popup is waiting on.
+   */
+  forceBackground?: boolean;
 }
 
 export const driveTab = async (
@@ -70,7 +77,8 @@ export const driveTab = async (
   // In visible mode the tab opens in the foreground so the user can watch the
   // scrolling / liking / commenting / following happen.
   const { visibleMode } = await getSettings();
-  const tab = await chrome.tabs.create({ url, active: visibleMode !== false });
+  const visible = visibleMode !== false && options.forceBackground !== true;
+  const tab = await chrome.tabs.create({ url, active: visible });
   const tabId = tab.id;
   if (typeof tabId !== 'number') {
     throw new Error('tab created without id');
@@ -79,7 +87,7 @@ export const driveTab = async (
     await waitForLoad(tabId, options.loadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS);
     await sleep(options.settleMs ?? POST_LOAD_SETTLE_MS);
     const resp = await sendWithRetry(tabId, message);
-    if (visibleMode !== false) await sleep(VISIBLE_LINGER_MS);
+    if (visible) await sleep(VISIBLE_LINGER_MS);
     return resp;
   } finally {
     try {

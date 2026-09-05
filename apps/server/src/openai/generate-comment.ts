@@ -13,6 +13,8 @@ interface GenerateArgs {
   tone: TonePreset;
   length: CommentLength;
   postText: string;
+  /** The user's learned style guide, when they've trained one. */
+  voice?: string | null;
 }
 
 export const generateCommentDraft = async ({
@@ -20,9 +22,10 @@ export const generateCommentDraft = async ({
   tone,
   length,
   postText,
+  voice,
 }: GenerateArgs): Promise<string> => {
   const client = getOpenAI();
-  const { system } = buildCommentPrompt({ platform, tone, length });
+  const { system } = buildCommentPrompt({ platform, tone, length, voice });
   const completion = await client.chat.completions.create({
     model: MODEL,
     // High enough that replies don't collapse into the same few constructions
