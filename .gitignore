@@ -44,3 +44,7 @@ coverage/
 
 # Claude / local config
 .claude/
+
+# Packaged extension builds (regenerate with: pnpm --filter @casper/extension package)
+# The three historical zips already committed stay tracked; new ones do not.
+releases/*.zip
