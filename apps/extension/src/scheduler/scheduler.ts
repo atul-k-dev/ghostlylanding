@@ -24,11 +24,12 @@ import {
   getSchedulerState,
   setSchedulerState,
   getAuth,
+  getOwnHandle,
   appendDiagnostic,
 } from '../lib/storage.js';
 import { ensureToday, incrementCounter, isUnderCap } from './counters.js';
 import { setAuth } from '../lib/storage.js';
-import { nextActionDelayMs } from './timegate.js';
+import { nextActionDelayMs, isWithinActiveHours } from './timegate.js';
 import {
   peekNextPending,
   updateTask,
@@ -40,6 +41,7 @@ import {
   stats as queueStats,
 } from './queue.js';
 import { executeTask } from './executor.js';
+import { setBlockReason, clearBlockReason, resolveBlockReason } from './block-reason.js';
 import type { ExecutorResult, QueuedTask } from './types.js';
 import { appendActionLog, flushActionLog, shouldFlush } from './action-log.js';
 import { flushDiagnostics, shouldFlushDiagnostics } from './diagnostics-log.js';
@@ -156,6 +158,7 @@ export const handleTick = async (): Promise<void> => {
     // Paused → engine idle. Clear any running session timer.
     if (settings.isPaused) {
       console.log('[casper] tick: PAUSED — toggle the Active pill to start');
+      await setBlockReason('paused');
       stopKeepAlive();
       if (schedState.activeSince !== null) {
         await setSchedulerState({ ...schedState, activeSince: null });
@@ -206,7 +209,10 @@ export const handleTick = async (): Promise<void> => {
 
     const task = await peekNextPending();
     if (!task) {
-      console.log('[casper] tick: nothing queued (add targets or enable home feed)');
+      // Nothing to run. WHY there's nothing to run is the thing users have never
+      // been told — it lived in a console.log in this exact spot. Resolve it and
+      // persist it so the UI can show the one card that fixes it.
+      await reportIdleReason(settings);
       await maybeFlush();
       return;
     }
@@ -226,6 +232,7 @@ export const handleTick = async (): Promise<void> => {
             status: 'skipped',
             lastError: `Free plan: ${FREE_TIER.monthlyActions} actions/month used. Upgrade to Pro.`,
           });
+          await setBlockReason('free-cap');
           await maybeFlush();
           return;
         }
@@ -237,11 +244,14 @@ export const handleTick = async (): Promise<void> => {
           status: 'skipped',
           lastError: `daily cap reached for ${task.platform}/${task.taskType}`,
         });
+        await setBlockReason('caps-spent', `${task.platform}/${task.taskType}`);
         await maybeFlush();
         return;
       }
     }
 
+    // We're actually doing something — nothing to explain.
+    await clearBlockReason();
     await updateTask(task.id, { status: 'running', attempts: task.attempts + 1 });
 
     let result;
@@ -539,6 +549,67 @@ const homeHasBudget = async (settings: ExtensionSettings, platform: Platform): P
     (hf.repost && isUnderCap(counters, platform, 'repost')) ||
     (hf.quote && isUnderCap(counters, platform, 'quote'))
   );
+};
+
+/**
+ * Work out why the queue is empty and persist it for the UI.
+ *
+ * Everything here was already computed somewhere in this file; the only new part
+ * is writing the answer down where a human can read it. Assembles plain data and
+ * hands it to the pure resolver, which owns the precedence rules.
+ */
+const reportIdleReason = async (settings: ExtensionSettings): Promise<void> => {
+  const auth = await getAuth();
+  const status = auth?.user.subscriptionStatus ?? 'free';
+  const pro = isPro(status);
+  const counters = await ensureToday(settings);
+  const sched = await getSchedulerState();
+  const hf = settings.homeFeed;
+
+  const anyActionEnabled =
+    hf.like || hf.comment || hf.follow || hf.bookmark || hf.repost || hf.quote;
+
+  // Caps are "spent" only when every action type the user actually enabled has
+  // run out. A disabled action type having budget left is not budget.
+  const enabled: [boolean, Parameters<typeof isUnderCap>[2]][] = [
+    [hf.like, 'like'],
+    [hf.comment, 'comment'],
+    [hf.follow, 'follow'],
+    [hf.bookmark, 'bookmark'],
+    [hf.repost, 'repost'],
+    [hf.quote, 'quote'],
+  ];
+  const live = enabled.filter(([on]) => on);
+  const capsSpent =
+    live.length > 0 && live.every(([, kind]) => !isUnderCap(counters, 'twitter', kind));
+
+  const code = resolveBlockReason({
+    isPaused: settings.isPaused,
+    signedInToX: (await getOwnHandle()) !== null,
+    // A free account is not a lapsed one — only a paid plan that stopped.
+    subscriptionLapsed: status === 'canceled' || status === 'past_due',
+    freeCapHit: !pro && monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions,
+    // The engine keeps liking and following without the API; only replies need
+    // it, so an unreachable server is reported but never treated as fatal here.
+    serverReachable: true,
+    degradedStreak: sched.degradedStreak ?? 0,
+    capsSpent,
+    withinActiveHours: isWithinActiveHours(new Date(), settings.timezone, settings.activeHours),
+    hasTargets: settings.targetCreators.length > 0,
+    hasSearchQueries: settings.searchQueries.length > 0,
+    homeFeedEnabled: hf.enabled,
+    anyActionEnabled,
+    // The queue being empty after a refill pass means the scans found nothing
+    // worth queueing — a quiet feed, not a fault.
+    scannedButNoMatch: true,
+  });
+
+  if (code === null) {
+    await clearBlockReason();
+    return;
+  }
+  await setBlockReason(code);
+  console.log(`[casper] tick: idle — ${code}`);
 };
 
 const scheduleNext = async (): Promise<void> => {

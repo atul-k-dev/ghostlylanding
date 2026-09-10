@@ -29,6 +29,8 @@ export const STORAGE_KEYS = {
   scheduledPosts: 'casper.scheduledPosts',
   pendingReplies: 'casper.pendingReplies',
   selectorConfig: 'casper.selectorConfig',
+  /** Why the engine isn't acting — see scheduler/block-reason.ts. */
+  blockReason: 'casper.blockReason',
 } as const;
 
 export interface StoredAuth {
