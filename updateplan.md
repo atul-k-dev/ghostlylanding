@@ -1,9 +1,11 @@
 # Ghostly247 — End-to-End Transformation Plan
 
-> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 code-complete (1.1–1.7) · Phase 2 code-complete (2.1–2.5) · Phase 3 code-complete (3.1–3.6, including the optional 3.6) · **Phase 4 code-complete (4.1–4.5)** — 17 extension suites + 5 server suites green, typecheck and build clean across every workspace; all version bumps held until Manual QA passes
+> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 code-complete (1.1–1.7) · Phase 2 code-complete (2.1–2.5) · Phase 3 code-complete (3.1–3.6, including the optional 3.6) · Phase 4 code-complete (4.1–4.5) · **Phase 5 code-complete (5.1–5.3)** · **Phase 6 code-complete (6.1–6.9)** — 23 extension suites + 6 server suites green, typecheck and build clean across every workspace; all version bumps held until Manual QA passes
 > · **All Manual QA deferred to the end of the rebuild at the owner's request (2026-09-10)** · 2.5 spike still awaiting Chrome verification
 > · **Auto-posting ships OFF and publishes nothing unread** — see the 3.x owner note in §10 before testing it
 > · **4.4's weekly email omits 3 of its 5 planned content bullets** (which target worked best / was dropped / a timing change) — no data source for any of the three exists anywhere in this codebase; see the 4.4 owner note in §10
+> · **Weekly auto-tune (6.1) ships OFF** and, once on, only ever drops stale targets — "promote", cap-shifting, and naming its work in the weekly email are not built; see the 6.1 owner note in §10
+> · **6.5's follow quality filter is bio-only** — follower-count and recent-activity filtering, and 14-day auto-unfollow, are not built; see the 6.5 owner note in §10
 > **Owner:** Atul Kumar · **Created:** 2026-09-10 · **Last updated:** 2026-09-11
 > **Baseline commit:** `e29faf6` (on `main`) · **Extension version at baseline:** `2.1.0`
 > **Working branch:** `feat/two-mode-rebuild` — **all work in this plan is committed here, never to `main`.**
@@ -795,20 +797,31 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Steps
 
-- [ ] **5.1 — Growth tab, rebuilt.**
+- [x] **5.1 — Growth tab, rebuilt.** ✅ 2026-09-11
       - Followers over time with **change markers** (preset switched, target added,
-        auto-posting started) read from the action log.
+        auto-posting started) read from the action log. ⚠️ Markers actually read
+        from a new local `growthMilestones` store, not the action log — the
+        action log is likes/replies/follows, a different kind of event, and
+        conflating the two would misdescribe what an entry means.
       - **Where followers came from** — replies vs posts vs follow-backs, using the
         existing `followedBack` / `followedBackSample` attribution primitive, which
         is currently computed and almost entirely unused.
       - **Which targets are working** — one row per creator: replies sent, views
         earned, followers gained. Dead ones flagged with a `Drop` button in the row.
-      - **Which topics are working** — the same, per keyword.
-      - **Best times** heatmap from 3.1.
-      - **Best posts** with `Write more like this`.
-      - Every row actionable in place.
+        ⚠️ No **followers gained** per target — X gives no way to attribute an
+        individual follower to an individual past action, and this plan refuses
+        to invent one anywhere else. `views earned` ships as real engagement
+        (likes/replies/reposts/views) from `PostOutcome.repliedToHandle`.
+      - **Which topics are working** — the same, per keyword. Real `repliesSent`
+        via a new `ActionLog.matchedKeyword` field; no engagement figure (a
+        keyword isn't the author of anything a reply's outcome links back to).
+      - **Best times** heatmap from 3.1. ✅ new `scoreGrid`, same scoring as
+        `bestTimes`.
+      - **Best posts** with `Write more like this`. ✅ — feeds the post's own
+        text into `GENERATE_IDEAS` as one extra topic hint, client-side only.
+      - Every row actionable in place. ✅ (Drop on stale targets.)
 
-- [ ] **5.2 — Ask (the copilot).**
+- [x] **5.2 — Ask (the copilot).** ✅ 2026-09-11
       - New server route `POST /api/ask`, OpenAI function-calling.
       - Model: `gpt-5.5` for reasoning turns, `gpt-5.4-mini` for cheap ones.
         (Note: `CONTEXT.md` §6 still says `gpt-4o-mini` — that document is stale
@@ -825,19 +838,27 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
         4. Standing instructions ("never reply to crypto posts") persist to a
            `Things you've told me` list the user can edit.
 
-- [ ] **5.3 — Ask in the floating panel.**
+- [x] **5.3 — Ask in the floating panel.** ✅ 2026-09-11
       Short answers inline; anything needing a table or chart offers
-      *"that's easier to read in the sidebar — open it?"*
+      *"that's easier to read in the sidebar — open it?"* ⚠️ Trigger is answer
+      LENGTH (>320 chars in the 360px brief), not literal table/chart
+      detection — Ask's own answers are text or a diff card, never a
+      rendered table, so length is the honest proxy the plan's intent maps to.
 
 ### Tests
 
-- [ ] **New:** `scripts/ask-tools-smoke.mts` — every tool's argument schema
-      validates; a mutation tool **always** returns a diff and never applies
-      directly; a publish-shaped tool always requires confirmation.
-- [ ] **New:** `scripts/attribution-smoke.mts` — a fixture of snapshots + follows
-      produces the expected followers-from-follows figure, and returns `null`
-      rather than guessing when the sample is missing.
-- [ ] All 15 suites green.
+- [x] **New:** `scripts/ask-tools-smoke.mts` (server, 90 assertions) — every
+      tool's argument schema validates; every tool is classified as exactly
+      one of read/mutating/client (a mutation tool never executes directly);
+      the two publish-shaped tools (`schedule_post`, `run_dry_run`) are never
+      reachable as a plain read. ✅ 2026-09-11
+- [x] **New:** `scripts/attribution-smoke.mts` (extension, 8 assertions) —
+      a fixture of a followers sample + a followed-handles set produces the
+      expected followers-from-follows figure, and returns `null` rather than
+      guessing when the sample is empty. ✅ 2026-09-11
+- [x] All suites green — **23 extension suites + 6 server suites** (the plan
+      says 15; every phase before this one added suites the plan didn't
+      count either). typecheck + build clean across every workspace. ✅
 
 ### Manual QA
 
@@ -849,9 +870,11 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Done when
 
-- [ ] All 8 phrasings behave correctly.
-- [ ] Zero fabricated figures across 20 varied questions.
-- [ ] All 15 suites green. Version `2.6.0`. Committed. Logged in §10.
+- [ ] All 8 phrasings behave correctly. ← **needs a live OpenAI key + Chrome**
+- [ ] Zero fabricated figures across 20 varied questions. ← **needs Chrome**
+- [x] All suites green (23 extension + 6 server). ✅ Version bump and commit
+      held until the Manual QA above passes, per rule 8 — same deferral every
+      phase since Phase 0 has used, at the owner's 2026-09-10 request.
 
 ---
 
@@ -862,50 +885,122 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Steps
 
-- [ ] **6.1 — Weekly auto-tune.** Drop targets with no attributed followers over
-      3 weeks; promote ones that work; shift budget between replying and posting
-      based on which is currently producing; move posting times toward measured peaks.
-      **Every change is logged and reversible**, and named in the weekly email.
-- [ ] **6.2 — Proactive questions in Ask**, built from data already collected:
+- [x] **6.1 — Weekly auto-tune.** ✅ 2026-09-11 — **scoped down, see the owner
+      note in §10.** Drops targets flagged `stale` by 5.1's own 21-day
+      threshold; logs every drop as a growth milestone AND keeps a recoverable
+      list Growth renders with one-click Undo. Off by default
+      (`settings.autoTune`). ⚠️ "No attributed followers" reads as "no reply
+      activity" — there is no per-target follower attribution anywhere in this
+      codebase, by design (see 5.1). "Promote ones that work" and "shift budget
+      between replying and posting" are **not built** — no safe, reversible
+      automatic action exists for either yet. "Move posting times toward
+      measured peaks" needed **no new code** — `auto-posting.ts` has recomputed
+      `bestTimes` fresh on every run since 3.1/3.2. "Named in the weekly email"
+      is **not built** — same server-plumbing gap 4.4's owner note already
+      flagged (no link yet from a client-side decision to the server-rendered
+      email).
+- [x] **6.2 — Proactive questions in Ask**, built from data already collected.
+      ✅ 2026-09-11 — all three of the plan's own examples, each a
+      **deterministic pattern**, never a model call (so nothing can
+      hallucinate a trend that isn't there):
       - *"Your Tuesday post did 4× your usual… more in that direction?"*
       - *"Three of five targets produced nothing in three weeks. Swap them?"*
       - *"You've edited my last 6 replies to make them shorter. Write shorter?"*
-- [ ] **6.3 — Voice tuning from edits.** Feed accumulated `(generated, corrected)`
-      pairs back into the voice profile.
-- [ ] **6.4 — Media-aware reading.** Fixes **D4** and **D5**.
-      - Add `tweetPhoto`, `videoPlayer`, `card.wrapper` selectors.
-      - Read image `alt` text and card titles into `meta.text`.
-      - Click "Show more" before capturing.
-      - Read the quoted tweet's text as context.
-      - Relax relevance for media: a post whose **author** is a target, or whose
-        alt/card text matches, counts as relevant even with a thin caption.
-- [ ] **6.5 — Follow quality filter.** Fixes **D9**. Read the bio already present
-      in the `UserCell`; filter on keyword match, follower count band, and recent
-      activity before following. Add auto-unfollow of non-followers after 14 days.
-- [ ] **6.6 — Whitelist in every follow path.** Fixes **D7**. Add a whitelist
-      field to `HomeAutopilotOptions` and honour it in home, search and profile
-      autopilot — not just `runInlineFollowList`.
-- [ ] **6.7 — Decouple topic feeds from home-feed toggles.** Fixes **D8**. Give
-      search feeds their own action toggles and their own budget check.
-- [ ] **6.8 — Language-agnostic reply detection.** Fixes **D10**. Detect replies
-      structurally (the in-reply-to affordance) rather than by matching English text.
-- [ ] **6.9 — Enforce or delete the dead free-tier flags.** Fixes **D11**.
+      At most one nudge at a time (same "never two cards" rule as 1.7).
+- [x] **6.3 — Voice tuning from edits.** ✅ 2026-09-11 — weekly, gated on ≥5 new
+      `(generated, corrected)` pairs since the last tune (cadence alone isn't
+      enough — noise from one or two edits shouldn't trigger a retrain). Feeds
+      the corrected text alongside freshly-scraped real posts into the SAME
+      `/api/voice/train` call training already uses. No new server surface.
+- [x] **6.4 — Media-aware reading.** ✅ 2026-09-11 — Fixes **D4** and **D5**.
+      - Added `tweetPhoto`, `videoPlayer`, `cardWrapper`, `showMoreButton`,
+        `quotedTweetText` selectors — verified live against x.com (not guessed)
+        before being added, including the quote-tweet scoping trick that avoids
+        a false match on the article's own click-through wrapper.
+      - Image `alt` text and card titles fold into `meta.text` via new
+        `enrichArticleText()`, called before the relevance/dwell gates.
+      - "Show more" is clicked before capturing.
+      - Quoted-tweet text is read as context.
+      - Relevance is relaxed for a watched target's post regardless of caption
+        (`opts.targetHandles`); folding alt/card/quoted text into `meta.text`
+        means a real keyword match in THAT text already passes the ordinary
+        relevance gate, with no separate relaxation needed.
+- [x] **6.5 — Follow quality filter.** ✅ 2026-09-11 — **bio-only, see the
+      owner note in §10.** Fixes the bio half of **D9**: reads
+      `UserCell`'s bio (already scraped by `scanFollowing`, now also by
+      `scanFollowers`/`followBackInList`) and filters on keyword match/exclude
+      before following back. Follower-count band, recent-activity filtering,
+      and 14-day auto-unfollow are **not built** — a followers-list cell never
+      renders either figure, so filtering on them needs a profile visit per
+      candidate, which contradicts `runInlineFollowList`'s own "no more
+      per-candidate tabs" design; auto-unfollow needs a brand-new action type
+      (selectors, action log, caps, a scheduler task) end-to-end.
+- [x] **6.6 — Whitelist in every follow path.** ✅ 2026-09-11 — Fixes **D7**.
+      Whitelist now checked in the inline home/search/profile follow gate in
+      `autopilot.ts` AND the single-handle `executeFollow` task — not just
+      `runInlineFollowList`. Shared normalisation via new `lib/whitelist.ts`.
+- [x] **6.7 — Decouple topic feeds from home-feed toggles.** ✅ 2026-09-11 —
+      Fixes **D8**. Search feeds have their own action toggles
+      (`settings.searchFeed`, with UI in Who I watch) AND their own daily
+      budget (`DailyCounter.searchByActionType`/`searchCap`, a fixed share of
+      the day's real caps) — the plan asked for toggles; a genuinely separate
+      budget was the natural extension so a home-feed session spending its cap
+      can't silently starve a search feed of its own, or the reverse.
+- [x] **6.8 — Language-agnostic reply detection.** ✅ 2026-09-11 — Fixes
+      **D10**. `looksLikeReply` is structural first — an anchor with a
+      bare-handle href between the User-Name block and the tweet body (ASCII
+      regardless of UI language) — verified against 11 live reply examples
+      (10/11 caught structurally) and 6 confirmed standalone posts with zero
+      false positives; the old English-only text match stays only as a
+      fallback for the one confirmed gap (a reply that's also a quote-tweet).
+- [x] **6.9 — Enforce or delete the dead free-tier flags.** ✅ 2026-09-11 —
+      Fixes **D11**. **Deleted**, not enforced: `maxPlatforms` has nothing
+      left to gate (LinkedIn is fully inert); enforcing `aiCommentsEnabled`
+      would silently take AI replies away from free users already relying on
+      them, which is a monetization call this cleanup step has no authority
+      to make — flagged rather than decided.
 
 ### Tests
 
-- [ ] **New:** `scripts/media-read-smoke.mts` — DOM fixtures for
-      video-no-caption, image-with-alt, card-with-title, truncated "Show more",
-      and quoted-tweet. Each yields non-empty, correct `meta.text`.
-- [ ] **New:** `scripts/follow-filter-smoke.mts` — bio/follower/activity filtering
-      and whitelist exclusion across **all** follow paths.
-- [ ] Extend `relevance-smoke.mts` with the media-relevance relaxation.
-- [ ] All 17 suites green.
+- [ ] **New:** `scripts/media-read-smoke.mts` — **not built.** This repo has
+      no jsdom (or equivalent) harness for ANY DOM-touching code — confirmed
+      by grep before 6.4/6.8 started: `readArticle`, `looksLikeReply`, and
+      every other DOM-parsing function in `autopilot.ts`/`stats.ts` have never
+      had one either. 6.4 and 6.8's selectors and structural logic were
+      instead verified by live inspection against x.com during development
+      (documented in the 6.4/6.8 commit messages and above) rather than
+      against a fixture harness that doesn't exist in this codebase.
+- [x] **New:** `scripts/follow-filter-smoke.mts` — ✅ 2026-09-11, 21
+      assertions. ⚠️ Bio filtering and the shared whitelist check across all
+      follow paths, as planned; **not** follower/activity filtering — not
+      built (see 6.5).
+- [ ] Extend `relevance-smoke.mts` with the media-relevance relaxation. ⚠️ Not
+      done as a `relevance-smoke.mts` extension — the relaxation is
+      `opts.targetHandles` plus folding alt/card/quoted text into `meta.text`,
+      both exercised inside `autopilot.ts`'s DOM-driven loop, which (as above)
+      this repo has no harness to unit-test. `relevance.ts`'s own pure
+      matching logic is unchanged by 6.4, so `relevance-smoke.mts` had nothing
+      new of its own to pin.
+- [x] All suites green — **23 extension suites + 6 server suites** (the plan
+      says 17). New this phase: `follow-filter-smoke`, `attribution-smoke`,
+      `ask-tools-smoke` (server), `auto-tune-smoke`, `proactive-smoke`,
+      `voice-tune-smoke`. typecheck + build clean across every workspace. ✅
 
 ### Done when
 
-- [ ] A captionless video post from a target creator is engaged, not skipped.
-- [ ] A whitelisted handle is never followed from **any** path.
-- [ ] All 17 suites green. Version `3.0.0`. Committed. Logged in §10.
+- [x] A captionless video post from a target creator is engaged, not skipped.
+      ✅ by construction — `enrichArticleText` folds the photo/video alt text
+      and card title into `meta.text` before the relevance gate runs, and
+      `opts.targetHandles` passes a watched author's post regardless. ← **live
+      confirmation still needs Chrome**, per the Manual QA every phase since
+      Phase 0 has deferred.
+- [x] A whitelisted handle is never followed from **any** path. ✅ by
+      construction — all three follow paths (inline autopilot, the standalone
+      follow-list runner, the single-handle task) now check the same
+      normalised whitelist. ← **live confirmation still needs Chrome.**
+- [x] All suites green (23 extension + 6 server). ✅ Version bump and commit
+      held until Manual QA passes, per rule 8 — same deferral every phase
+      since Phase 0 has used, at the owner's 2026-09-10 request.
 
 ---
 
@@ -1045,3 +1140,12 @@ Append one line per completed step. Never edit or delete earlier lines.
 | 2026-09-11 | **4.4** Real content only | `24a61bb` | `email/weekly-summary.ts`: followers this week vs last week (`deltaOver` run twice — once on the full series, once on it truncated a week earlier — so “last week” uses the exact same nearest-reading algorithm “this week” does, not a looser second rule), and the week's single best-performing post (same exact-text match against `PostOutcome` the daily email uses in 4.5, widened to 7 days). A weekly span more than a day off exactly 7 is not labelled “this week” — gappy readings say so honestly instead. `scripts/weekly-summary-smoke.mts` (13 assertions) pins the ordering and every “nothing invented” fallback. |
 | 2026-09-11 | **4.4** ⚠️ Three bullets not built | `24a61bb` | The plan asks the weekly email to name “which target worked best,” “which target was dropped and why,” and “a timing change made.” **None of the three has a real answer anywhere in this codebase.** No action log entry is ever linked back to which target creator, search feed, or timing decision produced it; target/search lists live ONLY in `chrome.storage.local` and nothing about them ever reaches the server, so “dropped” cannot even be detected, let alone explained; and no feature anywhere — including later phases — adjusts posting times automatically, so there is no “timing change” to report. Writing plausible-sounding sentences for any of the three would be exactly the fabrication this product has refused everywhere else (§1's `{n}` rule, 1.7's condition copy, the dry run). Shipped everything that IS honestly knowable instead: real follower movement, a real best post, real weekly totals, and the fixed closing line. Closing this gap for real needs new plumbing — an attribution field threaded from the content script through the action log to the server, and some form of settings sync — which is new scope for a future phase, not a rendering choice this step can make. |
 | 2026-09-11 | **4.4** ⚠️ No DB test harness | `24a61bb` | The plan's weekly-summary test asks for “two concurrent runners send exactly one email,” mirroring a daily-job test that **does not exist** — this repo has no MongoDB test harness at all (no in-memory Mongo, no disposable test DB), so nothing here or in the daily job has ever been tested against a real concurrent write. Built `scripts/digest-claim-smoke.mts` instead: a logic-level proof that the conditional-update PATTERN (`updateOne({ _id, marker: {$ne: target} }, {$set: {marker: target}})`) is race-safe — two “concurrent” callers racing the same fake document, one wins and one loses, order-independent — plus the rollback-on-failure path. It proves the algorithm is correct; it does not prove Mongo's own atomicity, which would need real test-DB infrastructure this repo doesn't have. |
+| 2026-09-11 | **6.4–6.9** Six D-fixes | `2459319` | One commit covering six intertwined steps (they share `autopilot.ts`/`executor.ts`/`content-messages.ts`). **6.4/D4-D5** — verified LIVE against x.com (browser tool, not guessed) that `[data-testid="tweetPhoto"]`/`videoPlayer`/`card.wrapper`/`tweet-text-show-more-link` exist exactly as the plan names them, plus a quote-tweet scoping trick (`div[role="link"][tabindex="0"]`) that returns nothing on a non-quote post rather than false-matching the article's own click-through wrapper. New `enrichArticleText()` clicks Show-more and folds alt/card/quoted text into `meta.text` before the dwell and relevance gates. **6.6/D7** — whitelist now checked in `autopilot.ts`'s inline follow gate AND `executeFollow`, not just `runInlineFollowList`; shared via new `lib/whitelist.ts`. **6.7/D8** — `settings.searchFeed` decouples search's action toggles from `homeFeed`, AND `DailyCounter` gained a parallel `searchByActionType`/`searchCap` (a fixed 30% share of the day's real caps) so search can't starve home's budget or vice versa; existing installs migrate by seeding `searchFeed` from their current `homeFeed` toggles so nothing changes until they touch the new controls. **6.9/D11** — `FREE_TIER.maxPlatforms`/`aiCommentsEnabled` deleted, not enforced (see the §-top owner note). `pnpm test`: 18 extension suites green (was 17; `follow-filter-smoke` new). |
+| 2026-09-11 | **6.8** Structural reply detection (D10) | `2459319` | Live-verified via the browser tool (11 real reply examples on x.com, 6 confirmed standalone posts) that X's "Replying to" line is structurally a `role="link"` anchor with a bare-handle href, sitting between the `User-Name` block and the tweet body, regardless of the UI's display language — the href itself is never translated, only the word around it. `looksLikeReply` now checks that structure first (caught 10/11 live examples) and falls back to the old English-only text match only for the one confirmed gap (a reply that's also a quote-tweet). Zero false positives on the 6 standalone posts. `replyContextHandle()` (the same scan, returning the handle instead of a boolean) is reused by 5.1 for `PostOutcome.repliedToHandle`. |
+| 2026-09-11 | **6.5** Follow quality filter (D9), bio only | `2459319` | New `lib/follow-filter.ts` (`passesFollowFilter`, pure) wired into `followBackInList`/`scanFollowers` via `FollowBioFilter` + `settings.followFilter`, with UI in Who I watch. **Follower-count band, recent-activity filtering, and 14-day auto-unfollow are not built.** A followers-list cell renders only handle/name/bio — no follower count, no last-active date — so filtering on either would mean a profile visit per follow candidate, directly contradicting `runInlineFollowList`'s own docstring ("No more per-candidate tabs"). Auto-unfollow needs an `unfollow` action type that doesn't exist anywhere in this codebase (no selector, no `ActionType` member, no cap, no scheduler task) — real scope, not a missing line of code. Flagged rather than built against data that isn't there or a feature that doesn't exist yet. |
+| 2026-09-11 | **5.1** Growth tab rebuilt | `a3543a3` | New attribution fields threaded end-to-end: `ActionLog.matchedKeyword` (captured in BOTH the inline autopilot path and the review-queue/approval path — `replyApproval` defaults on, so most replies go through the second one, and topic attribution would be nearly blind without it) and `PostOutcome.repliedToHandle` (reusing 6.8's `replyContextHandle`). Server's `growth.ts` summary gained real per-target/per-topic aggregation (`ActionLogModel` grouped by `targetHandle`/`matchedKeyword`, `PostOutcomeModel` grouped by `repliedToHandle`) — extracted to an exported `buildGrowthSummary` so Ask's `get_growth` tool reads the identical real numbers, never a second copy. **No `followersGained` field anywhere** — X gives no way to attribute an individual follower to an individual action, and this plan refuses to invent one. `sources` is an ENGAGEMENT split (posts vs replies likes), not a follower split, for the same reason. |
+| 2026-09-11 | **5.1** Client: heatmap, milestones, Growth.tsx | `a3543a3` | `best-times.ts` gained `scoreGrid` (the full 7×24 grid behind `bestTimes`, same scoring, so the heatmap and the chosen slots can never disagree). New local `growthMilestones` store — preset switched / target added / auto-posting started — deliberately NOT folded into the action log (a different kind of event). `PanelIntent` extended to carry a seed post's text for "Write more like this", which feeds `GENERATE_IDEAS` one extra topic hint client-side, no server change. `Growth.tsx` rewritten: change markers on the sparkline, engagement-source split, target/topic tables with a Drop button on stale (21-day) targets, the heatmap, best posts with the write-alike button. New `scripts/attribution-smoke.mts` (8 assertions) pins the extracted `computeFollowedBack`. 20 extension suites green. |
+| 2026-09-11 | **5.2, 5.3** Ask, the copilot | `f983d28` | New `POST /api/ask`: OpenAI function-calling over read tools (`get_growth`/`get_action_log`/`explain_action`, executed server-side against real data — `get_growth` reuses 5.1's `buildGrowthSummary`) and mutating/client tools (`update_settings`/`add_target`/`remove_target`/`draft_post`/`schedule_post`/`remember_instruction`/`forget_instruction`/`run_dry_run`). **The four rules are enforced structurally**: `ASK_MUTATING_TOOLS`/`ASK_CLIENT_TOOLS` are checked in code (new `openai/ask-tools.ts`, pure and Express-free so it's testable without a server), and the tool loop physically stops and returns a `diff`/`client_action` the instant the model calls one — there is no code path where a mutating tool reaches execution. `draft_post`'s text IS generated server-side (a creative call, not a mutation), so the diff the user sees already has real words. No server-authoritative settings store exists (§1), so every request carries a compact `context` snapshot built from local settings; "Things you've told me" is a new local, editable `standingInstructions` list sent on every turn. Client: `ASK`/`ASK_APPLY_DIFF`/`GET_STANDING_INSTRUCTIONS` handlers — `ASK_APPLY_DIFF` is the ONLY code path that touches settings/targets/posts from Ask, and `update_settings` returns the prior settings so the UI can offer undo. `Ask.tsx` (chat + Do-it/Not-now cards) is shared by both modes; the floating panel passes `compact` + `onOpenSidebar` (reusing 2.5's `sidePanel.open()` plumbing) for 5.3. New `scripts/ask-tools-smoke.mts` (server, 90 assertions). |
+| 2026-09-11 | **6.1** Weekly auto-tune, scoped | `862038e` | Off by default (`settings.autoTune` — it removes user-added targets automatically, so it never defaults on). New pure `scheduler/auto-tune.ts` (`isAutoTuneDue`/`dropHandlesFor`) gates a weekly, local-only check BEFORE any network call, so a disabled install never even fetches growth data. Drops targets `TargetPerformance.stale` already flags (the exact same 21-day threshold 5.1 shows the user), logs the drop as a `growth-milestone` AND keeps a recoverable `autoTuneDropped` list Growth renders with one-click Undo. "Promote"/"shift budget" not built (no safe automatic mechanism exists yet); "move posting times toward peaks" needed no new code (`auto-posting.ts` already recomputes `bestTimes` fresh every run); "named in the weekly email" not built (same server-plumbing gap as 4.4's owner note). New `scripts/auto-tune-smoke.mts` (12 assertions). |
+| 2026-09-11 | **6.2** Proactive questions in Ask | `862038e` | New `lib/proactive.ts` — three DETERMINISTIC detectors (no model call, so nothing can hallucinate a trend): `detectStandoutDay` (a weekday's average post score ≥4× the rest, needs ≥2 posts on each side so one lucky post can't trip it; replies excluded, same reasoning as best-times), `detectTargetsQuiet` (a majority of ≥3 targets flagged `stale`), `detectEditsShorter` (≥5 of the last 6 corrected drafts got meaningfully shorter). `detectProactiveNudge` returns AT MOST ONE, in priority order (quiet targets — most actionable — beats a standout day beats a voice signal) — the same "never two cards" rule 1.7 established for condition cards. Wired into `Ask.tsx`: shown once on open, "Yes" sends the nudge's own follow-up as a normal user turn through Ask's existing diff-confirmation path — never applies anything itself. New `scripts/proactive-smoke.mts` (15 assertions). |
+| 2026-09-11 | **6.3** Voice tuning from edits | `862038e` | New pure `lib/voice-tune.ts` (`decideVoiceTune`): due only when BOTH a week has passed AND ≥5 new `(generated, corrected)` pairs (2.4/3.5's own store) have accumulated since the last tune — cadence alone or volume alone is not enough, so a chatty week can't trigger daily retrains and a quiet week can't retrain on stale data. `runVoiceTuneIfDue()` in the background worker (triggered off the existing 30s alarm, not a new one) scrapes fresh real posts the same way `handleTrainVoice` already does, merges in the corrected texts (de-duped, corrections prioritised since they're the strongest signal per 2.4), and POSTs the SAME `/api/voice/train` — no new server surface. New `scripts/voice-tune-smoke.mts` (7 assertions). All Phase 5+6 work: **23 extension suites + 6 server suites green, typecheck and build clean across every workspace.** Version bump and commit held per rule 8 — Manual QA for Phases 5 and 6 deferred with everything since Phase 0, at the owner's 2026-09-10 request. |
