@@ -1,6 +1,6 @@
 # Ghostly247 — End-to-End Transformation Plan
 
-> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 in progress (1.1–1.6 done · 1.7 blocked on the design brief's copy)
+> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 in progress (1.1–1.6 done · 1.7 unblocked — copy is now in `docs/ui-copy.md`)
 > · **All Manual QA deferred to the end of the rebuild at the owner's request (2026-09-10)** · 2.5 spike still awaiting Chrome verification
 > **Owner:** Atul Kumar · **Created:** 2026-09-10 · **Last updated:** 2026-09-10
 > **Baseline commit:** `e29faf6` (on `main`) · **Extension version at baseline:** `2.1.0`
@@ -214,6 +214,10 @@ Follow `CONTEXT.md` §12. Reinforced here for the things this plan touches most:
   overrides any other consideration in this plan.
 
 ### Copy rules
+
+**Fixed user-facing copy lives in `docs/ui-copy.md`** — the 11 engine states and
+4 notice states, with their exact strings. Never invent a string that file
+already specifies.
 
 Every string the user reads follows these:
 
@@ -445,8 +449,23 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
         `ForgotPassword.tsx` move to `src/sidepanel/pages/`.
 
 - [ ] **1.7 — The condition table.**
-      Render all 15 states from the design brief, driven by `casper.blockReason`.
-      One card at a time, each with its one button. Copy is fixed — do not improvise it.
+      **All copy lives in `docs/ui-copy.md`.** Read it first; it is the source of
+      truth and it is fixed — do not improvise, reword or "improve" a string. If
+      one reads wrong, raise it rather than silently rewriting it.
+      - **11 engine states** come from `casper.blockReason`, matched on
+        `BlockReasonCode`, with `BLOCK_REASON_PRECEDENCE` choosing between
+        simultaneous reasons.
+      - **4 notice states** do **NOT** come from `blockReason` and must not be
+        forced into `BlockReasonCode` — the engine can be running perfectly while
+        any of them is true. Each has its own source, named in the doc: pending
+        reply count, newest publish time, and failed scheduled posts.
+      - **Never render two cards.** An engine state beats any notice; the only
+        exception is `paused`, which a notice may accompany. Ordering rules are
+        in the doc's "Which card wins".
+      - Two states deliberately have **no button** (`caps-spent`,
+        `server-unreachable`) and one has **two** (image-attach failure). That is
+        intentional, not an omission.
+      - `nothing-matched` must be styled as ordinary status, never as an error.
 
 ### Tests
 
