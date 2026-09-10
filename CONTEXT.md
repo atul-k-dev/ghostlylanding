@@ -141,12 +141,10 @@ These are product principles. Bake them into the code, not just the marketing.
 
 - **Browser-session only:** Casper acts as the user, in the user's browser, using the user's real session. No credential collection, no headless automation, no cloud-side LinkedIn/Twitter logins. This is the single most important safety choice.
 - **Random delays on every action:** 8–45 seconds, randomized. Never two actions in the same second.
-  > ⚠️ **NOT TRUE OF THE CODE YET (as of 2026-09-10).** The engine currently
-  > paces in-session actions at 3–7s (`executor.ts` hands
-  > `minDelayMs: 3_000, maxDelayMs: 7_000` to the content script). The correct
-  > 8–45s value exists in `timegate.ts` but only gates scheduler *ticks*.
-  > `updateplan.md` **Phase 0.1** makes this claim true. Until it ships, do not
-  > re-publish `docs/Ghostly247-Five-Features.pdf`, which repeats it.
+  > True of the code as of `updateplan.md` **Phase 0.1** (2026-09-10). The range
+  > lives in one place — `ACTION_DELAY_MS` in `scheduler/timegate.ts` — and feeds
+  > both the scheduler's tick spacing and the in-session pacing `executor.ts`
+  > hands to the content script.
 - **Daily caps that scale with account age:** new accounts get conservative caps (e.g. 30 likes/day), older accounts ramp up. Never exceed safe thresholds.
 - **Auto-pause on anomaly:** if the platform returns rate-limit errors, soft-blocks, or any unexpected response, halt for 3 hours and notify the user.
 - **One-tap kill switch:** user can stop all activity instantly from the extension popup.

@@ -4,8 +4,17 @@ import type { ActiveHours, ExtensionSettings } from '@casper/shared';
 export const randomInt = (min: number, max: number): number =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 
+/**
+ * The one source of truth for how long the engine waits between two consecutive
+ * actions — `CONTEXT.md` §10 mandates 8–45s. Used in two places, and they must
+ * not drift apart: the scheduler's own tick spacing (`nextActionDelayMs`) and
+ * the in-session pacing handed to the content script by `executor.ts`.
+ */
+export const ACTION_DELAY_MS = { min: 8_000, max: 45_000 } as const;
+
 /** Random delay between consecutive actions — §10 mandates 8–45s. */
-export const nextActionDelayMs = (): number => randomInt(8_000, 45_000);
+export const nextActionDelayMs = (): number =>
+  randomInt(ACTION_DELAY_MS.min, ACTION_DELAY_MS.max);
 
 /**
  * Returns YYYY-MM-DD for `now` in the given IANA timezone.
