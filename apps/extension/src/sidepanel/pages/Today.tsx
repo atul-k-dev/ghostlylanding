@@ -4,7 +4,7 @@ import { sendToBackground } from '../../lib/messages.js';
 import { getCounters, STORAGE_KEYS } from '../../lib/storage.js';
 import { Card, PaceBar, Stat, Button, FeedLine, EmptyState } from '../../ui/index.js';
 import type { EngineStatus } from '../useEngineStatus.js';
-import { BlockReasonCard } from './BlockReasonCard.js';
+import { ConditionCard } from './ConditionCard.js';
 import type { ActionLogEntry } from './_shared.js';
 import type { PanelTarget } from '../navigation.js';
 
@@ -160,7 +160,7 @@ export const Today = ({
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      <BlockReasonCard status={status} onNavigate={onNavigate} />
+      <ConditionCard status={status} onNavigate={onNavigate} />
 
       <Card title="Today">
         <div className="mb-3 grid grid-cols-3 gap-2">

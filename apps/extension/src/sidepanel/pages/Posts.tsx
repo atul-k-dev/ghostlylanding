@@ -8,6 +8,7 @@ import {
   tweetLimitFor,
   effectivePostLength,
   STORAGE_KEYS,
+  takePanelIntent,
   type ScheduledPost,
 } from '../../lib/storage.js';
 import { POST_LENGTHS, POST_STATUS, formatWhen, Section } from './_shared.js';
@@ -64,6 +65,16 @@ const PostsInner = ({
       setMax(r.data.max);
     }
   };
+
+  // "Write two for me" — the profile-quiet card (1.7) sends the user here and
+  // asks for the writing to have already started when they arrive. One-shot:
+  // `takePanelIntent` clears it, so re-opening Posts doesn't re-run it.
+  useEffect(() => {
+    void takePanelIntent().then((intent) => {
+      if (intent === 'write-two') void suggest(2);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -201,14 +212,14 @@ const PostsInner = ({
    * by which of their own posts performed. They land as suggestions, never on
    * the schedule — publishing under someone's name stays their decision.
    */
-  const suggest = async () => {
+  const suggest = async (count = 3) => {
     setIdeasBusy(true);
     setError(null);
     try {
       const r = await sendToBackground<
         | { ok: true; data: { ideas: string[]; basedOnWinners: number } }
         | { ok: false; error: { message: string } | string }
-      >({ type: 'GENERATE_IDEAS', payload: { count: 3 } });
+      >({ type: 'GENERATE_IDEAS', payload: { count } });
       if (r.ok) {
         setIdeas(r.data.ideas);
         setNotice(
@@ -438,7 +449,7 @@ const PostsInner = ({
           />
           <button
             type="button"
-            onClick={suggest}
+            onClick={() => void suggest()}
             disabled={ideasBusy}
             className="w-full rounded-lg border border-casper-violet/40 bg-casper-violet/10 py-1.5 text-xs font-medium text-casper-violet transition hover:bg-casper-violet/20 disabled:opacity-40"
           >

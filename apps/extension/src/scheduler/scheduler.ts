@@ -318,6 +318,19 @@ export const handleTick = async (): Promise<void> => {
       await appendActionLog(result.logEntry);
     }
 
+    // The quiet-feed counter behind "Skipped {n} posts". A run that read posts
+    // and acted on none adds to it; anything actually acted on clears it, so the
+    // number always describes the quiet spell the user is in right now.
+    if (typeof result.scanned === 'number') {
+      const sched = await getSchedulerState();
+      const acted = result.acted ?? 0;
+      await setSchedulerState({
+        ...sched,
+        skippedSinceAction:
+          acted > 0 ? 0 : (sched.skippedSinceAction ?? 0) + Math.max(0, result.scanned - acted),
+      });
+    }
+
     // Circuit breaker. A healthy run clears the streak; four consecutive
     // degraded ones pause the engine and say why, instead of reopening a tab
     // every cycle that can't do anything.
@@ -345,6 +358,11 @@ export const handleTick = async (): Promise<void> => {
       }
     }
     if (result.success && task.kind === 'action') {
+      // Something happened, so the quiet spell is over.
+      const sched = await getSchedulerState();
+      if ((sched.skippedSinceAction ?? 0) > 0) {
+        await setSchedulerState({ ...sched, skippedSinceAction: 0 });
+      }
       await incrementCounter(
         settings,
         task.platform,
@@ -607,6 +625,9 @@ const reportIdleReason = async (settings: ExtensionSettings): Promise<void> => {
   const anyActionEnabled =
     hf.like || hf.comment || hf.follow || hf.bookmark || hf.repost || hf.quote;
 
+  /** Posts read and passed over since anything last happened — the card's {n}. */
+  const skipped = sched.skippedSinceAction ?? 0;
+
   // Caps are "spent" only when every action type the user actually enabled has
   // run out. A disabled action type having budget left is not budget.
   const enabled: [boolean, Parameters<typeof isUnderCap>[2]][] = [
@@ -638,15 +659,18 @@ const reportIdleReason = async (settings: ExtensionSettings): Promise<void> => {
     homeFeedEnabled: hf.enabled,
     anyActionEnabled,
     // The queue being empty after a refill pass means the scans found nothing
-    // worth queueing — a quiet feed, not a fault.
-    scannedButNoMatch: true,
+    // worth queueing — a quiet feed, not a fault. Only claim it once a scan has
+    // actually read posts and passed on them: "Skipped 0 posts" would be a
+    // sentence about nothing, and a fresh install that has yet to scan is not a
+    // quiet feed, it is an engine that hasn't started.
+    scannedButNoMatch: skipped > 0,
   });
 
   if (code === null) {
     await clearBlockReason();
     return;
   }
-  await setBlockReason(code);
+  await setBlockReason(code, code === 'nothing-matched' ? String(skipped) : undefined);
   console.log(`[casper] tick: idle — ${code}`);
 };
 

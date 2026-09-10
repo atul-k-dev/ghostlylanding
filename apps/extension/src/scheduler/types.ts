@@ -43,6 +43,14 @@ export interface SchedulerState {
   activeSince: number | null;
   /** Consecutive 'degraded' runs. Resets on any healthy one; trips the breaker. */
   degradedStreak?: number;
+  /**
+   * Posts read and passed over since the last action actually happened.
+   *
+   * The 'nothing-matched' card says "Skipped {n} posts", and this is the n. It
+   * accumulates across scans and resets the moment anything is acted on, so it
+   * always describes the current quiet spell rather than the last scan alone.
+   */
+  skippedSinceAction?: number;
 }
 
 /** Per-target persisted state — tracks the last successful scan(s). */
@@ -70,6 +78,10 @@ export interface ExecutorResult {
    * engine on an ordinary slow day.
    */
   health?: 'ok' | 'degraded';
+  /** Posts the run read. Scan tasks only — an action task acts on one known post. */
+  scanned?: number;
+  /** Actions the run actually took. Scan tasks only. */
+  acted?: number;
   /** Only present for kind='action' tasks; scans don't write to the action log. */
   logEntry?: import('@casper/shared').ActionLogInput;
 }

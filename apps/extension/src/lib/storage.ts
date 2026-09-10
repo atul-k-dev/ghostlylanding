@@ -39,7 +39,31 @@ export const STORAGE_KEYS = {
   setupProgress: 'casper.setupProgress',
   /** Drafts the user rejected, kept for Phase 6.3's voice tuning. */
   rejectedDrafts: 'casper.rejectedDrafts',
+  /** One-shot instruction from a condition card to the page it opens (1.7). */
+  panelIntent: 'casper.panelIntent',
 } as const;
+
+/**
+ * What a condition card asked the destination page to do on arrival.
+ *
+ * Deliberately one-shot and deliberately tiny: "Write two for me" has to send
+ * the user to Posts AND make Posts do the writing, and the alternative — a
+ * prop threaded through the whole shell — would be a permanent piece of
+ * plumbing for a single button.
+ */
+export type PanelIntent = 'write-two';
+
+export const setPanelIntent = async (intent: PanelIntent): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.panelIntent]: intent });
+};
+
+/** Read it and clear it, so a page can't run the same instruction twice. */
+export const takePanelIntent = async (): Promise<PanelIntent | null> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.panelIntent);
+  const intent = (got[STORAGE_KEYS.panelIntent] as PanelIntent | undefined) ?? null;
+  if (intent) await chrome.storage.local.remove(STORAGE_KEYS.panelIntent);
+  return intent;
+};
 
 export interface StoredAuth {
   token: string;
@@ -584,6 +608,36 @@ export const setScheduledPosts = async (posts: ScheduledPost[]): Promise<void> =
     next = [...pending, ...finished];
   }
   await chrome.storage.local.set({ [STORAGE_KEYS.scheduledPosts]: next });
+};
+
+/**
+ * Put a failed post back on the schedule (updateplan 1.7's "Try again" and
+ * "Post without image" buttons).
+ *
+ * Only a `failed` post is eligible: a post mid-publish must never be re-armed
+ * from the UI, or the user's timeline gets it twice. `dropImage` exists because
+ * `compose.ts` deliberately refuses to publish a post whose image didn't attach
+ * — going without the image is the user's call, so it is a button, not a
+ * fallback.
+ */
+export const retryScheduledPost = async (
+  id: string,
+  opts: { dropImage?: boolean } = {},
+): Promise<void> => {
+  const posts = await getScheduledPosts();
+  await setScheduledPosts(
+    posts.map((p) => {
+      if (p.id !== id || p.status !== 'failed') return p;
+      const { error: _dropped, ...rest } = p;
+      return {
+        ...rest,
+        status: 'scheduled' as const,
+        // Due immediately: the user just pressed a button asking for it.
+        scheduledAt: Date.now(),
+        ...(opts.dropImage ? { imageDataUrl: null } : {}),
+      };
+    }),
+  );
 };
 
 // -- cached own X handle (for auto follow-back) ------------------------------

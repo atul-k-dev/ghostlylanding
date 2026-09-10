@@ -732,6 +732,10 @@ const runInlineAutopilot = async (
     // Zero posts seen means we never got a timeline — signed out, or the post
     // selector broke. Seeing posts and acting on none is just a quiet feed.
     health: scanned === 0 ? 'degraded' : 'ok',
+    // What the 'nothing-matched' card counts: posts read, and how many of them
+    // were worth doing something about.
+    scanned,
+    acted: performed,
     errorMessage:
       performed === 0
         ? `${label}: no actions (scanned ${scanned})`
