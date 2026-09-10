@@ -9,6 +9,7 @@
  * Run with: pnpm --filter @casper/extension pacing-smoke
  */
 import { ACTION_DELAY_MS, nextActionDelayMs } from '../src/scheduler/timegate.js';
+import { ageMultiplier } from '../src/scheduler/quotas.js';
 import {
   RATE_WINDOW_MS,
   HOURLY_CEILINGS,
@@ -100,6 +101,16 @@ assert(
   pruneWindow([T0, T0 - 1_000], T0).join() === [T0 - 1_000, T0].join(),
   'the pruned window comes back oldest-first',
 );
+
+// --- 0.3 unknown account age is treated as new ------------------------------
+// The age field is optional, so "unknown" is the common case, and it used to
+// return 1.0 — full caps for exactly the accounts most likely to be young.
+assert(ageMultiplier(null) === 0.5, 'unknown age → half caps, not full');
+assert(ageMultiplier(3) === 0.5, 'a 3-month account is on half caps');
+assert(ageMultiplier(8) === 0.75, 'an 8-month account is on three-quarter caps');
+assert(ageMultiplier(18) === 1.0, 'an 18-month account gets the configured caps');
+assert(ageMultiplier(-4) === 0.5, 'a nonsense negative age is treated as new, not full');
+assert(ageMultiplier(null) === ageMultiplier(0), 'unknown and brand-new are paced the same');
 
 // ---------------------------------------------------------------------------
 if (fails.length) {

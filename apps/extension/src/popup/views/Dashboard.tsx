@@ -766,7 +766,7 @@ const SettingsTab = ({
 
       <Section
         title="Account age (months)"
-        subtitle="Newer accounts get safer caps. Leave blank if unsure."
+        subtitle="Newer accounts get safer caps. Left blank, I assume new and go at half pace."
       >
         <NumberField
           label="Twitter"

@@ -51,9 +51,10 @@ for (let i = 0; i < 50; i++) {
 assert(!fails.some((f) => f.startsWith('nextActionDelayMs')), 'nextActionDelayMs always in [8000,45000]');
 
 // --- quotas -----------------------------------------------------------------
-// Unknown age now trusts the configured caps as-is — quotas.ts only tightens
-// when the user explicitly says the account is young.
-assert(ageMultiplier(null) === 1.0, 'ageMultiplier(null) = 1.0 (trust configured caps)');
+// Unknown age is treated as NEW (updateplan 0.3 / D3). This assertion used to
+// expect 1.0; that was the defect, not the contract — the age field is optional,
+// so "unknown" was the common case and it handed young accounts full caps.
+assert(ageMultiplier(null) === 0.5, 'ageMultiplier(null) = 0.5 (unknown age is treated as new)');
 assert(ageMultiplier(0) === 0.5, 'ageMultiplier(0mo) = 0.5');
 assert(ageMultiplier(5) === 0.5, 'ageMultiplier(<6mo) = 0.5');
 assert(ageMultiplier(6) === 0.75, 'ageMultiplier(6mo) = 0.75');
@@ -74,6 +75,11 @@ assert(newAcc.likesPerDay === 40, `new-account likes: 80*0.5*1.0 = ${newAcc.like
 assert(newAcc.commentsPerDay === 10, `new-account comments: ${newAcc.commentsPerDay}`);
 const mature = computeDailyCaps(base, 24, 1.0);
 assert(mature.likesPerDay === 80, `mature likes: ${mature.likesPerDay}`);
+const unknownAge = computeDailyCaps(base, null, 1.0);
+assert(
+  unknownAge.likesPerDay === 40,
+  `unknown-age likes are halved, not full: ${unknownAge.likesPerDay}`,
+);
 const tiny = computeDailyCaps({ likesPerDay: 1, commentsPerDay: 1, followsPerDay: 1 }, 0, 0.85);
 assert(tiny.likesPerDay >= 1, `floor cap at 1, got ${tiny.likesPerDay}`);
 

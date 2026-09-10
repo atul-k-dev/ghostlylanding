@@ -5,10 +5,12 @@ import type { Platform, PlatformCaps, ExtensionSettings } from '@casper/shared';
  * platform rate-limits in the first months.
  */
 export const ageMultiplier = (months: number | null): number => {
-  // Unknown age → trust the configured caps as-is (full). Only reduce when the
-  // user explicitly tells us the account is young, since new accounts trip X's
-  // rate-limits faster.
-  if (months === null || months < 0) return 1.0;
+  // Unknown age is treated as NEW, not as trusted. The field is optional and the
+  // UI told people to leave it blank if unsure, so "unknown" was the most common
+  // value in practice — and it silently granted the FULL caps to exactly the
+  // accounts most likely to be young and most likely to get limited. When we
+  // don't know, we take the safer of the two readings.
+  if (months === null || months < 0) return 0.5;
   if (months < 6) return 0.5;
   if (months < 12) return 0.75;
   return 1.0;
