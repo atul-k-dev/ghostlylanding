@@ -80,6 +80,47 @@ export const MAX_SEARCH_QUERIES = 5;
  */
 export type SafetyPresetName = 'careful' | 'balanced' | 'growth';
 
+/**
+ * Auto-posting (updateplan 3.2). Replies get you seen; posts get you followed —
+ * and the publishing half of this product was 100% manual until Phase 3.
+ *
+ * `enabled` defaults **off** and is never switched on by anything but the user.
+ * Everything else here is a bound on how much it may do, not a target.
+ */
+export interface AutoPostSettings {
+  /** Write and schedule posts without being asked. Off until the user says so. */
+  enabled: boolean;
+  /**
+   * Schedule a draft when nothing has published in this long. Hours, so a user
+   * who posts by hand all week is never topped up on top of their own work.
+   */
+  quietHours: number;
+  /**
+   * Stop drafting once this many are already waiting. A backlog of drafts
+   * nobody has read is not a content pipeline, it's a chore.
+   */
+  maxQueued: number;
+  /**
+   * ISO timestamp of the last auto-draft run, so the loop is daily rather than
+   * per-tick (the alarm fires every 30 seconds).
+   */
+  lastRunAt: string | null;
+}
+
+/**
+ * Graduated trust (updateplan 3.3). The state machine lives in the extension
+ * (`src/lib/trust.ts`); the STATE lives here because it is settings, and
+ * because both halves of the product — replies and posts — read it.
+ */
+export interface TrustSettings {
+  streak: number;
+  best: number;
+  offeredAt: string | null;
+  declinedAt: string | null;
+  /** Non-null ONLY after the user answered yes to the offer, by hand. */
+  grantedAt: string | null;
+}
+
 export interface ExtensionSettings {
   isPaused: boolean;
   timezone: string;
@@ -186,6 +227,20 @@ export interface ExtensionSettings {
    * would be the same silent dead end (D14) in a new outfit.
    */
   setupCompletedAt: string | null;
+  /**
+   * Write and schedule posts without being asked (updateplan 3.2). Off by
+   * default — see `AutoPostSettings`.
+   */
+  autoPost: AutoPostSettings;
+  /**
+   * How much of what Ghostly writes may go out unread (updateplan 3.3).
+   *
+   * This is the general form of `replyApproval`, which stays as the reply gate
+   * the rest of the engine already reads. `trust.grantedAt` is what turns off
+   * the holding pen for BOTH replies and auto-drafted posts, and it is only
+   * ever written in answer to an explicit question.
+   */
+  trust: TrustSettings;
 }
 
 /** X account type — drives the scheduled-post character limit. */

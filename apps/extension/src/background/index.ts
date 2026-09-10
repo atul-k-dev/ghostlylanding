@@ -67,11 +67,23 @@ import {
   setSchedulerState,
   getScheduledPosts,
   setScheduledPosts,
+  getPostOutcomes,
   MAX_SCHEDULED_POSTS,
   tweetLimitFor,
   effectivePostLength,
   type ScheduledPost,
 } from '../lib/storage.js';
+import { bestTimes, describeSlot, MIN_DAYS as BEST_TIMES_MIN_DAYS } from '../lib/best-times.js';
+import {
+  recordApproval,
+  answerOffer,
+  revokeTrust,
+  hasOpenOffer,
+  isTrusted,
+  normalizeTrust,
+} from '../lib/trust.js';
+import { maybeAutoDraft } from '../scheduler/auto-posting.js';
+import { requestPostIdeas } from '../lib/ideas.js';
 
 const BUILD_STAMP = 'casper-build-2026-06-05-homefeed-v2';
 console.log(`[casper] service worker booted — ${BUILD_STAMP}`);
@@ -220,6 +232,15 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   GET_SETUP_READ: handleGetSetupRead as AsyncHandler<unknown, unknown>,
   START_CHECKOUT: handleStartCheckout as AsyncHandler<unknown, unknown>,
   OPEN_BILLING_PORTAL: handleOpenBillingPortal as AsyncHandler<unknown, unknown>,
+  // Phase 3 — auto-posting, the content pipeline, and graduated trust.
+  RECORD_APPROVAL: handleRecordApproval as AsyncHandler<unknown, unknown>,
+  ANSWER_TRUST_OFFER: handleAnswerTrustOffer as AsyncHandler<unknown, unknown>,
+  REVOKE_TRUST: handleRevokeTrust as AsyncHandler<unknown, unknown>,
+  GET_BEST_TIMES: handleGetBestTimes as AsyncHandler<unknown, unknown>,
+  UPDATE_SCHEDULED_POST: handleUpdateScheduledPost as AsyncHandler<unknown, unknown>,
+  APPROVE_SCHEDULED_POST: handleApproveScheduledPost as AsyncHandler<unknown, unknown>,
+  REWRITE_POST: handleRewritePost as AsyncHandler<unknown, unknown>,
+  AUTO_DRAFT_NOW: handleAutoDraftNow as AsyncHandler<unknown, unknown>,
 };
 
 /**
@@ -679,17 +700,10 @@ async function handleDraftComment(payload: unknown) {
  */
 async function handleGenerateIdeas(payload: unknown) {
   const { count } = (payload ?? {}) as { count?: number };
-  const settings = await getSettings();
-  const tone: TonePreset = TONE_PRESETS.includes(settings.tone) ? settings.tone : 'friendly';
-  return await apiFetch<{ ideas: string[]; basedOnWinners: number }>('/api/posts/ideas', {
-    method: 'POST',
-    body: {
-      topics: settings.contentTopics.slice(0, 10),
-      count: Math.min(Math.max(count ?? 3, 1), 5),
-      maxChars: tweetLimitFor(settings.xAccountPlan, settings.postLength),
-      tone,
-    },
-  });
+  // The request itself moved to `lib/ideas.ts` in updateplan 3.2 so the
+  // auto-draft loop asks for ideas the same way this handler does — one call
+  // site, one set of topics, one moderation pass.
+  return await requestPostIdeas({ count: count ?? 3 });
 }
 
 /** Draft an original tweet from a short description via the server (OpenAI). */
@@ -720,12 +734,17 @@ async function handleListScheduledPosts() {
 
 /** Add a post to the local schedule, enforcing the max-scheduled cap. */
 async function handleSchedulePost(payload: unknown) {
-  const { text, link, imageDataUrl, scheduledAt, thread } = (payload ?? {}) as {
+  const { text, link, imageDataUrl, scheduledAt, thread, status, generated } = (payload ??
+    {}) as {
     text?: string;
     link?: string;
     imageDataUrl?: string | null;
     scheduledAt?: number;
     thread?: string[];
+    /** 'draft' parks it on the calendar without permission to publish (3.2). */
+    status?: 'draft' | 'scheduled';
+    /** What the model wrote, when Ghostly wrote it — the trust streak's input. */
+    generated?: string;
   };
   if (!text || typeof text !== 'string' || text.trim().length === 0) {
     return { ok: false, error: { code: 'invalid_payload', message: 'Post text is required.' } };
@@ -790,13 +809,22 @@ async function handleSchedulePost(payload: unknown) {
     imageDataUrl: imageDataUrl && typeof imageDataUrl === 'string' ? imageDataUrl : null,
     ...(threadParts.length > 0 ? { thread: threadParts } : {}),
     scheduledAt,
-    status: 'scheduled',
+    // Anything but an explicit 'draft' is a post the user asked for by name and
+    // is therefore publishable; a draft waits for a yes it hasn't been given.
+    status: status === 'draft' ? 'draft' : 'scheduled',
     createdAt: Date.now(),
+    ...(status === 'draft' ? { origin: 'auto' as const } : {}),
+    ...(typeof generated === 'string' && generated.trim()
+      ? { generated: generated.trim() }
+      : status === 'draft'
+        ? { generated: text.trim() }
+        : {}),
   };
   await setScheduledPosts([...posts, post]);
 
-  // If it's already due (past time), kick a tick so it publishes promptly.
-  if (scheduledAt <= Date.now()) void handleTick();
+  // If it's already due (past time), kick a tick so it publishes promptly. A
+  // draft never is: it has no permission to publish at any time.
+  if (post.status === 'scheduled' && scheduledAt <= Date.now()) void handleTick();
 
   return { ok: true, data: { post } };
 }
@@ -863,7 +891,12 @@ async function handleListDrafts() {
  * dedupe, action log and all. The user may have edited the text first.
  */
 async function handleApproveDraft(payload: unknown) {
-  const { id, text } = (payload ?? {}) as { id?: string; text?: string };
+  const { id, text, bulk } = (payload ?? {}) as {
+    id?: string;
+    text?: string;
+    /** Part of a "Post all" sweep — see the trust note below. */
+    bulk?: boolean;
+  };
   if (!id) return { ok: false, error: { code: 'missing_id', message: 'id required' } };
 
   const draft = await takePendingReply(id);
@@ -871,6 +904,33 @@ async function handleApproveDraft(payload: unknown) {
     return { ok: false, error: { code: 'draft_not_found', message: 'No such pending reply' } };
   }
   const finalText = (typeof text === 'string' && text.trim() ? text : draft.draftText).slice(0, 2_000);
+
+  // What the user changed, and whether they changed anything (updateplan 3.5 +
+  // 3.3). The pair is the strongest voice signal the product gets; the boolean
+  // is the whole of the trust streak. Both are recorded HERE rather than in the
+  // two panels, so Review and the floating brief can't disagree about what
+  // counts as an edit.
+  const edited = finalText.trim() !== draft.draftText.trim();
+  if (edited) {
+    await appendCorrectedDraft({
+      postText: draft.postText,
+      generated: draft.draftText,
+      corrected: finalText,
+      at: new Date().toISOString(),
+    });
+  }
+  const settings = await getSettings();
+  // "Post all" does NOT advance the streak. The streak is evidence that this
+  // person reads what Ghostly writes and finds nothing to change; clearing a
+  // queue of eight in one click is evidence of a full queue. Granting
+  // auto-publish off the back of two bulk clicks is precisely the over-trust
+  // 3.3 exists to prevent — an edit inside a sweep still resets it, though,
+  // because that half is a real signal in either direction.
+  const trust =
+    bulk === true && !edited
+      ? normalizeTrust(settings.trust)
+      : recordApproval(normalizeTrust(settings.trust), { edited });
+  await setSettings({ ...settings, trust });
 
   // Best-effort status update — a server hiccup must not strand an approved
   // reply the user already said yes to, so we enqueue regardless.
@@ -891,7 +951,7 @@ async function handleApproveDraft(payload: unknown) {
   const sched = await getSchedulerState();
   await setSchedulerState({ ...sched, nextEligibleAt: 0 });
   void handleTick();
-  return { ok: true, data: { taskId: task.id } };
+  return { ok: true, data: { taskId: task.id, trust, offer: hasOpenOffer(trust) } };
 }
 
 /** Skip a draft: drop it locally and mark it rejected on the server. */
@@ -1284,4 +1344,236 @@ async function handleFollowBackNow() {
   return { ok: true, data: { taskId: task.id } };
 }
 
+
+/* -- Phase 3: auto-posting, the pipeline, and graduated trust -------------
+ * The publishing half of the product. Everything here is written so that
+ * nothing goes out under the user's name without either their word, or a
+ * permission they were asked for in plain English and granted by hand.
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Record one approval against the trust streak (updateplan 3.3).
+ *
+ * `edited` is the entire signal, and it has to come from comparing the text
+ * sent with the text generated. Called from every place a human says yes:
+ * Review, the floating brief, `Reply for me`, and approving a drafted post.
+ */
+async function handleRecordApproval(payload: unknown) {
+  const { edited } = (payload ?? {}) as { edited?: boolean };
+  const settings = await getSettings();
+  const trust = recordApproval(normalizeTrust(settings.trust), { edited: edited === true });
+  await setSettings({ ...settings, trust });
+  return { ok: true, data: { trust, offer: hasOpenOffer(trust) } };
+}
+
+/**
+ * The user's answer to the graduation offer.
+ *
+ * A yes is the ONLY code path that stops holding things for review. It writes
+ * `grantedAt` and turns `replyApproval` off — the existing reply gate the rest
+ * of the engine already reads — so both halves of the product change together
+ * and there is no second switch to forget.
+ */
+async function handleAnswerTrustOffer(payload: unknown) {
+  const { accept } = (payload ?? {}) as { accept?: boolean };
+  if (typeof accept !== 'boolean') {
+    return { ok: false, error: { code: 'invalid_payload', message: 'accept must be a boolean' } };
+  }
+  const settings = await getSettings();
+  const current = normalizeTrust(settings.trust);
+  if (!hasOpenOffer(current)) {
+    return { ok: false, error: { code: 'no_offer', message: 'There is no offer to answer.' } };
+  }
+  const trust = answerOffer(current, { accept });
+  await setSettings({
+    ...settings,
+    trust,
+    ...(accept ? { replyApproval: false } : {}),
+  });
+  return { ok: true, data: { trust, granted: isTrusted(trust) } };
+}
+
+/** Hand the keys back. Holding starts again immediately, streak from zero. */
+async function handleRevokeTrust() {
+  const settings = await getSettings();
+  const trust = revokeTrust(normalizeTrust(settings.trust));
+  await setSettings({ ...settings, trust, replyApproval: true });
+  return { ok: true, data: { trust } };
+}
+
+/**
+ * When to publish (updateplan 3.1), and whether that answer is personalised.
+ * The `personalised` flag is not decoration — the UI has to say "these are
+ * sensible defaults" rather than implying it learned them from four posts.
+ */
+async function handleGetBestTimes(payload: unknown) {
+  const { count } = (payload ?? {}) as { count?: number };
+  const settings = await getSettings();
+  const outcomes = await getPostOutcomes();
+  const best = bestTimes(outcomes, {
+    activeHours: settings.activeHours,
+    ...(typeof count === 'number' ? { count } : {}),
+  });
+  return {
+    ok: true,
+    data: { ...best, labels: best.slots.map(describeSlot), minDays: BEST_TIMES_MIN_DAYS },
+  };
+}
+
+/**
+ * Edit or reschedule a post that hasn't gone out yet.
+ *
+ * Only a `draft` or `scheduled` post is editable: one mid-publish, or already
+ * published, must never be rewritten underneath itself.
+ */
+async function handleUpdateScheduledPost(payload: unknown) {
+  const { id, text, scheduledAt, imageDataUrl } = (payload ?? {}) as {
+    id?: string;
+    text?: string;
+    scheduledAt?: number;
+    imageDataUrl?: string | null;
+  };
+  if (!id || typeof id !== 'string') {
+    return { ok: false, error: { code: 'missing_id', message: 'id required' } };
+  }
+  const posts = await getScheduledPosts();
+  const post = posts.find((p) => p.id === id);
+  if (!post) {
+    return { ok: false, error: { code: 'not_found', message: 'That post is no longer here.' } };
+  }
+  if (post.status !== 'draft' && post.status !== 'scheduled') {
+    return { ok: false, error: { code: 'not_editable', message: 'That post has already gone out.' } };
+  }
+  const settings = await getSettings();
+  const limit = tweetLimitFor(settings.xAccountPlan, settings.postLength);
+  const nextText = typeof text === 'string' ? text.trim() : post.text;
+  if (nextText.length === 0) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'Post text is required.' } };
+  }
+  if (effectivePostLength(nextText, post.link) > limit) {
+    return {
+      ok: false,
+      error: { code: 'too_long', message: `Post exceeds the ${limit}-character limit.` },
+    };
+  }
+  const updated: ScheduledPost = {
+    ...post,
+    text: nextText,
+    ...(typeof scheduledAt === 'number' && Number.isFinite(scheduledAt) ? { scheduledAt } : {}),
+    ...(imageDataUrl !== undefined ? { imageDataUrl } : {}),
+  };
+  await setScheduledPosts(posts.map((p) => (p.id === id ? updated : p)));
+  return { ok: true, data: { post: updated } };
+}
+
+/**
+ * Say yes to a drafted post: `draft` → `scheduled`, which is the only thing
+ * that makes it publishable at all.
+ *
+ * `publishNow` moves the slot to now and kicks a tick. Approving a post Ghostly
+ * wrote also feeds the trust streak — clean if the text came back exactly as
+ * written, reset if a word changed, which is the rule Review already uses.
+ */
+async function handleApproveScheduledPost(payload: unknown) {
+  const { id, text, publishNow } = (payload ?? {}) as {
+    id?: string;
+    text?: string;
+    publishNow?: boolean;
+  };
+  if (!id || typeof id !== 'string') {
+    return { ok: false, error: { code: 'missing_id', message: 'id required' } };
+  }
+  const posts = await getScheduledPosts();
+  const post = posts.find((p) => p.id === id);
+  if (!post) {
+    return { ok: false, error: { code: 'not_found', message: 'That post is no longer here.' } };
+  }
+  if (post.status !== 'draft' && post.status !== 'scheduled') {
+    return { ok: false, error: { code: 'not_editable', message: 'That post has already gone out.' } };
+  }
+  const settings = await getSettings();
+  const limit = tweetLimitFor(settings.xAccountPlan, settings.postLength);
+  const finalText = (typeof text === 'string' && text.trim() ? text.trim() : post.text).slice(0, 20_000);
+  if (effectivePostLength(finalText, post.link) > limit) {
+    return {
+      ok: false,
+      error: { code: 'too_long', message: `Post exceeds the ${limit}-character limit.` },
+    };
+  }
+
+  const updated: ScheduledPost = {
+    ...post,
+    text: finalText,
+    status: 'scheduled',
+    ...(publishNow === true ? { scheduledAt: Date.now() } : {}),
+  };
+  await setScheduledPosts(posts.map((p) => (p.id === id ? updated : p)));
+
+  // Only a post Ghostly wrote says anything about whether Ghostly's writing
+  // needs correcting. One the user typed themselves is not evidence either way.
+  let offer = false;
+  if (post.origin === 'auto' && typeof post.generated === 'string') {
+    const edited = finalText.trim() !== post.generated.trim();
+    if (edited) {
+      await appendCorrectedDraft({
+        postText: '',
+        generated: post.generated,
+        corrected: finalText,
+        at: new Date().toISOString(),
+      });
+    }
+    const trust = recordApproval(normalizeTrust(settings.trust), { edited });
+    await setSettings({ ...settings, trust });
+    offer = hasOpenOffer(trust);
+  }
+
+  if (publishNow === true) void handleTick();
+  return { ok: true, data: { post: updated, offer } };
+}
+
+/**
+ * "Rewrite it" — the same idea, different words.
+ *
+ * Goes through the existing `/api/posts/generate` path rather than a new
+ * endpoint: that one already carries the trained voice, the tone and the right
+ * character limit, and a second generator would drift from the one the user has
+ * been reading and correcting all along.
+ */
+async function handleRewritePost(payload: unknown) {
+  const { text } = (payload ?? {}) as { text?: string };
+  if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'text required' } };
+  }
+  const settings = await getSettings();
+  const tone: TonePreset = TONE_PRESETS.includes(settings.tone) ? settings.tone : 'friendly';
+  const maxChars = tweetLimitFor(settings.xAccountPlan, settings.postLength);
+  const description = `Say this again a different way. Same idea, same voice, new words:\n\n${text
+    .trim()
+    .slice(0, 1_000)}`;
+  return await apiFetch<{ text: string }>('/api/posts/generate', {
+    method: 'POST',
+    body: { description, tone, maxChars },
+  });
+}
+
+/**
+ * "Write some for me" — the auto-draft loop, run on demand.
+ *
+ * Bypasses the interval only, never the gates that matter: it still writes
+ * drafts rather than scheduled posts unless trust has been granted, and it
+ * still refuses when the queue is full.
+ */
+async function handleAutoDraftNow(payload: unknown) {
+  const { count } = (payload ?? {}) as { count?: number };
+  const settings = await getSettings();
+  // Clear the interval stamp: someone pressing a button should never be told to
+  // come back in six hours. That interval paces the AUTOMATIC loop.
+  await setSettings({ ...settings, autoPost: { ...settings.autoPost, lastRunAt: null } });
+  const result = await maybeAutoDraft(async (want) => {
+    const resp = await requestPostIdeas({ count: typeof count === 'number' ? count : want });
+    if (!resp.ok) throw new Error(resp.error.message);
+    return resp.data.ideas;
+  });
+  return { ok: true, data: result };
+}
 export {};

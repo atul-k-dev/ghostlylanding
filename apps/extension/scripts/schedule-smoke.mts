@@ -27,7 +27,7 @@ const store: Record<string, unknown> = {};
   },
 };
 
-const { getScheduledPosts, setScheduledPosts, MAX_SCHEDULED_POSTS } = await import(
+const { getScheduledPosts, setScheduledPosts, MAX_SCHEDULED_POSTS, isPendingPost } = await import(
   '../src/lib/storage.js'
 );
 type ScheduledPost = Awaited<ReturnType<typeof getScheduledPosts>>[number];
@@ -111,6 +111,51 @@ await setScheduledPosts([{ ...post(1, 'scheduled'), thread: ['second', 'third'] 
 const [threaded] = await getScheduledPosts();
 assert(threaded?.thread?.length === 2, 'thread parts persist');
 assert(threaded?.thread?.[1] === 'third', 'thread order is preserved');
+
+/* -- auto-scheduled drafts (updateplan 3.2) --------------------------------
+ * A draft is a post Ghostly wrote that nobody has said yes to. The whole
+ * safety of auto-posting rests on it being a distinct STATUS rather than a
+ * flag, because the publisher selects on `status === 'scheduled'` — so no
+ * amount of confusion elsewhere can put an unapproved post on the timeline.
+ * ---------------------------------------------------------------------- */
+
+const draft = (i: number) => ({ ...post(i, 'draft' as const), origin: 'auto' as const, generated: `post ${i}` });
+
+await setScheduledPosts([draft(1), post(2, 'scheduled'), post(3, 'posted')]);
+const mixed = await getScheduledPosts();
+assert(mixed.filter((p) => p.status === 'draft').length === 1, 'a draft round-trips as a draft');
+assert(
+  mixed.filter((p) => p.status === 'scheduled' && p.scheduledAt <= Date.now() + 10 * 60_000)
+    .length <= 1,
+  'the publisher’s own selector sees only the scheduled one',
+);
+assert(
+  mixed.find((p) => p.status === 'draft')?.origin === 'auto',
+  'a drafted post remembers that Ghostly wrote it',
+);
+assert(
+  mixed.find((p) => p.status === 'draft')?.generated === 'post 1',
+  'and what it originally wrote, so an edit can be detected on approval',
+);
+
+// A draft is PENDING. It holds a slot in the week and counts against the queue
+// limit — the point being that we stop writing more until it has been read.
+assert(isPendingPost(draft(9)), 'a draft counts as pending');
+assert(isPendingPost(post(9, 'scheduled')), 'so does a scheduled post');
+assert(isPendingPost(post(9, 'publishing')), 'and one mid-publish');
+assert(!isPendingPost(post(9, 'posted')), 'a published post does not');
+assert(!isPendingPost(post(9, 'failed')), 'nor a failed one');
+
+// Trimming must never drop an unread draft to make room for old history.
+const drafts = Array.from({ length: MAX_SCHEDULED_POSTS }, (_, i) => draft(200 + i));
+const oldHistory = Array.from({ length: 80 }, (_, i) => post(300 + i, 'posted'));
+await setScheduledPosts([...drafts, ...oldHistory]);
+const afterTrim = await getScheduledPosts();
+assert(
+  afterTrim.filter((p) => p.status === 'draft').length === MAX_SCHEDULED_POSTS,
+  'every unread draft survives trimming',
+);
+assert(afterTrim.length < drafts.length + oldHistory.length, 'old history is still trimmed');
 
 // ---------------------------------------------------------------------------
 if (fails.length) {

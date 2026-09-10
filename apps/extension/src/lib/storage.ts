@@ -8,7 +8,9 @@ import type {
 } from '@casper/shared';
 import type { PendingReply } from '@casper/shared';
 import { REPLY_QUEUE_MAX } from '@casper/shared';
+import type { PostOutcome } from '@casper/shared';
 import type { QueuedTask, SchedulerState, TargetStateMap } from '../scheduler/types.js';
+import { INITIAL_TRUST, normalizeTrust } from './trust.js';
 
 export const STORAGE_KEYS = {
   auth: 'casper.auth',
@@ -45,6 +47,8 @@ export const STORAGE_KEYS = {
   panelIntent: 'casper.panelIntent',
   /** Where the floating panel sits, per origin (2.2). */
   floatingPanel: 'casper.floatingPanel',
+  /** The user's own post results, cached from the growth scan (3.1). */
+  postOutcomes: 'casper.postOutcomes',
 } as const;
 
 /**
@@ -158,6 +162,18 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   warmupStartedAt: null,
   // Nobody has been through setup on a fresh install, by definition.
   setupCompletedAt: null,
+  // Auto-posting is off until the user turns it on. Publishing under someone's
+  // name is the one thing this product must never start doing on its own
+  // (updateplan §8).
+  autoPost: {
+    enabled: false,
+    quietHours: 20,
+    maxQueued: 3,
+    lastRunAt: null,
+  },
+  // Nothing is trusted on day one. `grantedAt` is only ever written in answer
+  // to the graduation offer.
+  trust: INITIAL_TRUST,
 };
 
 const DEFAULT_COUNTERS: CountersState = { twitter: null, linkedin: null };
@@ -200,6 +216,11 @@ export const getSettings = async (): Promise<ExtensionSettings> => {
     // Caps are code-managed (no UI editor), so always use the current defaults —
     // otherwise a previously-persisted value would pin old, lower limits.
     caps: DEFAULT_SETTINGS.caps,
+    // Auto-posting merges field by field so a new bound (added later) applies to
+    // an existing install — but `enabled` comes from what the user actually
+    // chose, and defaults to off for anyone who has never seen the switch.
+    autoPost: { ...DEFAULT_SETTINGS.autoPost, ...stored.autoPost },
+    trust: normalizeTrust(stored.trust),
     activeHours: { ...DEFAULT_SETTINGS.activeHours, ...stored.activeHours },
     accountAgeMonths: { ...DEFAULT_SETTINGS.accountAgeMonths, ...stored.accountAgeMonths },
     targetCreators: onlyTwitter(stored.targetCreators),
@@ -569,7 +590,14 @@ export const effectivePostLength = (text: string, link: string): number =>
  *  exceed MAX_SCHEDULED_POSTS, or a full queue would leave no room for history. */
 const SCHEDULED_POSTS_MAX_TOTAL = 60;
 
-export type ScheduledPostStatus = 'scheduled' | 'publishing' | 'posted' | 'failed';
+/**
+ * `draft` (updateplan 3.2) is a post Ghostly wrote and gave a slot, which the
+ * user has NOT said yes to. It is deliberately a separate status rather than a
+ * flag: `maybePublishDuePost` selects on `status === 'scheduled'`, so a draft
+ * cannot publish by accident no matter what else goes wrong. Approving it is
+ * what turns it into a `scheduled` post.
+ */
+export type ScheduledPostStatus = 'draft' | 'scheduled' | 'publishing' | 'posted' | 'failed';
 
 export interface ScheduledPost {
   id: string;
@@ -593,7 +621,19 @@ export interface ScheduledPost {
   postedAt?: number;
   /** Failure reason, when status === 'failed'. */
   error?: string;
+  /**
+   * Who wrote it. `auto` means the auto-draft loop (3.2) did, which is what the
+   * UI needs to label it honestly and what the trust streak counts approvals of.
+   */
+  origin?: 'user' | 'auto';
+  /** What the model produced, kept when the user edits it, so approving an
+   *  edited post can tell the trust streak (3.3) that it was edited. */
+  generated?: string;
 }
+
+/** A post still waiting on a human, or waiting for its slot. */
+export const isPendingPost = (p: ScheduledPost): boolean =>
+  p.status === 'draft' || p.status === 'scheduled' || p.status === 'publishing';
 
 export const getScheduledPosts = async (): Promise<ScheduledPost[]> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.scheduledPosts);
@@ -605,7 +645,9 @@ export const setScheduledPosts = async (posts: ScheduledPost[]): Promise<void> =
   // finished (posted/failed) history beyond the cap.
   let next = posts;
   if (next.length > SCHEDULED_POSTS_MAX_TOTAL) {
-    const pending = next.filter((p) => p.status === 'scheduled' || p.status === 'publishing');
+    // Drafts count as pending: one the user hasn't read yet is exactly the one
+    // that must not vanish to make room for a fortnight-old success.
+    const pending = next.filter(isPendingPost);
     const finished = next
       .filter((p) => p.status === 'posted' || p.status === 'failed')
       .sort((a, b) => (b.postedAt ?? b.createdAt) - (a.postedAt ?? a.createdAt))
@@ -643,6 +685,43 @@ export const retryScheduledPost = async (
       };
     }),
   );
+};
+
+/* -- the user's own post results (3.1) ------------------------------------
+ * The growth scan already scrapes these off the user's timeline and uploads
+ * them to the server, which keeps them for the Growth tab's top five. The
+ * best-time model needs the whole history, in the extension, offline — so the
+ * scan keeps a local copy on the way past. No new server surface, no round trip
+ * to answer "when should I publish", and it works while the API is unreachable.
+ *
+ * Merged by tweetId rather than appended: a later scan re-reads the same posts
+ * with matured numbers, and that update is the point of re-scanning.
+ * ---------------------------------------------------------------------- */
+
+/** Roughly six months of daily posting. Old results stop describing the
+ *  audience the account has now. */
+const POST_OUTCOMES_MAX = 200;
+
+export const getPostOutcomes = async (): Promise<PostOutcome[]> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.postOutcomes);
+  return (got[STORAGE_KEYS.postOutcomes] as PostOutcome[] | undefined) ?? [];
+};
+
+export const mergePostOutcomes = async (fresh: readonly PostOutcome[]): Promise<number> => {
+  if (fresh.length === 0) return 0;
+  const byId = new Map<string, PostOutcome>();
+  for (const o of await getPostOutcomes()) byId.set(o.tweetId, o);
+  for (const o of fresh) byId.set(o.tweetId, o);
+  // Newest first, so the trim drops the oldest. A post with no readable
+  // timestamp sorts last: it is useless to the best-time model anyway, and
+  // NaN in a comparator makes the whole order arbitrary.
+  const when = (o: PostOutcome): number => {
+    const t = Date.parse(o.publishedAt ?? '');
+    return Number.isFinite(t) ? t : 0;
+  };
+  const merged = [...byId.values()].sort((a, b) => when(b) - when(a)).slice(0, POST_OUTCOMES_MAX);
+  await chrome.storage.local.set({ [STORAGE_KEYS.postOutcomes]: merged });
+  return merged.length;
 };
 
 // -- cached own X handle (for auto follow-back) ------------------------------

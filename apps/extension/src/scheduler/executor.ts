@@ -33,6 +33,7 @@ import {
   pendingReplySpace,
   getFollowedHandles,
   appendDiagnostic,
+  mergePostOutcomes,
 } from '../lib/storage.js';
 import {
   buildProfileUrl as twitterProfileUrl,
@@ -871,6 +872,14 @@ const executeGrowthScan = async (): Promise<ExecutorResult> => {
     if (resp.type === 'OWN_POSTS_RESULT') outcomes = resp.payload.outcomes;
   } catch (err) {
     console.warn('[casper] growth: outcome sweep failed —', err);
+  }
+
+  // Keep a local copy on the way past (updateplan 3.1). The best-time model
+  // needs the whole history in the extension, and this is the only place it
+  // flows through — merged by tweetId, so a re-scan updates numbers that have
+  // matured rather than duplicating the post.
+  if (outcomes.length > 0) {
+    await mergePostOutcomes(outcomes);
   }
 
   // Upload. The snapshot is the point of the run, so a failure there fails the

@@ -27,6 +27,13 @@ export interface SafetyPreset {
   hourlyCeiling: number;
   /** Safety auto-pause after this many minutes of continuous work. */
   sessionMinutes: number;
+  /**
+   * How many posts a day the auto-draft loop (updateplan 3.2) may put on the
+   * schedule. A publishing cadence is a safety number like any other — an
+   * account that suddenly posts six times a day looks exactly like the thing X
+   * removes — so it moves with the preset rather than being its own slider.
+   */
+  postsPerDay: number;
   /** Which action types this preset turns on. Quote/repost stay off by default
    *  in every preset: they publish under the user's name. */
   actions: {
@@ -66,6 +73,7 @@ export const SAFETY_PRESETS: Record<SafetyPresetName, SafetyPreset> = {
     actionDelayMs: { min: 15_000, max: 75_000 },
     hourlyCeiling: 12,
     sessionMinutes: 30,
+    postsPerDay: 1,
     actions: { like: true, comment: true, follow: false, bookmark: false, repost: false, quote: false },
   },
   balanced: {
@@ -85,6 +93,7 @@ export const SAFETY_PRESETS: Record<SafetyPresetName, SafetyPreset> = {
     actionDelayMs: { min: 8_000, max: 45_000 },
     hourlyCeiling: 30,
     sessionMinutes: 60,
+    postsPerDay: 1,
     actions: { like: true, comment: true, follow: true, bookmark: false, repost: false, quote: false },
   },
   growth: {
@@ -105,6 +114,7 @@ export const SAFETY_PRESETS: Record<SafetyPresetName, SafetyPreset> = {
     actionDelayMs: { min: 8_000, max: 45_000 },
     hourlyCeiling: 60,
     sessionMinutes: 90,
+    postsPerDay: 2,
     actions: { like: true, comment: true, follow: true, bookmark: true, repost: false, quote: false },
   },
 };

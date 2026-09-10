@@ -180,7 +180,8 @@ export const postReplyForMe = async (
     /* the reply is out; an undercount is the lesser problem */
   }
 
-  if (text.trim() !== generated.trim()) {
+  const edited = text.trim() !== generated.trim();
+  if (edited) {
     try {
       await chrome.runtime.sendMessage({
         type: 'RECORD_CORRECTION',
@@ -189,6 +190,18 @@ export const postReplyForMe = async (
     } catch {
       /* voice tuning is a nice-to-have; posting was the point */
     }
+  }
+
+  // The trust streak (updateplan 3.3) counts approvals wherever they happen. A
+  // reply sent from this button unchanged is the same evidence as one approved
+  // in Review, and one rewritten here is the same reset.
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'RECORD_APPROVAL',
+      payload: { edited, subject: 'reply' },
+    });
+  } catch {
+    /* the reply is out; the streak is bookkeeping */
   }
 
   publish({ status: 'posted', post });

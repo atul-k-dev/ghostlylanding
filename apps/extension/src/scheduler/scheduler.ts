@@ -10,6 +10,7 @@
  *   1. Engine paused?                        → skip
  *   2. Inside active hours (user tz)?        → skip, record 'outside-hours'
  *   2a. Session length exceeded?             → auto-pause + diagnostic, exit
+ *   2b. Auto-drafting due (3.2)?             → write + slot tomorrow's posts
  *   3. Has a task already 'running'?         → skip (single in-flight at a time)
  *   4. Tick cooldown elapsed?                → skip (see gate 8)
  *   5. Any pending task?                     → maybe refill scans, record WHY
@@ -66,6 +67,8 @@ import { appendActionLog, flushActionLog, shouldFlush } from './action-log.js';
 import { flushDiagnostics, shouldFlushDiagnostics } from './diagnostics-log.js';
 import { getTargetState, setTargetState } from '../lib/storage.js';
 import { maybePublishDuePost, isPublishing, reviveScheduledPosts } from './scheduled-posts.js';
+import { maybeAutoDraft } from './auto-posting.js';
+import { requestPostIdeas } from '../lib/ideas.js';
 
 export const SCHEDULER_ALARM = 'casper.scheduler.tick';
 const TICK_PERIOD_MINUTES = 0.5; // 30 seconds
@@ -157,6 +160,23 @@ export const installScheduler = async (): Promise<void> => {
   }
 };
 
+/**
+ * One pass of the auto-draft loop, with the network call wired in and every
+ * failure swallowed. The tick is the heart of the engine; an idea request that
+ * throws must not cost the user their engagement turn.
+ */
+const runAutoDraft = async (): Promise<void> => {
+  try {
+    await maybeAutoDraft(async (count) => {
+      const resp = await requestPostIdeas({ count });
+      if (!resp.ok) throw new Error(resp.error.message);
+      return resp.data.ideas;
+    });
+  } catch (err) {
+    console.warn('[casper] auto-post: pass failed —', err);
+  }
+};
+
 export const handleTick = async (): Promise<void> => {
   try {
     // Scheduled posts publish at their scheduled time regardless of the Active
@@ -227,6 +247,14 @@ export const handleTick = async (): Promise<void> => {
       await maybeFlush();
       return;
     }
+
+    // Auto-drafting (updateplan 3.2). Deliberately behind the paused and
+    // active-hours gates rather than beside the scheduled-post publisher: a
+    // post the user scheduled by hand is theirs and goes out regardless, but
+    // writing something new is the engine acting on its own, and "Resting"
+    // has to mean nothing is running. Awaited, not fired off, so two ticks
+    // 30 seconds apart can't both get past the interval check.
+    await runAutoDraft();
 
     if (await hasRunningTask()) {
       // Don't dispatch a second task while one is in flight.
