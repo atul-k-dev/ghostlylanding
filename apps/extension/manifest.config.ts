@@ -50,6 +50,18 @@ export const buildManifest = (apiBaseUrl: string) => {
       service_worker: 'src/background/index.ts',
       type: 'module',
     },
+    /**
+     * The documented fallback for updateplan 2.5. Opening the side panel needs a
+     * user gesture; a keyboard command is unambiguously one, so if a
+     * content-script click ever stops carrying the gesture through the message
+     * hop, Alt+G still opens the panel and the ⤢ button says so.
+     */
+    commands: {
+      'open-side-panel': {
+        suggested_key: { default: 'Alt+G' },
+        description: 'Open the Ghostly247 panel',
+      },
+    },
     content_scripts: [
       {
         matches: ['https://x.com/*', 'https://twitter.com/*'],

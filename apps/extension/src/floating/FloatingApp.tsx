@@ -77,6 +77,8 @@ export const FloatingApp = () => {
   const [tab, setTab] = useState<FloatingTab>('now');
   const [dragPos, setDragPos] = useState<{ left: number; top: number } | null>(null);
   const replyForMe = useReplyForMe();
+  /** Set only when Chrome refuses to open the side panel from this click (2.5). */
+  const [expandFallback, setExpandFallback] = useState(false);
 
   // Pressing "Reply for me" on a post is a request for the panel: open the
   // brief on Now, where the draft is about to appear. Without this the button
@@ -139,6 +141,19 @@ export const FloatingApp = () => {
     [dragPos, resting, setCorner, viewport],
   );
 
+  /**
+   * Open the side panel, and be honest when Chrome won't.
+   *
+   * The gesture question (2.5) is settled at runtime rather than guessed: the
+   * service worker reports what `sidePanel.open()` actually did, and a refusal
+   * turns the ⤢ button into the keyboard shortcut it needs to be instead of a
+   * button that quietly does nothing.
+   */
+  const expand = async () => {
+    const opened = await openSidePanel();
+    setExpandFallback(!opened);
+  };
+
   const navigate = (target: PanelTarget) => {
     if (target === 'review') return setTab('review');
     if (target === 'ask') return setTab('ask');
@@ -146,7 +161,7 @@ export const FloatingApp = () => {
     // Everything else — settings, who I watch, the account — is a place the
     // brief is too small to be, so the button opens the side panel instead of
     // pretending the page exists here.
-    void openSidePanel();
+    void expand();
   };
 
   const toggleSpotlight = async () => {
@@ -259,7 +274,7 @@ export const FloatingApp = () => {
                 id: 'expand',
                 icon: '⤢',
                 label: 'Open the full panel',
-                onClick: () => void openSidePanel(),
+                onClick: () => void expand(),
               },
               {
                 id: 'close',
@@ -277,6 +292,14 @@ export const FloatingApp = () => {
           <>
             {/* Above the condition card on purpose: what is happening RIGHT NOW
                 outranks what is standing in the way, for as long as it lasts. */}
+            {expandFallback && (
+              <div className="mx-3 mt-3 rounded-xl border border-casper-attention/45 bg-casper-attention/[0.06] px-3 py-2">
+                <p className="text-xs leading-relaxed text-casper-muted">
+                  Chrome won&rsquo;t let me open the full panel from this button. Press{' '}
+                  <span className="font-medium text-casper-fg">Alt+G</span> and it opens.
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-3 px-3 pt-3 empty:hidden">
               {/* What the user asked for outranks what the engine is doing,
                   which outranks what is standing in the way. */}

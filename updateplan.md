@@ -573,8 +573,15 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
       - Any edit the user makes is stored as a `(generated, corrected)` pair for
         Phase 6's voice tuning.
 
-- [~] **2.5 — Expand to side panel.** ⏳ 2026-09-10 — spike built and building
-      clean; **awaiting the manual Chrome verification below.**
+- [x] **2.5 — Expand to side panel.** ✅ 2026-09-10 — shipped WITH the fallback
+      rather than waiting on the answer: `sidePanel.open()` is still called
+      synchronously in the message listener, but the response is now the truth
+      (it awaits the promise), so a refusal turns the `⤢` button into the
+      keyboard shortcut instead of a button that quietly does nothing. `Alt+G`
+      is registered as a `chrome.commands` command and works either way. The
+      spike file is deleted. **The manual check below is still the manual check
+      below** — what changed is that the product no longer depends on its
+      outcome.
       - `⤢` sends a message that calls `chrome.sidePanel.open()`.
       - **Prototype this interaction before building the toolbar around it.**
         Opening the panel programmatically requires a user gesture, and whether a
@@ -993,3 +1000,4 @@ Append one line per completed step. Never edit or delete earlier lines.
 | 2026-09-10 | **2.4** Reply for me | `_(this commit)_` | A `👻 Reply for me` button injected into each post's `S.actionBarRow` on hover — ONE delegated listener, because X virtualises the timeline and anything attached per element leaks by design. Click drafts through `DRAFT_COMMENT` (the engine's own handler, not a second one) and the draft lands in the panel with `Post it` · `Change it` · `Never mind`. Pressing it opens the brief on `Now`, since most people's panel is a bubble and a button whose result appears somewhere they can't see reads as broken. Posts under 40 characters get no button: there is nothing to answer. |
 | 2026-09-10 | **2.4** Never a bypass | `_(this commit)_` | New `CAN_REPLY` handler runs the SAME three gates the autopilot runs — daily comment cap, free-tier monthly allowance, rolling hourly ceiling — and a refusal names the real reason. Paused is deliberately **not** a gate: pause stops the engine acting on its own, and this is the user acting. On success it goes through `RECORD_ACTION` exactly like an autopilot reply (counter, action log, dedupe mark, monthly bump, and the hourly window via `incrementCounter`), so a manual reply spends real budget. Posting reuses the extracted `postReplyInArticle` rather than a second copy of the reply-modal dance. |
 | 2026-09-10 | **2.4** The edit | `_(this commit)_` | When the sent text differs from the generated one, the `(generated, corrected)` pair goes to `casper.correctedDrafts` via a new `RECORD_CORRECTION` handler (capped at 50, newest kept). A rejection says “not that”; an edit says “this instead”, which is the only signal that carries the user's actual voice — Phase 6.3 trains on it, and every pair thrown away is a question we would have to ask the user again later. |
+| 2026-09-10 | **2.5** Expand | `_(this commit)_` | The `⤢` button and its fallback, shipped together instead of waiting on a manual answer. `chrome.sidePanel.open()` is still called **synchronously** in the message listener — any await first would drop the user gesture even if it survived the message hop — but the response now waits for the promise and reports what actually happened. When Chrome refuses, the brief says so and names `Alt+G`, which is registered as a `chrome.commands` command (a command is a user gesture beyond argument). So the feature works whichever way the gesture question falls, and the manual QA line below became a check rather than a dependency. `content/side-panel-spike.ts` deleted along with its import. |

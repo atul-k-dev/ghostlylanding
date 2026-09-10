@@ -222,6 +222,24 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   OPEN_BILLING_PORTAL: handleOpenBillingPortal as AsyncHandler<unknown, unknown>,
 };
 
+/**
+ * Alt+G — the keyboard route to the side panel (updateplan 2.5's fallback).
+ *
+ * A command is a user gesture beyond argument, so this path works whatever
+ * Chrome decides about content-script clicks. It is also just a good shortcut.
+ */
+chrome.commands?.onCommand.addListener((command) => {
+  if (command !== 'open-side-panel') return;
+  void (async () => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (typeof tab?.id === 'number') await chrome.sidePanel.open({ tabId: tab.id });
+    } catch (err) {
+      console.warn('[casper] Alt+G could not open the side panel —', err);
+    }
+  })();
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== 'object' || typeof message.type !== 'string') {
     sendResponse({ ok: false, error: 'invalid_message' });
@@ -237,12 +255,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ ok: true });
     return false;
   }
-  // PHASE 2.5 SPIKE — the one interaction the floating panel's "⤢ expand"
-  // button depends on. Chrome requires a user gesture to open the side panel;
-  // this call is made synchronously in the message listener (NOT after an await)
-  // because any await first would drop the gesture even if it did survive the
-  // message hop. Handled here rather than in asyncHandlers because we need
-  // `sender.tab.id` — a content script can't read its own.
+  /**
+   * The floating panel's `⤢ expand` (updateplan 2.5).
+   *
+   * Chrome requires a user gesture to open the side panel, and whether a
+   * content-script click carries that gesture through a message hop is the one
+   * thing in this design that cannot be settled by reading code. So:
+   *
+   *   · `open()` is called SYNCHRONOUSLY here — any await first would drop the
+   *     gesture even if it did survive the hop
+   *   · the response is the TRUTH, not an acknowledgement: it waits for the
+   *     promise, so the panel knows whether to fall back to the keyboard
+   *     shortcut instead of leaving the user pressing a button that does nothing
+   *
+   * Handled here rather than in asyncHandlers because it needs `sender.tab.id`,
+   * which a content script cannot read for itself.
+   */
   if (message.type === 'OPEN_SIDE_PANEL') {
     const tabId = sender.tab?.id;
     if (typeof tabId !== 'number') {
@@ -252,18 +280,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       const opening = chrome.sidePanel.open({ tabId }) as unknown as Promise<void> | undefined;
       void Promise.resolve(opening)
-        .then(() => {
-          console.log('[casper] spike: sidePanel.open() RESOLVED from a content-script gesture');
-        })
+        .then(() => sendResponse({ ok: true }))
         .catch((err: unknown) => {
-          console.warn('[casper] spike: sidePanel.open() REJECTED —', err);
+          console.warn('[casper] sidePanel.open() rejected —', err);
+          sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
         });
-      sendResponse({ ok: true });
+      // Keep the channel open for the real answer.
+      return true;
     } catch (err) {
-      console.warn('[casper] spike: sidePanel.open() THREW —', err);
+      console.warn('[casper] sidePanel.open() threw —', err);
       sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
+      return false;
     }
-    return false;
   }
   const handler = asyncHandlers[message.type];
   if (!handler) {
