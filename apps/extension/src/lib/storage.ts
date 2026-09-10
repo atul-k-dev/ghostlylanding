@@ -90,8 +90,6 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   commentLength: 1,
   // Auto-pause after an hour of activity to protect the account.
   sessionMinutes: 60,
-  // Show the work happening (foreground tabs) by default.
-  visibleMode: true,
   // Outline the post being acted on, on the page. Defaults on: it is the answer
   // to "is this actually doing anything?", which is the first thing anyone asks.
   spotlight: true,

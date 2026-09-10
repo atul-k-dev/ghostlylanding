@@ -6,13 +6,12 @@
  * closes the tab. Errors are normalized so the executor sees structured failures.
  */
 import type { ContentRequest, ContentResponse } from './content-messages.js';
-import { getSettings } from '../../lib/storage.js';
 
 const DEFAULT_LOAD_TIMEOUT_MS = 25_000;
 const POST_LOAD_SETTLE_MS = 2_500;
 const CONTENT_SCRIPT_RETRY_MS = 1_500;
 const CONTENT_SCRIPT_MAX_ATTEMPTS = 4;
-/** In visible mode, pause after the action so the user can see the result
+/** Pause after the action so the user can see the result
  *  (filled heart / posted reply / "Following") before the tab closes. */
 const VISIBLE_LINGER_MS = 1_400;
 
@@ -61,10 +60,9 @@ interface DriveOptions {
   loadTimeoutMs?: number;
   settleMs?: number;
   /**
-   * Force a background tab even when the user has "watch it work" on. For reads
-   * that produce nothing to watch (the growth scan) — and, more importantly,
-   * because a foreground tab steals focus and CLOSES the popup, which would kill
-   * any flow the popup is waiting on.
+   * Force a background tab for reads that produce nothing to watch (the growth
+   * scan, the setup read). Everything else runs in the foreground, where the
+   * user can see it and Spotlight can point at it.
    */
   forceBackground?: boolean;
 }
@@ -74,10 +72,11 @@ export const driveTab = async (
   message: ContentRequest,
   options: DriveOptions = {},
 ): Promise<ContentResponse> => {
-  // In visible mode the tab opens in the foreground so the user can watch the
-  // scrolling / liking / commenting / following happen.
-  const { visibleMode } = await getSettings();
-  const visible = visibleMode !== false && options.forceBackground !== true;
+  // Work happens in the FOREGROUND unless the caller says otherwise: that is
+  // what makes Spotlight (2.3) possible, and it is what the deleted
+  // `visibleMode` switch defaulted to anyway — so nothing changes for anyone
+  // who never touched it, and the switch nobody understood is gone.
+  const visible = options.forceBackground !== true;
   const tab = await chrome.tabs.create({ url, active: visible });
   const tabId = tab.id;
   if (typeof tabId !== 'number') {

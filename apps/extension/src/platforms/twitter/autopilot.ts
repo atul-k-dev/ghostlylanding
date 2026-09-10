@@ -28,6 +28,7 @@ import {
   nextScrollPauseMs,
   readDwellMs,
 } from '../common/pacing.js';
+import { spotlightOn, clearSpotlight, type SpotlightAction } from '../../floating/spotlight.js';
 
 /** Report one completed action to the background the instant it lands, so the
  *  dashboard counters update live during a long session (instead of only when
@@ -41,6 +42,35 @@ const recordAction = async (
     await chrome.runtime.sendMessage({ type: 'RECORD_ACTION', payload: { platform, actionType, ...data } });
   } catch {
     /* background unreachable — ignore */
+  }
+};
+
+/**
+ * Point Spotlight (2.3) at the post we are about to act on, and take the
+ * outline down however this ends.
+ *
+ * It sits here because this is the only code that knows what it is about to do,
+ * and it is a no-op when the user has Spotlight off or the post isn't really on
+ * screen — so every call site can be unconditional.
+ */
+const withSpotlight = async <T>(
+  el: HTMLElement | null,
+  action: SpotlightAction,
+  meta: { authorHandle: string | null; postUrl: string; text: string },
+  fn: () => Promise<T>,
+): Promise<T> => {
+  if (el) {
+    await spotlightOn(el, {
+      action,
+      authorHandle: meta.authorHandle,
+      postUrl: meta.postUrl,
+      text: meta.text.slice(0, 140),
+    });
+  }
+  try {
+    return await fn();
+  } finally {
+    clearSpotlight();
   }
 };
 
@@ -776,7 +806,7 @@ export const runHomeAutopilot = async (
         (await rateGate())
       ) {
         try {
-          const r = await likeInArticle(article);
+          const r = await withSpotlight(article, 'like', meta, () => likeInArticle(article));
           if (r === 'liked') {
             result.liked.push({
               postUrl: meta.postUrl,
@@ -803,7 +833,10 @@ export const runHomeAutopilot = async (
         (await rateGate())
       ) {
         try {
-          if ((await bookmarkInArticle(article)) === 'bookmarked') {
+          const bookmarked = await withSpotlight(article, 'bookmark', meta, () =>
+            bookmarkInArticle(article),
+          );
+          if (bookmarked === 'bookmarked') {
             result.bookmarked.push({ postUrl: meta.postUrl, postId: meta.postId });
             bookmarks++;
             await recordAction(opts.platform, 'bookmark', {
@@ -828,7 +861,9 @@ export const runHomeAutopilot = async (
         (await rateGate())
       ) {
         try {
-          const r = await quoteInArticle(article, meta, opts.platform);
+          const r = await withSpotlight(article, 'quote', meta, () =>
+            quoteInArticle(article, meta, opts.platform),
+          );
           if (r.posted) {
             result.quoted.push({
               postUrl: meta.postUrl,
@@ -862,7 +897,10 @@ export const runHomeAutopilot = async (
         (await rateGate())
       ) {
         try {
-          if ((await repostInArticle(article)) === 'reposted') {
+          const reposted = await withSpotlight(article, 'repost', meta, () =>
+            repostInArticle(article),
+          );
+          if (reposted === 'reposted') {
             result.reposted.push({ postUrl: meta.postUrl, postId: meta.postId });
             reposts++;
             await recordAction(opts.platform, 'repost', {
@@ -895,7 +933,9 @@ export const runHomeAutopilot = async (
             // Approval mode: draft it and park it for review. Nothing is typed
             // into X, so no action is recorded and no daily cap is spent — that
             // happens later, when the user approves and it posts normally.
-            const draft = await generateDraft(opts.platform, meta.text, meta.postUrl);
+            const draft = await withSpotlight(article, 'reply', meta, () =>
+              generateDraft(opts.platform, meta.text, meta.postUrl),
+            );
             if (!draft.ok) {
               result.commentError = draft.error;
             } else {
@@ -923,9 +963,11 @@ export const runHomeAutopilot = async (
             // review queue and types nothing into X, so it costs the hourly
             // window nothing. Posting the draft later goes through the queued
             // path, which is gated and counted there.
-            const r = opts.interactive
-              ? await replyOnPostPage(article, meta, opts.platform)
-              : { navigated: false, ...(await commentInArticle(article, meta, opts.platform)) };
+            const r = await withSpotlight(article, 'reply', meta, async () =>
+              opts.interactive
+                ? await replyOnPostPage(article, meta, opts.platform)
+                : { navigated: false, ...(await commentInArticle(article, meta, opts.platform)) },
+            );
             if (r.navigated) {
               didNavigate = true;
               live = findArticleById(meta.postId);
@@ -983,7 +1025,9 @@ export const runHomeAutopilot = async (
               likes < opts.maxLikes &&
               total() + 1 < opts.totalBudget &&
               (await slotsLeftNow()) >= 2;
-            const visit = await visitProfileAndFollow(live, meta.authorHandle, alsoLike);
+            const visit = await withSpotlight(live, 'follow', meta, () =>
+              visitProfileAndFollow(live, meta.authorHandle as string, alsoLike),
+            );
             if (visit.navigated) didNavigate = true;
             if (visit.followed) {
               result.followed.push({ handle: meta.authorHandle, profileUrl });
@@ -999,7 +1043,10 @@ export const runHomeAutopilot = async (
               await recordAction(opts.platform, 'like', visit.liked);
             }
             if (visit.followed || visit.liked) await pause();
-          } else if ((await followAuthorInline(live)) === 'followed') {
+          } else if (
+            (await withSpotlight(live, 'follow', meta, () => followAuthorInline(live))) ===
+            'followed'
+          ) {
             result.followed.push({ handle: meta.authorHandle, profileUrl });
             follows++;
             await recordAction(opts.platform, 'follow', {
@@ -1042,5 +1089,6 @@ export const runHomeAutopilot = async (
     }
   }
 
+  clearSpotlight();
   return result;
 };

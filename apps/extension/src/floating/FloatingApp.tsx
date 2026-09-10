@@ -8,6 +8,7 @@ import { Review } from '../sidepanel/pages/Review.js';
 import { Ask } from '../sidepanel/pages/Ask.js';
 import { usePanelState, usePlacement } from './usePanel.js';
 import { clampToViewport, nearestCorner, type Size } from './state.js';
+import { SpotlightLine } from './SpotlightLine.js';
 
 /**
  * The floating panel (updateplan 2.2).
@@ -261,7 +262,16 @@ export const FloatingApp = () => {
         tabs={<TabBar tabs={tabs} active={tab} onChange={setTab} />}
         status={<StatusBar state={status.state} label={status.label} pace={status.pace} />}
       >
-        {tab === 'now' && <Today status={status} onNavigate={navigate} />}
+        {tab === 'now' && (
+          <>
+            {/* Above the condition card on purpose: what is happening RIGHT NOW
+                outranks what is standing in the way, for as long as it lasts. */}
+            <div className="px-3 pt-3">
+              <SpotlightLine />
+            </div>
+            <Today status={status} onNavigate={navigate} />
+          </>
+        )}
         {tab === 'review' && (
           <div className="p-3">
             <Review />

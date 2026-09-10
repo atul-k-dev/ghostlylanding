@@ -93,12 +93,6 @@ export interface ExtensionSettings {
    */
   sessionMinutes: number;
   /**
-   * When true, Casper opens the tabs it works in the FOREGROUND so the user can
-   * watch the scrolling / liking / commenting / following happen. When false it
-   * works quietly in background tabs.
-   */
-  visibleMode: boolean;
-  /**
    * Browse like a person instead of doing everything from the timeline: open an
    * author's profile to follow them there, open a post's own page to reply on
    * it, then come back to the feed. Off = every action happens inline in the
