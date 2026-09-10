@@ -79,6 +79,26 @@ export const TWITTER_SELECTOR_DEFAULTS = {
   /** The bio block. Appears both on a profile header and inside a UserCell,
    *  which is why scanning the Following list scopes this to the cell. */
   userDescription: '[data-testid="UserDescription"]',
+
+  /* -- Media-aware reading (updateplan 6.4 — D4/D5) ------------------------ */
+  /** An attached photo/GIF. Verified live against x.com: `img[alt]` inside it
+   *  carries the alt text when the author (or X's auto-captioner) wrote one. */
+  tweetPhoto: '[data-testid="tweetPhoto"]',
+  /** An attached video. X rarely exposes any caption text on the player
+   *  itself — this selector exists to DETECT a video's presence, not read it. */
+  videoPlayer: '[data-testid="videoPlayer"], [data-testid="videoComponent"]',
+  /** A link-preview card (article/site unfurl). `.innerText` on this element
+   *  is the card's title + domain — verified live, e.g. "ER-2 High-Altitude
+   *  Airborne Science Aircraft - NASA". */
+  cardWrapper: '[data-testid="card.wrapper"]',
+  /** The "Show more" button that truncates a long post's text. */
+  showMoreButton: '[data-testid="tweet-text-show-more-link"]',
+  /** A quote-tweet's own text, scoped to the `role="link"` card that wraps
+   *  the embedded post — NOT a bare `[data-testid="tweetText"]` query, which
+   *  would find the embedded post's text but so would a false match on the
+   *  article's own general click-through wrapper when there is no quote at
+   *  all (verified live: the selector below returns nothing in that case). */
+  quotedTweetText: 'div[role="link"][tabindex="0"] [data-testid="tweetText"]',
 } as const;
 
 export type SelectorKey = keyof typeof TWITTER_SELECTOR_DEFAULTS;

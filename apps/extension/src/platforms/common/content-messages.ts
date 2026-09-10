@@ -25,6 +25,19 @@ export interface ScannedPost {
 export interface ScannedFollower {
   handle: string;
   profileUrl: string;
+  /** Empty string when the account has no bio (updateplan 6.5 — D9's quality
+   *  filter needs it; never null, so a filter that finds no match reads as an
+   *  honest "no", not a crash). */
+  bio: string;
+}
+
+/** Bio-keyword follow quality filter (updateplan 6.5 — D9). Applied against
+ *  the ONE signal a followers-list cell actually renders — no follower count,
+ *  no last-active date, since following happens in place without a
+ *  per-candidate profile visit. */
+export interface FollowBioFilter {
+  keywords: string[];
+  excludeKeywords: string[];
 }
 
 /**
@@ -108,6 +121,8 @@ export type ContentRequest =
         maxDelayMs: number;
         /** Lowercased handles to never follow back (whitelist). */
         skipHandles: string[];
+        /** Bio quality filter (updateplan 6.5 — D9). Absent/empty = unfiltered. */
+        bioFilter?: FollowBioFilter;
       };
     }
   | {
@@ -130,6 +145,25 @@ export interface HomeAutopilotOptions {
   keywords: string[];
   /** Blocklist — posts containing any of these are skipped entirely. */
   excludeKeywords: string[];
+  /**
+   * Lower-cased bare handles (no `@`) of the user's current target creators
+   * (updateplan 6.4 — D4/D5's relevance relaxation). A post from one of these
+   * authors is relevant regardless of caption thinness — the user already
+   * chose to watch them; a home/search keyword filter should never override
+   * that choice just because a video has no alt text.
+   */
+  targetHandles: string[];
+  /**
+   * Lower-cased bare handles (no `@`) the engine must never follow
+   * (updateplan 6.6 — D7). Checked in every follow path, not only the
+   * standalone follow-list runner: home-feed inline follow, search-feed
+   * inline follow, and the interactive profile-visit follow all read this.
+   */
+  whitelist: string[];
+  /** True for a search-feed session (updateplan 6.7 — D8) — tags every action
+   *  it records so the background spends it from the search budget, not the
+   *  one home/profile sessions share. */
+  isSearchFeed: boolean;
   /**
    * Navigate the way a person does: open the author's profile to follow them
    * there (and glance at their latest post), open a post's own page to reply on

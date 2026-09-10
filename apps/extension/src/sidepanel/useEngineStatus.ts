@@ -102,7 +102,7 @@ export const useEngineStatus = (): EngineStatus => {
   }, [refresh]);
 
   const today = counters?.twitter ?? null;
-  const spent = today ? sum(today.byActionType) : 0;
+  const spent = today ? sum(today.byActionType as unknown as Record<string, number>) : 0;
   const allowance = today ? sum(today.effectiveCap as unknown as Record<string, number>) : 0;
   const pace = allowance > 0 ? spent / allowance : undefined;
 

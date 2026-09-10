@@ -57,11 +57,23 @@ export interface User {
   preferences: UserPreferences;
 }
 
-/** Free tier limits: 50 actions per month, 1 platform, no AI comments. */
+/**
+ * Free tier limits (updateplan 6.9 — D11).
+ *
+ * `maxPlatforms` and `aiCommentsEnabled` used to live here too, declared but
+ * never read anywhere in the extension or server (confirmed by a repo-wide
+ * grep: zero references outside this declaration). Deleted rather than
+ * enforced: `maxPlatforms` has nothing left to gate — LinkedIn automation is
+ * fully inert and Twitter/X is the only platform that does anything, so a
+ * "max platforms" check would be a permanent no-op. `aiCommentsEnabled` is
+ * different in kind — turning it on would silently take AI-generated replies
+ * away from every free user currently relying on them inside their 50-action
+ * monthly budget, which is a monetization decision this cleanup step has no
+ * authority to make on its own. Flagged in the Phase 6 progress log rather
+ * than decided here.
+ */
 export const FREE_TIER = {
   monthlyActions: 50,
-  maxPlatforms: 1,
-  aiCommentsEnabled: false,
 } as const;
 
 export const isPro = (status?: SubscriptionStatus | null): boolean =>

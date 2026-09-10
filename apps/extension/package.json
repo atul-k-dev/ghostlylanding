@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "package": "pnpm build && mkdir -p ../../releases && rm -f \"../../releases/ghostly247-extension-$npm_package_version.zip\" && (cd dist && zip -qr \"../../../releases/ghostly247-extension-$npm_package_version.zip\" .) && echo \"-> releases/ghostly247-extension-$npm_package_version.zip\"",
     "preview": "vite preview",
-    "test": "pnpm smoke && pnpm reply-queue-smoke && pnpm relevance-smoke && pnpm selectors-smoke && pnpm schedule-smoke && pnpm resilience-smoke && pnpm block-reason-smoke && pnpm pacing-smoke && pnpm presets-smoke && pnpm setup-smoke && pnpm conditions-smoke && pnpm floating-smoke && pnpm mentions-smoke && pnpm browser-notify-smoke && pnpm best-times-smoke && pnpm trust-smoke && pnpm quote-card-smoke",
+    "test": "pnpm smoke && pnpm reply-queue-smoke && pnpm relevance-smoke && pnpm selectors-smoke && pnpm schedule-smoke && pnpm resilience-smoke && pnpm block-reason-smoke && pnpm pacing-smoke && pnpm presets-smoke && pnpm setup-smoke && pnpm conditions-smoke && pnpm floating-smoke && pnpm mentions-smoke && pnpm browser-notify-smoke && pnpm best-times-smoke && pnpm trust-smoke && pnpm quote-card-smoke && pnpm follow-filter-smoke",
     "smoke": "tsx scripts/scheduler-smoke.mts",
     "reply-queue-smoke": "tsx scripts/reply-queue-smoke.mts",
     "relevance-smoke": "tsx scripts/relevance-smoke.mts",
@@ -27,7 +27,8 @@
     "browser-notify-smoke": "tsx scripts/browser-notify-smoke.mts",
     "best-times-smoke": "tsx scripts/best-times-smoke.mts",
     "trust-smoke": "tsx scripts/trust-smoke.mts",
-    "quote-card-smoke": "tsx scripts/quote-card-smoke.mts"
+    "quote-card-smoke": "tsx scripts/quote-card-smoke.mts",
+    "follow-filter-smoke": "tsx scripts/follow-filter-smoke.mts"
   },
   "dependencies": {
     "@casper/shared": "workspace:*",

@@ -147,11 +147,49 @@ const readEngagement = (
 };
 
 /**
- * True when this article is a reply rather than a standalone post. X renders a
- * "Replying to @someone" line above the text; we scan a bounded slice of the
- * article's own text nodes for it rather than the whole subtree.
+ * Structural reply detection (updateplan 6.8 — D10).
+ *
+ * X renders a "Replying to @someone" context line between the author's
+ * User-Name block and the tweet body — but only the WORDS are translated for
+ * a non-English UI, never the link underneath them. Verified live against
+ * x.com: that line is one or more `role="link"` anchors whose `href` is a
+ * bare handle (`/handle`, never `/handle/status/…`), sitting strictly between
+ * `S.userCell`'s User-Name element and `S.postText` in document order — and
+ * on six confirmed standalone (non-reply) posts, zero such anchors appear in
+ * that span. Handles are ASCII on every X UI regardless of language, so the
+ * href shape itself never varies.
+ */
+const BARE_HANDLE_HREF = /^\/[A-Za-z0-9_]{1,20}\/?$/;
+
+const looksLikeReplyStructural = (article: HTMLElement): boolean => {
+  const userName = article.querySelector<HTMLElement>('[data-testid="User-Name"]');
+  const tweetText = article.querySelector<HTMLElement>(S.postText);
+  if (!userName) return false;
+  const anchors = Array.from(article.querySelectorAll<HTMLAnchorElement>('a[role="link"][href]'));
+  return anchors.some((a) => {
+    if (userName.contains(a)) return false;
+    const afterUserName = Boolean(
+      userName.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    const beforeTweetText = tweetText
+      ? Boolean(a.compareDocumentPosition(tweetText) & Node.DOCUMENT_POSITION_FOLLOWING)
+      : true;
+    return afterUserName && beforeTweetText && BARE_HANDLE_HREF.test(a.getAttribute('href') ?? '');
+  });
+};
+
+/**
+ * True when this article is a reply rather than a standalone post.
+ *
+ * Structural detection first (works on any UI language); the old English text
+ * match stays as a fallback for the one confirmed gap — a reply whose body is
+ * ALSO a quote-tweet, where the quoted card's own nested anchors can shadow
+ * the outer reply-context line. Only widens coverage: it can never turn a
+ * structural true positive into a false negative, and it never fired on any
+ * of six confirmed standalone posts in the same live check.
  */
 export const looksLikeReply = (article: HTMLElement): boolean => {
+  if (looksLikeReplyStructural(article)) return true;
   const candidates = Array.from(article.querySelectorAll<HTMLElement>('div[dir], span')).slice(0, 40);
   return candidates.some((el) => /^replying to\b/i.test((el.textContent ?? '').trim()));
 };

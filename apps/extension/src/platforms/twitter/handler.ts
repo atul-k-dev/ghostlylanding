@@ -120,6 +120,7 @@ export const installTwitterHandler = (ready: Promise<void> = Promise.resolve()):
             req.payload.minDelayMs,
             req.payload.maxDelayMs,
             req.payload.skipHandles,
+            req.payload.bioFilter,
           );
           const resp: ContentResponse = { type: 'FOLLOW_BACK_RESULT', payload: { followed } };
           sendResponse(resp);

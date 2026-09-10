@@ -111,6 +111,17 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   targetCreators: [],
   // Topic feeds are opt-in — the user has to say what they care about.
   searchQueries: [],
+  // Mirrors the home-feed defaults above (updateplan 6.7) — a fresh install
+  // that adds a search feed sees the same starting behaviour a home feed
+  // would have given it, just on its own budget.
+  searchFeed: {
+    like: true,
+    comment: false,
+    follow: false,
+    bookmark: false,
+    repost: false,
+    quote: false,
+  },
   contentTopics: [],
   // Early replies are only useful once there are target creators to watch, and
   // they add tab activity, so they're off until the user asks for them.
@@ -119,6 +130,7 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   // top-level post and reach a fraction of the audience.
   skipReplies: true,
   whitelist: [],
+  followFilter: { keywords: [], excludeKeywords: [] },
   caps: {
     twitter: {
       likesPerDay: 100,
@@ -239,8 +251,21 @@ export const getSettings = async (): Promise<ExtensionSettings> => {
     accountAgeMonths: { ...DEFAULT_SETTINGS.accountAgeMonths, ...stored.accountAgeMonths },
     targetCreators: onlyTwitter(stored.targetCreators),
     searchQueries: stored.searchQueries ?? [],
+    // An install that predates 6.7 has no `searchFeed` of its own — seed it
+    // from whatever `homeFeed` toggles it was ALREADY running search off of,
+    // not from the static default, so decoupling the two doesn't silently
+    // change what an existing search feed does the next time it runs.
+    searchFeed: stored.searchFeed ?? {
+      like: stored.homeFeed?.like ?? DEFAULT_SETTINGS.homeFeed.like,
+      comment: stored.homeFeed?.comment ?? DEFAULT_SETTINGS.homeFeed.comment,
+      follow: stored.homeFeed?.follow ?? DEFAULT_SETTINGS.homeFeed.follow,
+      bookmark: stored.homeFeed?.bookmark ?? DEFAULT_SETTINGS.homeFeed.bookmark,
+      repost: stored.homeFeed?.repost ?? DEFAULT_SETTINGS.homeFeed.repost,
+      quote: stored.homeFeed?.quote ?? DEFAULT_SETTINGS.homeFeed.quote,
+    },
     contentTopics: stored.contentTopics ?? [],
     whitelist: onlyTwitter(stored.whitelist),
+    followFilter: stored.followFilter ?? DEFAULT_SETTINGS.followFilter,
     homeFeed: {
       ...DEFAULT_SETTINGS.homeFeed,
       ...stored.homeFeed,

@@ -67,6 +67,13 @@ export const runDryRun = async (max = DRY_RUN_POSTS): Promise<DryRunOutcome> => 
           quote: false,
           keywords: hf.keywords,
           excludeKeywords: hf.excludeKeywords,
+          targetHandles: settings.targetCreators
+            .filter((t) => t.platform === 'twitter')
+            .map((t) => t.handle.replace(/^@/, '').toLowerCase()),
+          whitelist: settings.whitelist
+            .filter((w) => w.platform === 'twitter')
+            .map((w) => w.handle.replace(/^@/, '').toLowerCase()),
+          isSearchFeed: false,
           interactive: false,
           replyApproval: true,
           skipReplies: settings.skipReplies !== false,

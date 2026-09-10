@@ -63,3 +63,26 @@ export const platformCapsForToday = (
     warmupFactor(settings.warmupStartedAt),
   );
 };
+
+/**
+ * Search feeds' own share of today's caps (updateplan 6.7 — D8).
+ *
+ * Search feeds used to spend from the SAME daily counter as the home feed, so
+ * a home-feed session that had already used up the day's comments left search
+ * feeds nothing — even though the user explicitly asked for a separate topic
+ * to be worked. A flat fraction of the same (already age/warmup/variance
+ * adjusted) caps, tracked on its own counter — not a fourth safety preset,
+ * since search feeds are opt-in and additive rather than a pacing choice.
+ */
+export const SEARCH_BUDGET_SHARE = 0.3;
+
+const shareOf = (n: number): number => Math.max(1, Math.round(n * SEARCH_BUDGET_SHARE));
+
+export const searchCapsForToday = (effectiveCap: PlatformCaps): PlatformCaps => ({
+  likesPerDay: shareOf(effectiveCap.likesPerDay),
+  commentsPerDay: shareOf(effectiveCap.commentsPerDay),
+  followsPerDay: shareOf(effectiveCap.followsPerDay),
+  bookmarksPerDay: shareOf(effectiveCap.bookmarksPerDay),
+  repostsPerDay: shareOf(effectiveCap.repostsPerDay),
+  quotesPerDay: shareOf(effectiveCap.quotesPerDay),
+});

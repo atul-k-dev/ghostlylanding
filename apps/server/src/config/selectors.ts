@@ -46,6 +46,14 @@ export const SELECTOR_KEYS = [
   'verifiedFollowersLink',
   'followersLink',
   'followingLink',
+  'userDescription',
+  'composeAddButton',
+  // Media-aware reading (updateplan 6.4 — D4/D5).
+  'tweetPhoto',
+  'videoPlayer',
+  'cardWrapper',
+  'showMoreButton',
+  'quotedTweetText',
 ] as const;
 
 export type SelectorKey = (typeof SELECTOR_KEYS)[number];
@@ -57,7 +65,7 @@ export const isSelectorKey = (key: string): key is SelectorKey =>
  * Bump whenever the overrides change — it's what shows up in the extension's
  * console and Diagnostics panel, so support can tell which map a user is on.
  */
-export const SELECTOR_VERSION = '2026-09-04.1';
+export const SELECTOR_VERSION = '2026-09-11.1';
 
 /** Empty in the healthy case. Add entries only to correct a bundled selector. */
 export const SELECTOR_OVERRIDES: Partial<Record<SelectorKey, string>> = {};

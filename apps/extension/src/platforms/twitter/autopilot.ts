@@ -36,7 +36,16 @@ import { spotlightOn, clearSpotlight, type SpotlightAction } from '../../floatin
 const recordAction = async (
   platform: string,
   actionType: ActionType,
-  data: { postUrl?: string; postId?: string; handle?: string; profileUrl?: string; draftId?: string },
+  data: {
+    postUrl?: string;
+    postId?: string;
+    handle?: string;
+    profileUrl?: string;
+    draftId?: string;
+    /** Set when this action came from a search feed (updateplan 6.7 — D8), so
+     *  the background spends it from the search budget, not the shared one. */
+    source?: 'search';
+  },
 ): Promise<void> => {
   try {
     await chrome.runtime.sendMessage({ type: 'RECORD_ACTION', payload: { platform, actionType, ...data } });
@@ -108,6 +117,47 @@ export const readArticle = (article: HTMLElement): PostMeta | null => {
     text: (article.querySelector<HTMLElement>(S.postText)?.textContent ?? '').trim(),
     publishedAt: time?.getAttribute('datetime') ?? null,
   };
+};
+
+/**
+ * Everything `readArticle`'s plain text selector misses (updateplan 6.4 —
+ * D4/D5): a truncated "Show more" post, an image's alt text, a link card's
+ * title, and a quoted tweet's own words. Returns `meta` unchanged in text
+ * except for the (possibly longer) `text` field — every other field is
+ * `readArticle`'s, since none of it can have changed by clicking "Show more".
+ *
+ * Selectors and DOM shape verified live against x.com before this was
+ * written (see the Phase 6 progress log): `tweetPhoto`/`videoPlayer` exist
+ * exactly as named, `cardWrapper`'s `.innerText` is the card's title + domain,
+ * and `quotedTweetText` returns nothing at all on a non-quote post rather than
+ * false-matching the article's own click-through wrapper.
+ */
+export const enrichArticleText = async (
+  article: HTMLElement,
+  meta: PostMeta,
+): Promise<PostMeta> => {
+  const showMore = article.querySelector<HTMLElement>(S.showMoreButton);
+  if (showMore) {
+    showMore.click();
+    await wait(300);
+  }
+
+  const parts: string[] = [
+    (article.querySelector<HTMLElement>(S.postText)?.textContent ?? meta.text).trim(),
+  ];
+
+  for (const img of Array.from(article.querySelectorAll<HTMLImageElement>(`${S.tweetPhoto} img[alt]`))) {
+    const alt = img.getAttribute('alt')?.trim();
+    if (alt) parts.push(alt);
+  }
+
+  const cardText = article.querySelector<HTMLElement>(S.cardWrapper)?.innerText?.trim();
+  if (cardText) parts.push(cardText);
+
+  const quotedText = article.querySelector<HTMLElement>(S.quotedTweetText)?.textContent?.trim();
+  if (quotedText) parts.push(quotedText);
+
+  return { ...meta, text: parts.filter((p) => p.length > 0).join(' · ') };
 };
 
 /** Re-find a post in the CURRENT DOM by id. After an in-app navigation the feed
@@ -664,6 +714,14 @@ export const runHomeAutopilot = async (
   let quotes = 0;
   const total = (): number => likes + comments + follows + bookmarks + reposts + quotes;
   const pause = (): Promise<void> => wait(randomInt(opts.minDelayMs, opts.maxDelayMs));
+  // Tags every action this session records with its source (updateplan 6.7 —
+  // D8), so the background spends search-feed actions from the search budget
+  // instead of the one home/profile sessions share.
+  const record = (
+    actionType: ActionType,
+    data: Parameters<typeof recordAction>[2],
+  ): Promise<void> =>
+    recordAction(opts.platform, actionType, opts.isSearchFeed ? { ...data, source: 'search' } : data);
 
   const startedAt = Date.now();
   const deadline = startedAt + Math.max(0, opts.maxRunMs);
@@ -766,14 +824,32 @@ export const runHomeAutopilot = async (
       // engaging it spends the day's budget on the lowest-reach posts around.
       if (opts.skipReplies && looksLikeReply(article)) continue;
 
+      // Media-aware reading (updateplan 6.4 — D4/D5): a captionless video or
+      // image-only post reads as '' from S.postText alone, and `isRelevant('')`
+      // is false whenever keywords are set — so it was skipped outright. Click
+      // through "Show more" and fold in alt text / a link card's title / a
+      // quoted tweet's own words BEFORE the dwell and the relevance check, so
+      // both are computed from what the post is actually about.
+      const enriched = await enrichArticleText(article, meta);
+
       // READ IT. This dwell is spent on every post that gets this far, whether
       // or not anything comes of it — a reader who only ever pauses on the posts
       // they are about to like has a very distinctive rhythm. Proportional to
       // length, so a thread costs more attention than a one-liner.
-      await wait(readDwellMs(meta.text));
+      await wait(readDwellMs(enriched.text));
 
-      if (!isRelevant(meta.text, opts.keywords)) continue;
-      if (isExcluded(meta.text, opts.excludeKeywords)) continue;
+      // Relevance is relaxed for media exactly the way the plan asks: an
+      // author already on the watch list is relevant regardless of caption —
+      // for a home/search scan (the only sources where `opts.keywords` is ever
+      // non-empty) that's the one case a thin caption used to wrongly filter
+      // out someone the user explicitly chose to watch.
+      const authorIsWatched = Boolean(
+        enriched.authorHandle &&
+          opts.targetHandles.includes(enriched.authorHandle.toLowerCase()),
+      );
+      if (!authorIsWatched && !isRelevant(enriched.text, opts.keywords)) continue;
+      if (isExcluded(enriched.text, opts.excludeKeywords)) continue;
+      meta.text = enriched.text;
 
       // DRY RUN — everything above this line is the real selection logic, and
       // everything below it is the part that touches X. A dry run stops here:
@@ -830,7 +906,7 @@ export const runHomeAutopilot = async (
               authorHandle: meta.authorHandle,
             });
             likes++;
-            await recordAction(opts.platform, 'like', {
+            await record('like', {
               postUrl: meta.postUrl,
               postId: meta.postId,
             });
@@ -855,7 +931,7 @@ export const runHomeAutopilot = async (
           if (bookmarked === 'bookmarked') {
             result.bookmarked.push({ postUrl: meta.postUrl, postId: meta.postId });
             bookmarks++;
-            await recordAction(opts.platform, 'bookmark', {
+            await record('bookmark', {
               postUrl: meta.postUrl,
               postId: meta.postId,
             });
@@ -889,7 +965,7 @@ export const runHomeAutopilot = async (
             quotes++;
             quotedThisPost = true;
             skipQuote.add(meta.postId);
-            await recordAction(opts.platform, 'quote', {
+            await record('quote', {
               postUrl: meta.postUrl,
               postId: meta.postId,
               ...(r.draftId ? { draftId: r.draftId } : {}),
@@ -919,7 +995,7 @@ export const runHomeAutopilot = async (
           if (reposted === 'reposted') {
             result.reposted.push({ postUrl: meta.postUrl, postId: meta.postId });
             reposts++;
-            await recordAction(opts.platform, 'repost', {
+            await record('repost', {
               postUrl: meta.postUrl,
               postId: meta.postId,
             });
@@ -996,7 +1072,7 @@ export const runHomeAutopilot = async (
               });
               comments++;
               skip.add(meta.postId);
-              await recordAction(opts.platform, 'comment', {
+              await record('comment', {
                 postUrl: meta.postUrl,
                 postId: meta.postId,
                 ...(r.draftId ? { draftId: r.draftId } : {}),
@@ -1020,11 +1096,16 @@ export const runHomeAutopilot = async (
 
       // FOLLOW — open their profile and follow from the header the way a person
       // would (interactive), otherwise use the tweet's ••• menu without leaving.
+      // Whitelist checked here too (updateplan 6.6 — D7): this inline path used
+      // to have no whitelist check at all, unlike the standalone follow-list
+      // runner in executor.ts — "will never follow accounts on this list" has
+      // to hold for every path that can follow, not just one of them.
       if (
         opts.follow &&
         live &&
         follows < opts.maxFollows &&
         meta.authorHandle &&
+        !opts.whitelist.includes(meta.authorHandle.toLowerCase()) &&
         total() < opts.totalBudget &&
         (await rateGate())
       ) {
@@ -1048,7 +1129,7 @@ export const runHomeAutopilot = async (
             if (visit.followed) {
               result.followed.push({ handle: meta.authorHandle, profileUrl });
               follows++;
-              await recordAction(opts.platform, 'follow', {
+              await record('follow', {
                 handle: meta.authorHandle,
                 profileUrl,
               });
@@ -1056,7 +1137,7 @@ export const runHomeAutopilot = async (
             if (visit.liked) {
               result.liked.push({ ...visit.liked, authorHandle: meta.authorHandle });
               likes++;
-              await recordAction(opts.platform, 'like', visit.liked);
+              await record('like', visit.liked);
             }
             if (visit.followed || visit.liked) await pause();
           } else if (
@@ -1065,7 +1146,7 @@ export const runHomeAutopilot = async (
           ) {
             result.followed.push({ handle: meta.authorHandle, profileUrl });
             follows++;
-            await recordAction(opts.platform, 'follow', {
+            await record('follow', {
               handle: meta.authorHandle,
               profileUrl,
             });

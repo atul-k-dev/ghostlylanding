@@ -252,6 +252,30 @@ const SearchSection = ({
     }
   };
 
+  const sf = settings.searchFeed;
+  const updateSf = (patch: Partial<typeof sf>) =>
+    onChange({ ...settings, searchFeed: { ...sf, ...patch } });
+
+  const Check = ({
+    checked,
+    onToggle,
+    label,
+  }: {
+    checked: boolean;
+    onToggle: () => void;
+    label: string;
+  }) => (
+    <label className="flex items-center gap-2 text-xs text-casper-ink/80">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        className="h-3.5 w-3.5 rounded border-casper-ink/20 text-casper-violet focus:ring-casper-violet/30"
+      />
+      {label}
+    </label>
+  );
+
   return (
     <Section
       title="Topic feeds"
@@ -311,6 +335,46 @@ const SearchSection = ({
         </div>
       )}
       {status && <p className="mt-2 text-xs text-casper-ink/50">{status}</p>}
+
+      {queries.length > 0 && (
+        <div className="mt-3 border-t border-casper-border pt-3">
+          <p className="mb-1.5 font-mono text-xs uppercase tracking-[0.12em] text-casper-ink/40">
+            Actions — separate from the home feed&rsquo;s
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <Check checked={sf.like} onToggle={() => updateSf({ like: !sf.like })} label="Like" />
+            <Check
+              checked={sf.comment}
+              onToggle={() => updateSf({ comment: !sf.comment })}
+              label="Auto-reply"
+            />
+            <Check
+              checked={sf.follow}
+              onToggle={() => updateSf({ follow: !sf.follow })}
+              label="Follow"
+            />
+            <Check
+              checked={sf.bookmark}
+              onToggle={() => updateSf({ bookmark: !sf.bookmark })}
+              label="Bookmark"
+            />
+            <Check
+              checked={sf.repost}
+              onToggle={() => updateSf({ repost: !sf.repost })}
+              label="Repost"
+            />
+            <Check
+              checked={sf.quote}
+              onToggle={() => updateSf({ quote: !sf.quote })}
+              label="Quote"
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-casper-ink/40">
+            Topic feeds run on their own daily budget — separate from the home feed, so one can never
+            starve the other.
+          </p>
+        </div>
+      )}
 
       <label className="mt-3 flex items-center gap-2 border-t border-casper-border pt-3 text-xs text-casper-ink/80">
         <input
@@ -507,6 +571,35 @@ const WhitelistSection = ({
 }) => {
   const [platform, setPlatform] = useState<Platform>('twitter');
   const [handle, setHandle] = useState('');
+  const [bioKeywordText, setBioKeywordText] = useState(settings.followFilter.keywords.join(', '));
+  const [bioExcludeText, setBioExcludeText] = useState(
+    settings.followFilter.excludeKeywords.join(', '),
+  );
+
+  const commitBioKeywords = () => {
+    onChange({
+      ...settings,
+      followFilter: {
+        ...settings.followFilter,
+        keywords: bioKeywordText
+          .split(',')
+          .map((k) => k.trim())
+          .filter(Boolean),
+      },
+    });
+  };
+  const commitBioExclude = () => {
+    onChange({
+      ...settings,
+      followFilter: {
+        ...settings.followFilter,
+        excludeKeywords: bioExcludeText
+          .split(',')
+          .map((k) => k.trim())
+          .filter(Boolean),
+      },
+    });
+  };
 
   const add = () => {
     const clean = handle.trim().replace(/^@/, '');
@@ -592,6 +685,34 @@ const WhitelistSection = ({
           ))}
         </ul>
       )}
+
+      <div className="mt-3 border-t border-casper-border pt-3">
+        <p className="mb-1.5 font-mono text-xs uppercase tracking-[0.12em] text-casper-ink/40">
+          Follow quality (bio)
+        </p>
+        <input
+          type="text"
+          value={bioKeywordText}
+          onChange={(e) => setBioKeywordText(e.target.value)}
+          onBlur={commitBioKeywords}
+          onKeyDown={(e) => e.key === 'Enter' && commitBioKeywords()}
+          placeholder="only follow back if their bio mentions… (comma-separated)"
+          className="w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+        />
+        <input
+          type="text"
+          value={bioExcludeText}
+          onChange={(e) => setBioExcludeText(e.target.value)}
+          onBlur={commitBioExclude}
+          onKeyDown={(e) => e.key === 'Enter' && commitBioExclude()}
+          placeholder="never follow back if their bio mentions… (comma-separated)"
+          className="mt-1.5 w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
+        />
+        <p className="mt-1 text-xs leading-relaxed text-casper-ink/40">
+          Checked on auto follow-back and a target's followers list — the only place their bio is
+          visible without opening their profile. Leave both blank to follow back everyone, as today.
+        </p>
+      </div>
     </Section>
   );
 };

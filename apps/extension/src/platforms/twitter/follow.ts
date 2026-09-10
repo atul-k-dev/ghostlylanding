@@ -1,6 +1,7 @@
 import { TWITTER_SELECTORS as S } from './selectors.js';
 import { waitFor } from './dom.js';
-import type { ScannedFollower, ScannedProfile } from '../common/content-messages.js';
+import type { FollowBioFilter, ScannedFollower, ScannedProfile } from '../common/content-messages.js';
+import { passesFollowFilter } from '../../lib/follow-filter.js';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 const randomInt = (min: number, max: number): number =>
@@ -43,6 +44,9 @@ export const followBackInList = async (
   minDelayMs: number,
   maxDelayMs: number,
   skipHandles: string[] = [],
+  /** Bio quality filter (updateplan 6.5 — D9). Undefined/empty = unfiltered,
+   *  which is exactly today's behaviour for every install that hasn't set one. */
+  bioFilter?: FollowBioFilter,
 ): Promise<{ handle: string; profileUrl: string }[]> => {
   await waitFor(S.userCell, 15_000);
   const skip = new Set(skipHandles.map((h) => h.toLowerCase()));
@@ -61,6 +65,11 @@ export const followBackInList = async (
       if (skip.has(handle.toLowerCase())) continue;
       // Already following → nothing to follow back.
       if (cell.querySelector(S.unfollowButton)) continue;
+      // Bio quality filter (6.5 — D9): read before clicking anything.
+      if (bioFilter) {
+        const bio = cell.querySelector<HTMLElement>(S.userDescription)?.innerText.trim() ?? '';
+        if (!passesFollowFilter(bio, bioFilter)) continue;
+      }
       const followBtn = Array.from(cell.querySelectorAll<HTMLButtonElement>(S.followButton)).find(
         (b) => {
           const id = b.getAttribute('data-testid') ?? '';
@@ -125,8 +134,10 @@ export const scanFollowers = async (max = 20): Promise<ScannedFollower[]> => {
     // Skip if there's an unfollow button in this cell (already following)
     if (cell.querySelector(S.unfollowButton)) continue;
     seen.add(handle.toLowerCase());
+    const bio = cell.querySelector<HTMLElement>(S.userDescription)?.innerText.trim() ?? '';
     out.push({
       handle,
+      bio,
       profileUrl: new URL(href, location.origin).toString(),
     });
   }

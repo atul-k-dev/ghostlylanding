@@ -40,6 +40,7 @@ import {
   getCachedFollowerCount,
   setCachedFollowerCount,
 } from '../lib/storage.js';
+import { isWhitelisted } from '../lib/whitelist.js';
 import {
   buildProfileUrl as twitterProfileUrl,
   buildFollowersUrl as twitterFollowersUrl,
@@ -302,6 +303,13 @@ const runInlineFollowList = async (
           minDelayMs: actionDelayFor(settings).min,
           maxDelayMs: actionDelayFor(settings).max,
           skipHandles,
+          // Bio quality filter (6.5 — D9); omitted entirely when unset so a
+          // fresh install's behaviour is unchanged rather than filtering on
+          // an empty list (harmless either way, but explicit beats implicit).
+          ...(settings.followFilter.keywords.length > 0 ||
+          settings.followFilter.excludeKeywords.length > 0
+            ? { bioFilter: settings.followFilter }
+            : {}),
         },
       },
       { settleMs: 3_500 },
@@ -365,6 +373,27 @@ const executeFollow = async (task: QueuedTask): Promise<ExecutorResult> => {
     (handle ? candidateProfileUrl(handle) : undefined);
   if (!handle || !profileUrl) {
     return { success: false, errorMessage: 'missing handle/profileUrl' };
+  }
+
+  // Whitelist (updateplan 6.6 — D7): this single-handle follow task (used for
+  // setup-proposed targets, among others) had NO whitelist check at all —
+  // unlike `runInlineFollowList`, which is the only path that ever read it.
+  // "Will never follow accounts on this list" has to hold everywhere a follow
+  // can originate, not just the list-scanning path.
+  const settings = await getSettings();
+  if (isWhitelisted(handle, task.platform, settings.whitelist)) {
+    return {
+      success: true,
+      logEntry: {
+        platform: task.platform,
+        actionType: 'follow',
+        targetUrl: profileUrl,
+        targetHandle: handle,
+        success: true,
+        errorMessage: 'whitelisted',
+        timestamp: new Date().toISOString(),
+      },
+    };
   }
 
   if (await isAlreadyFollowed(task.platform, handle)) {
@@ -485,14 +514,16 @@ const runInlineAutopilot = async (
 
   // What to do. Home mirrors the home-feed toggles; a profile visit always Likes
   // (and mirrors the other content toggles) but never Follows the single author.
-  // A search feed mirrors home — following the people it surfaces is the point,
-  // since they're new to the user by definition.
-  const doLike = isProfile ? true : hf.like;
-  const doComment = hf.comment;
-  const doFollow = isProfile ? false : hf.follow;
-  const doBookmark = hf.bookmark;
-  const doRepost = hf.repost;
-  const doQuote = hf.quote;
+  // A search feed has its OWN toggles now (updateplan 6.7 — D8) — it used to
+  // silently mirror home-feed toggles, so a query added with home engagement
+  // off just never did anything, with no card explaining why.
+  const sf = settings.searchFeed;
+  const doLike = isProfile ? true : isSearch ? sf.like : hf.like;
+  const doComment = isSearch ? sf.comment : hf.comment;
+  const doFollow = isProfile ? false : isSearch ? sf.follow : hf.follow;
+  const doBookmark = isSearch ? sf.bookmark : hf.bookmark;
+  const doRepost = isSearch ? sf.repost : hf.repost;
+  const doQuote = isSearch ? sf.quote : hf.quote;
   // On a profile the user chose this creator, and a search query IS the filter —
   // so neither needs the home-feed keywords. The blocklist applies to all three.
   const keywords = isProfile || isSearch ? [] : hf.keywords;
@@ -509,8 +540,23 @@ const runInlineAutopilot = async (
 
   const counters = await ensureToday(settings);
   const c = counters[platform];
+  // Search feeds draw from their OWN budget (updateplan 6.7 — D8) — computed
+  // from `searchCap`/`searchByActionType` rather than the shared daily ones,
+  // so a home-feed session that has already spent today's comments can't
+  // starve a search feed of its share, and vice versa.
   const remaining = (action: ActionType): number => {
     if (!c) return 0;
+    if (isSearch) {
+      const searchCaps: Record<ActionType, number> = {
+        like: c.searchCap.likesPerDay,
+        comment: c.searchCap.commentsPerDay,
+        follow: c.searchCap.followsPerDay,
+        bookmark: c.searchCap.bookmarksPerDay,
+        repost: c.searchCap.repostsPerDay,
+        quote: c.searchCap.quotesPerDay,
+      };
+      return Math.max(0, searchCaps[action] - c.searchByActionType[action]);
+    }
     const caps: Record<ActionType, number> = {
       like: c.effectiveCap.likesPerDay,
       comment: c.effectiveCap.commentsPerDay,
@@ -609,6 +655,18 @@ const runInlineAutopilot = async (
   ].slice(0, 500);
   const skipQuoteIds = stripPrefix(await getQuotedPosts());
 
+  // Bare, lower-cased handles for the two cross-cutting checks that used to be
+  // honored in only ONE follow path: `targetHandles` relaxes relevance for a
+  // watched creator's thin-caption media post (6.4 — D4/D5), and `whitelist`
+  // is now checked in the inline follow gate too, not just the standalone
+  // follow-list runner (6.6 — D7).
+  const targetHandles = settings.targetCreators
+    .filter((t) => t.platform === platform)
+    .map((t) => t.handle.replace(/^@/, '').toLowerCase());
+  const whitelistHandles = settings.whitelist
+    .filter((w) => w.platform === platform)
+    .map((w) => w.handle.replace(/^@/, '').toLowerCase());
+
   console.log(
     `[casper] ${label} ${platform}: opening tab — like=${doLike} comment=${doComment} ` +
       `follow=${doFollow} bookmark=${doBookmark} repost=${doRepost} quote=${doQuote} ` +
@@ -631,6 +689,9 @@ const runInlineAutopilot = async (
           quote: doQuote,
           keywords,
           excludeKeywords: hf.excludeKeywords,
+          targetHandles,
+          whitelist: whitelistHandles,
+          isSearchFeed: isSearch,
           interactive: settings.interactiveMode !== false,
           replyApproval: settings.replyApproval !== false,
           skipReplies: settings.skipReplies !== false,

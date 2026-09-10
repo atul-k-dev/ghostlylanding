@@ -69,6 +69,22 @@ export interface SearchQuery {
   addedAt: string;
 }
 
+/**
+ * Search feeds' own action toggles (updateplan 6.7 — D8), decoupled from
+ * `HomeFeedSettings`. Search feeds used to silently do nothing unless the
+ * corresponding home-feed toggle happened to be on — a query someone added
+ * with home-feed engagement off just never engaged, with no card explaining
+ * why. No `keywords` field: the search QUERY already is the filter.
+ */
+export interface SearchFeedSettings {
+  like: boolean;
+  comment: boolean;
+  follow: boolean;
+  bookmark: boolean;
+  repost: boolean;
+  quote: boolean;
+}
+
 /** Most search feeds one account can sensibly work in a session. */
 export const MAX_SEARCH_QUERIES = 5;
 
@@ -187,6 +203,8 @@ export interface ExtensionSettings {
    * decides to show you — this aims at a subject you chose.
    */
   searchQueries: SearchQuery[];
+  /** Search feeds' own action toggles and budget (updateplan 6.7 — D8). */
+  searchFeed: SearchFeedSettings;
   /**
    * Early replies: re-check your target creators every few minutes and engage
    * their brand-new posts, instead of waiting for the slow 6-hourly sweep. An
@@ -206,6 +224,13 @@ export interface ExtensionSettings {
    */
   skipReplies: boolean;
   whitelist: { platform: Platform; handle: string }[];
+  /**
+   * Bio-based follow quality filter (updateplan 6.5 — D9). Applied in every
+   * inline follow-list run (auto follow-back, a target's followers list).
+   * Empty keywords = unfiltered, which is today's behaviour for every
+   * existing install.
+   */
+  followFilter: { keywords: string[]; excludeKeywords: string[] };
   caps: Record<Platform, PlatformCaps>;
   homeFeed: HomeFeedSettings;
   /** Auto follow-back: periodically follow people who follow you (Twitter/X).
@@ -295,17 +320,28 @@ export type PostLength = 'short' | 'mid' | 'long';
  * Daily counter for a single platform.
  * Resets at user-local midnight via the scheduler.
  */
+export interface ActionTypeCounts {
+  like: number;
+  comment: number;
+  follow: number;
+  bookmark: number;
+  repost: number;
+  quote: number;
+}
+
 export interface DailyCounter {
   date: string; // YYYY-MM-DD in user tz
-  byActionType: {
-    like: number;
-    comment: number;
-    follow: number;
-    bookmark: number;
-    repost: number;
-    quote: number;
-  };
+  byActionType: ActionTypeCounts;
   effectiveCap: PlatformCaps; // frozen for the day with ±15% variance
+  /**
+   * Search feeds' own budget (updateplan 6.7 — D8), tracked separately from
+   * `byActionType` so a home-feed session that has spent its daily cap can't
+   * block search feeds, and vice versa.
+   */
+  searchByActionType: ActionTypeCounts;
+  /** Search feeds' own daily cap — `searchCapsForToday(effectiveCap)`, frozen
+   *  for the day alongside it. */
+  searchCap: PlatformCaps;
 }
 
 export interface CountersState {

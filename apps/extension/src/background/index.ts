@@ -54,7 +54,7 @@ import { requestCommentDraft } from '../lib/comment-draft.js';
 import { refreshSelectorConfig, SELECTOR_REFRESH_MS } from '../lib/selector-config.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog, appendActionLog } from '../scheduler/action-log.js';
-import { ensureToday, incrementCounter, isUnderCap } from '../scheduler/counters.js';
+import { ensureToday, incrementCounter, incrementSearchCounter, isUnderCap } from '../scheduler/counters.js';
 import { canActNow } from '../scheduler/rate-limit.js';
 import {
   getSettings,
@@ -382,7 +382,7 @@ const seedKeywordsFromServer = async (user: User): Promise<void> => {
  * increments today's counter, and bumps the free-tier monthly count.
  */
 async function handleRecordAction(payload: unknown) {
-  const { platform, actionType, postUrl, postId, handle, profileUrl, draftId } = (payload ??
+  const { platform, actionType, postUrl, postId, handle, profileUrl, draftId, source } = (payload ??
     {}) as {
     platform?: Platform;
     actionType?: ActionType;
@@ -391,6 +391,9 @@ async function handleRecordAction(payload: unknown) {
     handle?: string;
     profileUrl?: string;
     draftId?: string;
+    /** Set by a search-feed session (updateplan 6.7 — D8) — routes the
+     *  counter increment to the search budget instead of the shared one. */
+    source?: 'search';
   };
   if (
     !platform ||
@@ -426,9 +429,15 @@ async function handleRecordAction(payload: unknown) {
     timestamp: new Date().toISOString(),
   });
 
-  // Live daily counter — this is what the dashboard polls every 2s.
+  // Live daily counter — this is what the dashboard polls every 2s. A
+  // search-feed action spends from its own budget (6.7 — D8), not the one
+  // home/profile sessions share.
   const settings = await getSettings();
-  await incrementCounter(settings, platform, actionType);
+  if (source === 'search') {
+    await incrementSearchCounter(settings, platform, actionType);
+  } else {
+    await incrementCounter(settings, platform, actionType);
+  }
 
   // Free tier: keep the local monthly count moving (rolling over at the month
   // boundary) so the cap stays enforced between server syncs.
