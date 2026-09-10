@@ -1,6 +1,7 @@
 # Ghostly247 — End-to-End Transformation Plan
 
-> **Status:** Phase 0 — all seven steps built; awaiting Manual QA (0.1–0.7 done · 2.5 spike awaiting Chrome verification)
+> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 in progress (1.1 done)
+> · **All Manual QA deferred to the end of the rebuild at the owner's request (2026-09-10)** · 2.5 spike still awaiting Chrome verification
 > **Owner:** Atul Kumar · **Created:** 2026-09-10 · **Last updated:** 2026-09-10
 > **Baseline commit:** `e29faf6` (on `main`) · **Extension version at baseline:** `2.1.0`
 > **Working branch:** `feat/two-mode-rebuild` — **all work in this plan is committed here, never to `main`.**
@@ -369,7 +370,7 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Steps
 
-- [ ] **1.1 — Manifest and build wiring.**
+- [x] **1.1 — Manifest and build wiring.** ✅ 2026-09-10
       - `manifest.config.ts`: add `"sidePanel"` to `permissions`; add
         `side_panel: { default_path: 'src/sidepanel/index.html' }`; **remove**
         `action.default_popup`.
@@ -918,5 +919,6 @@ Append one line per completed step. Never edit or delete earlier lines.
 | 2026-09-10 | **0.5** Scroll + dwell | `4ae07e6` | New `platforms/common/pacing.ts` (pure, DOM-free, so it is testable): `SCROLL_DISTANCE_PX` 400–1100, `SCROLL_PAUSE_MS` 400–1400, `readDwellMs` at 4 words/second with a 1.5s floor, 12s cap and ±15% jitter. The autopilot's fixed `smoothScrollBy(700)` / `wait(650)` now draw fresh each pass, and every post that clears the freshness / own-post / reply filters gets a read dwell **before** the relevance decision — so posts it skips cost attention too, which is the half that makes the rhythm human. `autopilot.ts`'s local `randomInt` deleted in favour of the shared one. |
 | 2026-09-10 | **0.5 test** | `4ae07e6` | `pacing-smoke.mts` +16 assertions: 2,000 draws stay in range and produce >100 distinct scroll distances (not a metronome); dwell floor/cap/proportionality pinned with `jitter = 1`; jitter varies the dwell without escaping the clamp. 8 suites green, typecheck + build clean. |
 | 2026-09-10 | **0.7** Gate header | `f3dc758` | `scheduler.ts:1-17` rewritten against the code: adds gate 0 (publishing / growth / scheduled posts, which run whether or not the engine is armed), 2a (session auto-pause), the free-tier half of gate 6, and the block-reason writes at 5/6/7. Gate 2 is annotated as having been documented-but-absent until 0.4. **Gate 8 now says what it is not:** it paces QUEUED-task dispatch, not the actions X sees — in-session pacing is the same `ACTION_DELAY_MS` range slept in the content script, bounded by the hourly ceiling the tick knows nothing about. |
-| 2026-09-10 | **Phase 0 tests** | `_(this commit)_` | Phase-level Tests checklist ticked: `pacing-smoke.mts` complete at **63 assertions**, registered, suite green at **8 suites / 239 assertions**, typecheck + build clean. Manual QA left entirely unchecked — it needs a human in Chrome. Two “Done when” rows (ten timed live actions; `blockReason` observed for 3 conditions) left unchecked for the same reason. **Phase 0 is code-complete and blocked there; Phase 1 does not start until those pass.** |
+| 2026-09-10 | **Phase 0 tests** | `9c58138` | Phase-level Tests checklist ticked: `pacing-smoke.mts` complete at **63 assertions**, registered, suite green at **8 suites / 239 assertions**, typecheck + build clean. Manual QA left entirely unchecked — it needs a human in Chrome. Two “Done when” rows (ten timed live actions; `blockReason` observed for 3 conditions) left unchecked for the same reason. **Phase 0 is code-complete and blocked there; Phase 1 does not start until those pass.** |
+| 2026-09-10 | **1.1** Manifest wiring | `_(this commit)_` | `action.default_popup` **removed** — the toolbar icon now opens the side panel via `chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`, installed from `onInstalled`, `onStartup` and SW boot (some lifecycles skip `onInstalled`, same reason `installScheduler` is called twice) and wrapped so an older Chrome logs instead of taking the worker down. `sidePanel` permission, `side_panel.default_path` and the vite `sidepanel` input already existed from the 2.5 spike, so this step only had to remove the popup route. `src/popup/` stays on disk until 1.6. Built `dist/manifest.json` verified: no `default_popup`, `side_panel` present. |
 | 2026-09-10 | **§9** Doc debt | `_(this commit)_` | `CONTEXT.md` §6 rewritten to the real 5.x models + API gotchas; §4/§5 flag never-built features; §11 marked superseded and points here; §14 corrected (Ghostly247, X-only, current state). §10's "8–45 seconds" annotated as **not yet true** with a do-not-republish warning on the PDF. |

@@ -29,14 +29,15 @@ export const buildManifest = (apiBaseUrl: string) => {
       48: 'icons/icon-48.png',
       128: 'icons/icon-128.png',
     },
-    // PHASE 2.5 SPIKE: the side panel ships ALONGSIDE the popup for now, so
-    // nothing about the current UX changes while we answer the gesture question.
-    // Phase 1.1 removes `default_popup` and makes the icon open the panel.
+    // The side panel IS the product now (updateplan 1.1). Clicking the toolbar
+    // icon opens it: there is no `default_popup`, and `setPanelBehavior({
+    // openPanelOnActionClick: true })` in background/index.ts is what turns the
+    // action click into an open. `src/popup/` stays on disk until 1.6 ports the
+    // last of its pages, but nothing routes to it any more.
     side_panel: {
       default_path: 'src/sidepanel/index.html',
     },
     action: {
-      default_popup: 'src/popup/index.html',
       default_title: 'Ghostly247',
       default_icon: {
         16: 'icons/icon-16.png',

@@ -69,14 +69,35 @@ import {
 const BUILD_STAMP = 'casper-build-2026-06-05-homefeed-v2';
 console.log(`[casper] service worker booted — ${BUILD_STAMP}`);
 
+/**
+ * Make a toolbar-icon click open the side panel. There is no `default_popup`
+ * any more (updateplan 1.1), so without this the icon does nothing at all.
+ *
+ * Called from onInstalled AND from the SW boot below, because some service
+ * worker lifecycles never fire onInstalled — the same reason installScheduler
+ * is called twice. It is idempotent.
+ */
+const installSidePanelBehavior = async (): Promise<void> => {
+  try {
+    await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  } catch (err) {
+    // Older Chrome without sidePanel support: the extension still runs headless
+    // (the scheduler is what does the work), so log it rather than throwing and
+    // taking the whole service worker down with it.
+    console.warn('[casper] side panel behavior not set —', err);
+  }
+};
+
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('[casper] installed', details.reason);
   void installScheduler();
+  void installSidePanelBehavior();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   console.log('[casper] startup');
   void installScheduler();
+  void installSidePanelBehavior();
 });
 
 const SELECTOR_ALARM = 'casper.selectors.refresh';
@@ -141,6 +162,7 @@ const sessionIdFromUrl = (url: string): string | undefined => {
 // Install on initial SW boot too (some lifecycles skip onInstalled).
 void installScheduler();
 void installSelectorRefresh();
+void installSidePanelBehavior();
 
 interface AsyncHandler<Req, Resp> {
   (payload: Req): Promise<Resp>;
