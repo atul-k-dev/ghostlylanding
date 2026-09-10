@@ -9,6 +9,7 @@ import {
   type DiagnosticEntry,
 } from '../../lib/storage.js';
 import { SAFETY_PRESETS, applyPreset } from '../../lib/presets.js';
+import { isTrusted } from '../../lib/trust.js';
 import { Section } from './_shared.js';
 import { Button, Card } from '../../ui/index.js';
 
@@ -102,6 +103,33 @@ export const Settings = () => {
           })}
         </div>
       </Section>
+
+      {/*
+        Trust, and how to take it back (updateplan 3.3). The offer promises
+        "you can undo any of it" — a grant with no way out would make that
+        sentence untrue, which is not a thing this product may do.
+      */}
+      {isTrusted(settings.trust) && (
+        <Section
+          title="I post without asking"
+          subtitle="You said yes to this. Everything still shows up in Review and Posts first."
+        >
+          {/* Not `destructive`: coral-as-fill means "this takes something
+              away". Handing the keys back is the SAFE direction, and styling
+              it as a warning would discourage the one thing we want easy. */}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void (async () => {
+                await sendToBackground({ type: 'REVOKE_TRUST', payload: {} });
+                setLocal(await getSettings());
+              })();
+            }}
+          >
+            Go back to showing me first
+          </Button>
+        </Section>
+      )}
 
       <Section title="My hours" subtitle="I only work inside this window, in your own timezone.">
         <div className="flex items-end gap-2">

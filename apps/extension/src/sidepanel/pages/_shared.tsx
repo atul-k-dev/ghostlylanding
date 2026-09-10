@@ -100,6 +100,9 @@ export const POST_LENGTHS: { id: PostLength; label: string }[] = [
 ];
 
 export const POST_STATUS: Record<ScheduledPost['status'], { label: string; cls: string }> = {
+  // A draft is waiting on the user, not on the clock — amber, the colour this
+  // product uses for "needs a human", never the calm scheduled violet.
+  draft: { label: 'Waiting for you', cls: 'bg-casper-attention/15 text-casper-attention' },
   scheduled: { label: 'Scheduled', cls: 'bg-casper-violet/15 text-casper-violet' },
   publishing: { label: 'Posting…', cls: 'bg-amber-500/15 text-amber-300' },
   posted: { label: 'Posted', cls: 'bg-emerald-500/15 text-emerald-300' },

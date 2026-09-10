@@ -9,26 +9,39 @@ import {
   effectivePostLength,
   STORAGE_KEYS,
   takePanelIntent,
+  isPendingPost,
+  getOwnHandle,
   type ScheduledPost,
 } from '../../lib/storage.js';
 import { POST_LENGTHS, POST_STATUS, formatWhen, Section } from './_shared.js';
 import { WeekStrip } from './WeekStrip.js';
+import { PostCard } from './PostCard.js';
+import { AutoPosting, TrustOfferCard } from './AutoPosting.js';
+import { QuietNudge } from './QuietNudge.js';
+import { hasOpenOffer } from '../../lib/trust.js';
 
 /**
  * Posts — write, schedule, publish.
  *
- * Ported from `popup/views/Dashboard.tsx:1494-2058` in updateplan 1.6. The flat
- * list is now a week strip (see WeekStrip.tsx); everything else is the shipped
- * behaviour, which already handles threads, images, character limits and
- * failure states. Phase 3 makes it autonomous.
+ * Ported from `popup/views/Dashboard.tsx:1494-2058` in updateplan 1.6, and
+ * filled in by 3.4. The composer below is unchanged shipped behaviour: it
+ * already handles threads, images, character limits and failure states. What
+ * Phase 3 adds sits above and below it — the nudge that says the profile has
+ * gone quiet, the switch that lets Ghostly write on its own, the graduation
+ * offer, and a week strip whose empty days offer to fill themselves.
  */
 
 const PostsInner = ({
   settings,
   onChange,
+  onReload,
 }: {
   settings: ExtensionSettings;
   onChange: (s: ExtensionSettings) => void;
+  /** Re-read settings the BACKGROUND wrote (the trust streak), without writing
+   *  anything back — otherwise the graduation offer wouldn't appear until the
+   *  panel was reopened. */
+  onReload: () => Promise<void>;
 }) => {
   const isPaused = settings.isPaused;
   const plan = settings.xAccountPlan;
@@ -55,6 +68,10 @@ const PostsInner = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Day-start ms currently being written for, so its cell can say so. */
+  const [fillingDay, setFillingDay] = useState<number | null>(null);
+  /** The user's own @handle, for the quote card's attribution. */
+  const [ownHandle, setOwnHandle] = useState<string | null>(null);
 
   const refresh = async () => {
     const r = await sendToBackground<
@@ -64,6 +81,9 @@ const PostsInner = ({
       setPosts(r.data.posts);
       setMax(r.data.max);
     }
+    // Approving a post can move the trust streak, and that happens in the
+    // service worker. Pull it back so the offer card shows up now, not later.
+    await onReload();
   };
 
   // "Write two for me" — the profile-quiet card (1.7) sends the user here and
@@ -74,6 +94,12 @@ const PostsInner = ({
       if (intent === 'write-two') void suggest(2);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Only for the quote card's attribution. Null is fine — the card just goes
+  // out without a name on it rather than guessing at one.
+  useEffect(() => {
+    void getOwnHandle().then(setOwnHandle);
   }, []);
 
   useEffect(() => {
@@ -88,7 +114,10 @@ const PostsInner = ({
     return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
-  const pending = posts.filter((p) => p.status === 'scheduled' || p.status === 'publishing');
+  // Drafts count as pending: they hold a slot in the week and they count
+  // against the queue limit, because a draft nobody has read is exactly the
+  // thing we should stop writing more of.
+  const pending = posts.filter(isPendingPost);
   const history = posts.filter((p) => p.status === 'posted' || p.status === 'failed');
   const atLimit = pending.length >= max;
 
@@ -202,6 +231,62 @@ const PostsInner = ({
     }
   };
 
+  /**
+   * "+ Ask Ghostly for one" on an empty day (updateplan 3.4).
+   *
+   * Writes one post in the user's voice and puts it on THAT day — the day they
+   * pointed at — as a draft, at a time inside their active hours. It is a
+   * draft, not a scheduled post: pressing "+" on a calendar is not the same as
+   * saying yes to whatever comes back.
+   */
+  const askForDay = async (dayStartMs: number) => {
+    setFillingDay(dayStartMs);
+    setError(null);
+    setNotice(null);
+    try {
+      const r = await sendToBackground<
+        | { ok: true; data: { ideas: string[] } }
+        | { ok: false; error: { message: string } | string }
+      >({ type: 'GENERATE_IDEAS', payload: { count: 1 } });
+      if (!r.ok) {
+        setError(typeof r.error === 'string' ? r.error : r.error.message);
+        return;
+      }
+      const idea = r.data.ideas[0];
+      if (!idea) {
+        setError('Nothing came back. Try again in a minute.');
+        return;
+      }
+      // Their own start hour, not a guess: a post scheduled for a time the
+      // engine is asleep would sit there until morning anyway.
+      const at = new Date(dayStartMs);
+      at.setHours(settings.activeHours.startHour, 0, 0, 0);
+      const when = Math.max(at.getTime(), Date.now() + 5 * 60_000);
+      const scheduled = await sendToBackground<
+        { ok: true } | { ok: false; error: { message: string } }
+      >({
+        type: 'SCHEDULE_POST',
+        payload: {
+          text: idea,
+          link: '',
+          imageDataUrl: null,
+          scheduledAt: when,
+          status: 'draft',
+        },
+      });
+      if (!scheduled.ok) {
+        setError(scheduled.error.message);
+        return;
+      }
+      setNotice('Written and put on that day. Read it before it goes out.');
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That did not work');
+    } finally {
+      setFillingDay(null);
+    }
+  };
+
   const remove = async (id: string) => {
     await sendToBackground({ type: 'DELETE_SCHEDULED_POST', payload: { id } });
     await refresh();
@@ -243,6 +328,38 @@ const PostsInner = ({
 
   return (
     <div className="space-y-4 text-xs">
+      {/*
+        One nudge, one offer, at the top — in that order. Both are questions the
+        user can answer without scrolling, and neither is ever two cards at once:
+        the offer only exists after twenty clean approvals, and the nudge only
+        after five silent days.
+      */}
+      {/*
+        ONE place for anything the page has to say back. These messages come
+        from three different sections — the composer, the auto-writer, a card in
+        the week — and a note that appears wherever its section happens to be is
+        a note the user scrolls past.
+      */}
+      {notice && (
+        <p
+          role="status"
+          className="rounded-lg bg-casper-working/10 px-3 py-2 text-xs text-casper-working"
+        >
+          {notice}
+        </p>
+      )}
+
+      {/*
+        Never two cards. Both of these can be true at once — five silent days
+        and twenty clean approvals are unrelated facts — and the offer is the
+        bigger question, so the nudge waits a day. Same rule as `pickCode`.
+      */}
+      {!hasOpenOffer(settings.trust) && (
+        <QuietNudge onWriteTwo={() => void suggest(2)} busy={ideasBusy} />
+      )}
+      <TrustOfferCard settings={settings} onSettings={onChange} />
+      <AutoPosting settings={settings} onSettings={onChange} onNote={setNotice} />
+
       <div className="rounded-2xl border border-casper-violet/20 bg-casper-violet/5 p-3">
         <p className="font-medium text-casper-ink">Create &amp; schedule a post ✍️</p>
         <p className="mt-1 text-xs leading-relaxed text-casper-ink/60">
@@ -515,7 +632,6 @@ const PostsInner = ({
           {busy ? 'Scheduling…' : 'Schedule post'}
         </button>
         {error && <p className="mt-2 text-xs text-rose-400">✗ {error}</p>}
-        {notice && <p className="mt-2 text-xs text-emerald-300">{notice}</p>}
         {isPaused && pending.length > 0 && (
           <p className="mt-2 text-xs text-casper-ink/40">
             Heads up: scheduled posts still publish on their day even though the engine is paused.
@@ -529,7 +645,13 @@ const PostsInner = ({
         which days are EMPTY — that is the one that makes them write something.
       */}
       <Section title="Your week">
-        <WeekStrip posts={pending} selected={selectedDay} onSelect={setSelectedDay} />
+        <WeekStrip
+          posts={pending}
+          selected={selectedDay}
+          onSelect={setSelectedDay}
+          onAskFor={(dayStartMs) => void askForDay(dayStartMs)}
+          busyDay={fillingDay}
+        />
         {(() => {
           const shown = pending
             .slice()
@@ -551,7 +673,14 @@ const PostsInner = ({
           return (
             <ul className="mt-3 space-y-2">
               {shown.map((p) => (
-                <PostRow key={p.id} post={p} onDelete={() => remove(p.id)} />
+                <PostCard
+                  key={p.id}
+                  post={p}
+                  limit={limit}
+                  ownHandle={ownHandle}
+                  onChanged={refresh}
+                  onNote={setNotice}
+                />
               ))}
             </ul>
           );
@@ -647,6 +776,7 @@ export const Posts = () => {
         setLocal(next);
         void setSettings(next);
       }}
+      onReload={async () => setLocal(await getSettings())}
     />
   );
 };

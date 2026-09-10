@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import type { PendingReply } from '@casper/shared';
+import type { ExtensionSettings, PendingReply } from '@casper/shared';
 import { REPLY_QUEUE_MAX } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import { getPendingReplies, getSettings, STORAGE_KEYS } from '../../lib/storage.js';
+import { TrustOfferCard } from './AutoPosting.js';
 
 /**
  * Review — the replies waiting on a human.
@@ -97,12 +98,13 @@ export const Review = () => {
   const [replies, setReplies] = useState<PendingReply[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [paused, setPaused] = useState(false);
+  const [settings, setSettings] = useState<ExtensionSettings | null>(null);
+  const paused = settings?.isPaused ?? false;
 
   const load = async () => {
     const list = await getPendingReplies();
     setReplies([...list].sort((a, b) => b.createdAt - a.createdAt));
-    setPaused((await getSettings()).isPaused);
+    setSettings(await getSettings());
   };
 
   useEffect(() => {
@@ -117,14 +119,18 @@ export const Review = () => {
     return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
-  const approve = async (id: string, text: string) => {
+  const approve = async (id: string, text: string, bulk = false) => {
     setBusyId(id);
     setNote(null);
     try {
       const resp = await sendToBackground<
-        { ok: true; data: { taskId: string } } | { ok: false; error: { message: string } | string }
-      >({ type: 'APPROVE_DRAFT', payload: { id, text } });
+        | { ok: true; data: { taskId: string; offer?: boolean } }
+        | { ok: false; error: { message: string } | string }
+      >({ type: 'APPROVE_DRAFT', payload: { id, text, ...(bulk ? { bulk: true } : {}) } });
       if (resp.ok) {
+        // The graduation offer (3.3) shows up right here, where the approving
+        // happens, rather than on a settings page nobody has open.
+        if (resp.data.offer) setSettings(await getSettings());
         // The engine posts it; if it's paused nothing will happen until the
         // user arms it, so say so rather than leaving them wondering.
         setNote(
@@ -163,11 +169,15 @@ export const Review = () => {
    * action, and the engine's own pacing (8–45s, plus the hourly ceiling) is what
    * decides when they actually go out. Firing them all at once would not make
    * them post faster — it would just make the failures harder to read.
+   *
+   * Marked `bulk` (updateplan 3.3): a sweep does not advance the trust streak.
+   * Clearing eight in one click says the queue was full, not that every one of
+   * them was read and found perfect.
    */
   const postAll = async () => {
     if (!replies) return;
     for (const reply of replies) {
-      await approve(reply.id, reply.draftText);
+      await approve(reply.id, reply.draftText, true);
     }
     setNote('All approved — I’ll post them at a human pace.');
   };
@@ -199,6 +209,9 @@ export const Review = () => {
 
   return (
     <div className="space-y-3">
+      {settings && (
+        <TrustOfferCard settings={settings} onSettings={setSettings} />
+      )}
       {note && (
         <div className="rounded-lg bg-casper-violet/10 px-3 py-2 text-xs text-casper-violet">
           {note}
