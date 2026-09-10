@@ -1,13 +1,32 @@
 @import 'tailwindcss';
 
 /*
- * Ghostly247 popup theme — mirrors the landing page (apps/landing-page):
- * near-black canvas, ghost-white text, coral accent, thin hairline borders.
+ * Ghostly247 theme — mirrors the landing page (apps/landing-page): near-black
+ * canvas, ghost-white text, coral accent, thin hairline borders.
+ *
+ * Shared by BOTH modes: the side panel (src/sidepanel) and, from Phase 2, the
+ * floating panel injected into x.com, which compiles this same sheet into its
+ * shadow root. It moved here from src/popup/styles.css in updateplan 1.2 for
+ * exactly that reason — it is no longer the popup's stylesheet.
  */
 @theme {
   /* Brand accent — landing coral. */
   --color-casper-coral: #f44d60;
   --color-casper-coral-bright: #ff6467;
+
+  /*
+   * Semantic state colours (updateplan §3). Three states, three colours, and
+   * they never trade places:
+   *   coral      — brand, primary action, and the Spotlight outline
+   *   working    — running, gained, healthy
+   *   attention  — needs a human
+   *
+   * There is deliberately NO destructive red: coral already occupies red, so a
+   * second one would read as a mistake. Destructive is signalled by WEIGHT —
+   * coral as a solid fill with dark text — not by hue.
+   */
+  --color-casper-working: #3fbf87;
+  --color-casper-attention: #e6a53a;
 
   /* Dark surface system (matches the landing page's .dark tokens). */
   --color-casper-bg: #0e0e0e; /* page canvas */
@@ -63,8 +82,8 @@ body {
 }
 
 /*
- * Popup canvas — solid near-black with a faint top coral glow (the dot grid was
- * removed). Cards are opaque, so the glow only reads through the gaps.
+ * The app canvas — solid near-black with a faint top coral glow (the dot grid
+ * was removed). Cards are opaque, so the glow only reads through the gaps.
  */
 .casper-app {
   background-color: var(--color-casper-bg);

@@ -1,8 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { Popup } from './Popup.js';
-import { ErrorBoundary } from './ErrorBoundary.js';
-// The theme moved to src/ui in updateplan 1.2 — both modes share it now.
+import { App } from './App.js';
+import { ErrorBoundary } from '../popup/ErrorBoundary.js';
 import '../ui/theme.css';
 
 const container = document.getElementById('root');
@@ -11,7 +10,7 @@ if (!container) throw new Error('root element not found');
 createRoot(container).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <Popup />
+      <App />
     </ErrorBoundary>
   </React.StrictMode>,
 );

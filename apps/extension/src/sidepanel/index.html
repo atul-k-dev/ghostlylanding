@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ghostly247</title>
   </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="./spike.ts"></script>
+  <!--
+    The panel owns the full height of its window and never scrolls as a whole —
+    Panel's body is the only scroll container, so the top bar, tabs and status
+    bar stay put at any panel width.
+  -->
+  <body class="h-screen w-full overflow-hidden bg-[#0e0e0e]">
+    <div id="root" class="h-full w-full"></div>
+    <script type="module" src="./main.tsx"></script>
   </body>
 </html>
