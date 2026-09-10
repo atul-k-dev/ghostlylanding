@@ -1,7 +1,8 @@
 # Ghostly247 — End-to-End Transformation Plan
 
-> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 code-complete (1.1–1.7) · **Phase 2 code-complete (2.1–2.5)** — 12 suites green, typecheck and build clean; both version bumps held until Manual QA passes
+> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 code-complete (1.1–1.7) · Phase 2 code-complete (2.1–2.5) · **Phase 3 code-complete (3.1–3.6, including the optional 3.6)** — 15 suites / 620 assertions green, typecheck and build clean; all version bumps held until Manual QA passes
 > · **All Manual QA deferred to the end of the rebuild at the owner's request (2026-09-10)** · 2.5 spike still awaiting Chrome verification
+> · **Auto-posting ships OFF and publishes nothing unread** — see the 3.x owner note in §10 before testing it
 > **Owner:** Atul Kumar · **Created:** 2026-09-10 · **Last updated:** 2026-09-10
 > **Baseline commit:** `e29faf6` (on `main`) · **Extension version at baseline:** `2.1.0`
 > **Working branch:** `feat/two-mode-rebuild` — **all work in this plan is committed here, never to `main`.**
@@ -635,40 +636,40 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Steps
 
-- [ ] **3.1 — Best-time model.**
+- [x] **3.1 — Best-time model.**
       - New `src/lib/best-times.ts`: from the user's own `PostOutcome` history,
         derive per-weekday-hour performance and return the top N slots.
       - Needs ≥ 14 days of data; below that, fall back to two sensible slots and
         **say so in the UI** rather than implying it is personalised.
 
-- [ ] **3.2 — Auto-draft loop.**
+- [x] **3.2 — Auto-draft loop.**
       - Daily scheduler task: if the user has published nothing in > N hours and
         has fewer than M drafts queued, call the existing `GENERATE_IDEAS` path
         (which already uses voice + topics + best-performing posts) and schedule
         the results at slots from 3.1.
       - Cadence comes from the safety preset. Default 1–2/day.
 
-- [ ] **3.3 — Graduated trust.**
+- [x] **3.3 — Graduated trust.**
       - Extend `replyApproval` into a general trust level covering posts too.
       - Track consecutive approvals with **zero edits**. At 20, offer:
         *"You've approved 20 in a row without changing a word. Want me to just
         post them from now on? You'll still see everything, and you can undo any of it."*
       - Any edit resets the streak. Trust is earned, never assumed, never defaulted on.
 
-- [ ] **3.4 — Posts tab, filled.**
+- [x] **3.4 — Posts tab, filled.**
       - Week strip with drafts in place; empty slots become `+ Ask Ghostly for one`.
       - Card editor: text, X preview, image, `Publish now` / `Reschedule` /
         `Rewrite it` / `Delete`.
       - Top card when true: *"You haven't posted in 5 days. I sent 90 people to
         your profile this week."* → `Write two for me`.
 
-- [ ] **3.5 — Review that learns.**
+- [x] **3.5 — Review that learns.**
       - `Edit & post` stores `(generated, corrected)` pairs.
       - `Never like this` appends to the exclusion list without ever showing the
         user the phrase "exclude keywords".
       - `Post all`.
 
-- [ ] **3.6 — Quote cards (optional, can slip to Phase 6).**
+- [x] **3.6 — Quote cards (optional, can slip to Phase 6).**
       - Render a quote card as **SVG/Canvas from the post's own text** — typography
         and data, not a generated illustration.
       - **Do not add generic AI image generation.** Glossy AI art reads as "bot"
@@ -676,13 +677,13 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Tests
 
-- [ ] **New:** `scripts/best-times-smoke.mts` — a synthetic outcome set with a
+- [x] **New:** `scripts/best-times-smoke.mts` — a synthetic outcome set with a
       known peak returns that peak; a sparse set (< 14 days) returns the fallback
       and flags itself as not personalised.
-- [ ] **New:** `scripts/trust-smoke.mts` — 20 clean approvals trip the offer; an
+- [x] **New:** `scripts/trust-smoke.mts` — 20 clean approvals trip the offer; an
       edit at #19 resets to 0; trust never enables itself without an explicit yes.
-- [ ] Extend `schedule-smoke.mts` for auto-scheduled drafts.
-- [ ] All 12 suites green.
+- [x] Extend `schedule-smoke.mts` for auto-scheduled drafts.
+- [x] All suites green — **15 / 620 assertions** (the plan says 12; 0.6, 1.4, 1.7, 2.2 and 3.6 are the additions).
 
 ### Manual QA
 
@@ -1001,3 +1002,18 @@ Append one line per completed step. Never edit or delete earlier lines.
 | 2026-09-10 | **2.4** Never a bypass | `f5ac0d1` | New `CAN_REPLY` handler runs the SAME three gates the autopilot runs — daily comment cap, free-tier monthly allowance, rolling hourly ceiling — and a refusal names the real reason. Paused is deliberately **not** a gate: pause stops the engine acting on its own, and this is the user acting. On success it goes through `RECORD_ACTION` exactly like an autopilot reply (counter, action log, dedupe mark, monthly bump, and the hourly window via `incrementCounter`), so a manual reply spends real budget. Posting reuses the extracted `postReplyInArticle` rather than a second copy of the reply-modal dance. |
 | 2026-09-10 | **2.4** The edit | `f5ac0d1` | When the sent text differs from the generated one, the `(generated, corrected)` pair goes to `casper.correctedDrafts` via a new `RECORD_CORRECTION` handler (capped at 50, newest kept). A rejection says “not that”; an edit says “this instead”, which is the only signal that carries the user's actual voice — Phase 6.3 trains on it, and every pair thrown away is a question we would have to ask the user again later. |
 | 2026-09-10 | **2.5** Expand | `9ae0863` | The `⤢` button and its fallback, shipped together instead of waiting on a manual answer. `chrome.sidePanel.open()` is still called **synchronously** in the message listener — any await first would drop the user gesture even if it survived the message hop — but the response now waits for the promise and reports what actually happened. When Chrome refuses, the brief says so and names `Alt+G`, which is registered as a `chrome.commands` command (a command is a user gesture beyond argument). So the feature works whichever way the gesture question falls, and the manual QA line below became a check rather than a dependency. `content/side-panel-spike.ts` deleted along with its import. |
+| 2026-09-10 | **3.1** Best times | `588d906` | New `lib/best-times.ts` — pure. Scores a post as likes + 2×replies + 3×reposts (a repost reaches an audience you don't have; a like is a thumb) and shrinks every weekday/hour bucket toward the overall mean with a 3-post prior, because 168 buckets over a few dozen posts means the un-shrunk winner is just whichever post went viral. **Replies are excluded**: they publish whenever the ENGINE runs, so their timestamps describe our active hours, not the audience's. Under **14 days OR 8 posts** it returns the documented fallback (9am / 6pm, clamped into the user's active window) with `personalised: false` — the flag the UI needs so it can say "sensible defaults" instead of implying it learned an audience from four posts. `nextSlots` returns fewer slots rather than break its own minimum-gap rule. |
+| 2026-09-10 | **3.1** Local outcomes | `588d906` | The best-time model needs the user's whole post history in the extension, and the growth scan already scrapes it on its way to the server — so `executeGrowthScan` now also calls the new `mergePostOutcomes` (merged by tweetId, so a re-scan updates numbers that have matured rather than duplicating the post; capped at 200). **No new server surface and no round trip** to answer "when should I publish", and it keeps working while the API is unreachable. |
+| 2026-09-10 | **3.2** Auto-draft | `588d906` | New `scheduler/auto-posting.ts`. `decideAutoDraft` is **pure**, and every gate in it is a refusal: `autoPost.enabled` defaults false and only a user turns it on (§8), no `contentTopics` means it refuses to guess what this person talks about in public under their name, the interval is 6-hourly not per-tick, and a profile that published — **or has a post already booked** — inside `quietHours` is not topped up. Cadence is `postsPerDay` on the safety preset (careful 1 / balanced 1 / growth 2). Generation reuses the existing ideas endpoint through the new `lib/ideas.ts`, so there is exactly one call site carrying voice, topics and the server's moderation pass; `GENERATE_IDEAS` now goes through it too. `lastRunAt` is stamped **before** the network call, so a broken API costs the interval rather than becoming a request every 30 seconds. |
+| 2026-09-10 | **3.2** Where it sits | `588d906` | Wired into `handleTick` as gate **2b** — behind paused and active hours, not beside the scheduled-post publisher at gate 0. A post the user scheduled by hand is theirs and goes out regardless; writing something *new* is the engine acting on its own, and “Resting” has to mean nothing is running. Awaited rather than fired off, so two ticks 30 seconds apart can't both slip past the interval check. Header contract updated to match. |
+| 2026-09-10 | **3.2** `draft` status | `588d906` | New `ScheduledPostStatus` member, chosen over a boolean flag **deliberately**: `maybePublishDuePost` selects on `status === 'scheduled'`, so a post nobody has approved cannot reach the timeline however else things go wrong. `isPendingPost` now covers draft/scheduled/publishing — so an unread draft holds its slot in the week, counts against the queue limit (which is the point: stop writing more until this one is read), and survives history trimming. |
+| 2026-09-10 | **3.3** Trust | `588d906` | New `lib/trust.ts`, pure. Twenty edit-free approvals raise the offer **once**; further clean approvals keep counting but never re-raise it. An edit resets the streak to **zero** and withdraws a live offer — an offer that survived an edit would be asking to publish unread the very thing just rewritten. Declining resets too, so the next ask is another full streak away rather than tomorrow, which is how a product teaches people to ignore it. **No code path in this module grants trust**: `answerOffer` only records an explicit yes, and the offer's `{n}` is interpolated from `TRUST_THRESHOLD` so the sentence can't claim a number the code doesn't use. |
+| 2026-09-10 | **3.3** One switch | `588d906` | Accepting writes `trust.grantedAt` **and** turns `replyApproval` off — the reply gate the rest of the engine already reads — so both halves of the product change together and there is no second switch to forget. `REVOKE_TRUST` (and a Settings control) exists because the offer says "you can undo any of it", and a grant with no way out would make that sentence untrue. ⚠️ **`Post all` does not advance the streak** (`bulk: true`): clearing eight in one click is evidence of a full queue, not that eight were read and found perfect — granting auto-publish off two bulk clicks is precisely the over-trust 3.3 exists to prevent. An edit inside a sweep still resets it. |
+| 2026-09-10 | **3.3** Every yes | `588d906` | Approvals are recorded in the **background**, not in either panel, so Review, the floating brief, `Reply for me` and approving a drafted post cannot disagree about what counts as an edit. `handleApproveDraft` now stores the `(generated, corrected)` pair as well (3.5); `reply-for-me.ts` sends the new `RECORD_APPROVAL` on both its edited and unedited paths. |
+| 2026-09-10 | **3.4** Posts filled | `a31a7ff` | The week strip shows what is on each day (amber dot = waiting on you) and an empty day now carries a **`+`** that writes one post and parks it on **that** day as a `draft`, at the user's own `activeHours.startHour` — pressing + on a calendar is not the same as saying yes to what comes back. New `PostCard`: text, an X preview, image add/change/remove, and the plan's four actions (Publish now · Reschedule · Rewrite it · Delete) plus a fifth for drafts — approving, which is the only thing that turns `draft` into `scheduled`. Cards open closed: a week as seven open textareas is a form; as seven readable cards it is a plan. `Rewrite it` goes through the existing `/api/posts/generate` rather than a new endpoint, so it keeps the trained voice and the right character limit. |
+| 2026-09-10 | **3.4** Top card | `a31a7ff` | ⚠️ The plan writes this card one way and **`docs/ui-copy.md` #13 writes it another; the doc wins** — it is the fixed source of truth for every "needs you" string, and 1.7 already resolved its `{n}` (profile visits this week is a figure nothing in this codebase measures, so the sentence is dropped rather than guessed). `QuietNudge` renders that copy, and its button writes **here and now** rather than navigating: never a blocked state without the button that unblocks it. It is suppressed while a graduation offer is open — never two cards, the same rule as `pickCode`. |
+| 2026-09-10 | **3.4** The switch | `a31a7ff` | New `AutoPosting` section: the on/off (off by default), what the cadence is, and what the best-time model currently believes — **labelled as defaults** whenever `personalised` is false, naming the 14 days it still needs. `Write some for me now` runs the loop on demand, bypassing the interval but none of the gates that matter. Page-level messages moved to one banner at the top: three sections speak, and a note that appears wherever its section happens to be is a note the user scrolls past. |
+| 2026-09-10 | **3.5** Review learns | `a31a7ff` | `Edit & post` now keeps the `(generated, corrected)` pair — the only signal that carries the user's actual voice, which Phase 6.3 trains on. `Never send me posts like this` and `Post all` were already built in 1.6; `Post all` now passes `bulk`. The graduation offer renders where the approving happens — Review **and** Posts — rather than on a settings page nobody has open. |
+| 2026-09-10 | **3.6** Quote cards | `588d906` | New `lib/quote-card.ts`: the post's own words as SVG — greedy wrap, a type scale that sets a short quote large and a long one readable, hard-splitting any token wider than a line, and XML-escaping throughout because a post is untrusted text. **No generated imagery, and the test asserts there is none**: glossy AI art reads as "bot" on X and would undo everything `humanize.ts` does to the words underneath it. Rasterised to PNG through a data-URL image and a canvas (so nothing is fetched and the canvas is never tainted), returning null rather than throwing — a card is a nicety, the post it decorates is not. |
+| 2026-09-10 | **Phase 3 tests** | `588d906` · `a31a7ff` | `best-times-smoke` (33), `trust-smoke` (37, covering `decideAutoDraft` too — the two halves of the same promise), `quote-card-smoke` (25), and `schedule-smoke` extended for drafts. Suite is **15 suites / 620 assertions** green (the plan says 12; 0.6, 1.4, 1.7, 2.2 and 3.6 are the additions). `pnpm typecheck` and `pnpm build` clean across every workspace. |
+| 2026-09-10 | **3.x** ⚠️ Owner | `a31a7ff` | Three things to know. (1) **Version stays `2.1.0`** — rule 8 bumps on a *verified* phase, and Phase 3's Manual QA is deferred with the rest. (2) **Nothing publishes itself.** With trust ungranted (the only state any existing install can be in), auto-drafted posts land as `draft`, which the publisher cannot select; the Manual QA line about a draft publishing at its slot only applies after the graduation offer has been accepted. (3) **Auto-posting is off for everyone** until it is switched on in Posts, and `contentTopics` must be set — an install that never went through 1.4's setup will find the switch does nothing and says so. |
