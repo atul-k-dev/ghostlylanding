@@ -20,7 +20,7 @@ export class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
-    console.error('[casper] popup render crash', error, info);
+    console.error('[casper] side panel render crash', error, info);
     try {
       // Dynamic import — keeps the boundary independent of any storage shape change.
       void import('../lib/storage.js').then(({ appendDiagnostic }) =>

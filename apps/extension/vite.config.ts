@@ -24,7 +24,9 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
       rollupOptions: {
         input: {
-          popup: 'src/popup/index.html',
+          // One entry. The popup was deleted in updateplan 1.6 — the side panel
+          // IS the product now, and the floating panel (Phase 2) is injected by
+          // the content script rather than built as a page.
           sidepanel: 'src/sidepanel/index.html',
         },
       },

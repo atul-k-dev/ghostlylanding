@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
-import { ErrorBoundary } from '../popup/ErrorBoundary.js';
+import { ErrorBoundary } from './ErrorBoundary.js';
 import '../ui/theme.css';
 
 const container = document.getElementById('root');
