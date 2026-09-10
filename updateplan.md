@@ -322,7 +322,8 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Tests
 
-- [ ] **New:** `scripts/pacing-smoke.mts`
+- [x] **New:** `scripts/pacing-smoke.mts` ✅ 2026-09-10 — **63 assertions, green.**
+      Grown one step at a time (0.1 → 0.2 → 0.3 → 0.4 → 0.5), plus scroll/dwell.
       - `ACTION_DELAY_MS` min ≥ 8000 and max ≤ 45000.
       - `ageMultiplier(null) === 0.5`; `ageMultiplier(3) === 0.5`;
         `ageMultiplier(8) === 0.75`; `ageMultiplier(18) === 1.0`.
@@ -330,9 +331,10 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
         after the window rolls → true.
       - `isActiveNow` returns false when `isPaused`, false outside the window,
         true inside — including the overnight (22→6) case.
-- [ ] Add `pacing-smoke` to the `test` script in `apps/extension/package.json`.
-- [ ] `pnpm --filter @casper/extension test` — all 7 suites pass.
-- [ ] `pnpm --filter @casper/extension typecheck` — clean.
+- [x] Add `pacing-smoke` to the `test` script in `apps/extension/package.json`. ✅
+- [x] `pnpm --filter @casper/extension test` — **8** suites pass. ✅
+      (The plan said 7; `block-reason-smoke` was added by 0.6, making pacing the 8th.)
+- [x] `pnpm --filter @casper/extension typecheck` — clean. ✅ `build` clean too.
 
 ### Manual QA
 
@@ -346,11 +348,16 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Done when
 
-- [ ] All 7 smoke suites green.
-- [ ] Ten consecutive live actions timed, none under 8 seconds.
-- [ ] `casper.blockReason` is written for at least 3 distinct conditions.
-- [ ] `CONTEXT.md:122`'s "8–45 seconds" claim is now true of the code.
-- [ ] Committed. Progress logged in §10.
+- [x] All 7 smoke suites green. ✅ — 8 of them, 239 assertions.
+- [ ] Ten consecutive live actions timed, none under 8 seconds. ← **needs Chrome**
+- [ ] `casper.blockReason` is written for at least 3 distinct conditions. ← **needs Chrome**
+- [x] `CONTEXT.md:122`'s "8–45 seconds" claim is now true of the code. ✅ (0.1)
+- [x] Committed. Progress logged in §10. ✅
+
+> **Phase 0 is code-complete and blocked on the Manual QA above.** Per rule 3,
+> Phase 1 does not start until the two live checks pass. Nothing here is `[~]`
+> at the step level — each step's own behaviour is covered by `pacing-smoke` —
+> but the phase gate is the live timing run, which no test can stand in for.
 
 ---
 
@@ -910,5 +917,6 @@ Append one line per completed step. Never edit or delete earlier lines.
 | 2026-09-10 | **0.4 test** | `58da613` | `pacing-smoke.mts` +16 assertions: half-open window (active at start hour, asleep at end hour), paused beats the clock in and out of the window, the overnight 22→6 case at 23:00/00:30/05:30 vs 06:30/noon, and an unparseable timezone falling back to UTC instead of throwing the gate open. 8 suites green, typecheck clean. |
 | 2026-09-10 | **0.5** Scroll + dwell | `4ae07e6` | New `platforms/common/pacing.ts` (pure, DOM-free, so it is testable): `SCROLL_DISTANCE_PX` 400–1100, `SCROLL_PAUSE_MS` 400–1400, `readDwellMs` at 4 words/second with a 1.5s floor, 12s cap and ±15% jitter. The autopilot's fixed `smoothScrollBy(700)` / `wait(650)` now draw fresh each pass, and every post that clears the freshness / own-post / reply filters gets a read dwell **before** the relevance decision — so posts it skips cost attention too, which is the half that makes the rhythm human. `autopilot.ts`'s local `randomInt` deleted in favour of the shared one. |
 | 2026-09-10 | **0.5 test** | `4ae07e6` | `pacing-smoke.mts` +16 assertions: 2,000 draws stay in range and produce >100 distinct scroll distances (not a metronome); dwell floor/cap/proportionality pinned with `jitter = 1`; jitter varies the dwell without escaping the clamp. 8 suites green, typecheck + build clean. |
-| 2026-09-10 | **0.7** Gate header | `_(this commit)_` | `scheduler.ts:1-17` rewritten against the code: adds gate 0 (publishing / growth / scheduled posts, which run whether or not the engine is armed), 2a (session auto-pause), the free-tier half of gate 6, and the block-reason writes at 5/6/7. Gate 2 is annotated as having been documented-but-absent until 0.4. **Gate 8 now says what it is not:** it paces QUEUED-task dispatch, not the actions X sees — in-session pacing is the same `ACTION_DELAY_MS` range slept in the content script, bounded by the hourly ceiling the tick knows nothing about. |
+| 2026-09-10 | **0.7** Gate header | `f3dc758` | `scheduler.ts:1-17` rewritten against the code: adds gate 0 (publishing / growth / scheduled posts, which run whether or not the engine is armed), 2a (session auto-pause), the free-tier half of gate 6, and the block-reason writes at 5/6/7. Gate 2 is annotated as having been documented-but-absent until 0.4. **Gate 8 now says what it is not:** it paces QUEUED-task dispatch, not the actions X sees — in-session pacing is the same `ACTION_DELAY_MS` range slept in the content script, bounded by the hourly ceiling the tick knows nothing about. |
+| 2026-09-10 | **Phase 0 tests** | `_(this commit)_` | Phase-level Tests checklist ticked: `pacing-smoke.mts` complete at **63 assertions**, registered, suite green at **8 suites / 239 assertions**, typecheck + build clean. Manual QA left entirely unchecked — it needs a human in Chrome. Two “Done when” rows (ten timed live actions; `blockReason` observed for 3 conditions) left unchecked for the same reason. **Phase 0 is code-complete and blocked there; Phase 1 does not start until those pass.** |
 | 2026-09-10 | **§9** Doc debt | `_(this commit)_` | `CONTEXT.md` §6 rewritten to the real 5.x models + API gotchas; §4/§5 flag never-built features; §11 marked superseded and points here; §14 corrected (Ghostly247, X-only, current state). §10's "8–45 seconds" annotated as **not yet true** with a do-not-republish warning on the PDF. |
