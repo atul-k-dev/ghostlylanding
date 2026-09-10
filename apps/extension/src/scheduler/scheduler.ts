@@ -1,20 +1,39 @@
 /**
  * The Ghostly247 scheduler.
  *
- * Alarm-driven (chrome.alarms — survives service-worker eviction). On each
- * tick we walk an ordered safety gate:
+ * Alarm-driven (chrome.alarms — survives service-worker eviction). On each tick
+ * we walk an ordered safety gate. Everything before gate 1 runs whether or not
+ * the engine is armed, because the user asked for it explicitly:
  *
+ *   0. A post is mid-publish, a growth read is driving a tab, or a scheduled
+ *      post is due?                          → yield the tick to it
  *   1. Engine paused?                        → skip
- *   2. Inside active hours (user tz)?        → skip
+ *   2. Inside active hours (user tz)?        → skip, record 'outside-hours'
+ *   2a. Session length exceeded?             → auto-pause + diagnostic, exit
  *   3. Has a task already 'running'?         → skip (single in-flight at a time)
- *   4. Random-delay cooldown elapsed?        → skip
- *   5. Any pending task?                     → maybe refill scans, exit
- *   6. Daily cap exhausted (action kind only)? → mark task skipped, exit
- *   7. Execute. Log + increment counter on success.
- *   8. Set nextEligibleAt += jitter(8–45s).
- *   9. Flush action-log buffer if due.
+ *   4. Tick cooldown elapsed?                → skip (see gate 8)
+ *   5. Any pending task?                     → maybe refill scans, record WHY
+ *                                              there's nothing to do, exit
+ *   6. Free-tier monthly allowance spent, or daily cap exhausted (action kind
+ *      only)?                                → mark task skipped, record, exit
+ *   7. Execute. Log + increment counter on success. Clear the block reason.
+ *   8. Set nextEligibleAt += jitter(ACTION_DELAY_MS, 8–45s).
+ *   9. Flush action-log + diagnostics buffers if due.
  *
  * Scans go through 2–4 but not 6 — they're internal and feed real actions.
+ *
+ * Gate 2 was documented here from the first commit and did not exist until
+ * `updateplan.md` 0.4; `isActiveNow` had no callers at all. Treat this comment
+ * as a contract, not a description — if a line here isn't in the code below,
+ * that's the bug.
+ *
+ * Gate 8 is NOT the delay between two actions the user's account performs. It
+ * is the gap between dispatches of QUEUED tasks — one tab-driving job and the
+ * next. The pacing inside a session (the one X sees: like, wait, like) is the
+ * same 8–45s range from the same `ACTION_DELAY_MS` constant, but it is handed
+ * to the content script by executor.ts and slept there, and it is bounded by a
+ * second guard the tick knows nothing about: the rolling hourly ceiling in
+ * scheduler/rate-limit.ts, enforced inside the feed loop before every action.
  */
 import type { ExtensionSettings, Platform } from '@casper/shared';
 import { FREE_TIER, isPro, monthlyActionsUsed, bumpMonthly } from '@casper/shared';
