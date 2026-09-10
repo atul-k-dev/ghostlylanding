@@ -17,6 +17,7 @@ import { followCurrentProfile, getOwnHandle } from './follow.js';
 import { looksLikeReply } from './stats.js';
 import { isRelevant, isExcluded, MIN_REPLY_POST_CHARS } from '../common/relevance.js';
 import type { HomeAutopilotOptions, HomeAutopilotResult } from '../common/content-messages.js';
+import { canActNow, msUntilSlotNow, slotsLeftNow } from '../../scheduler/rate-limit.js';
 
 const randomInt = (min: number, max: number): number =>
   Math.floor(Math.random() * (max - min + 1)) + min;
@@ -637,6 +638,34 @@ export const runHomeAutopilot = async (
     }
   };
 
+  /**
+   * The per-hour ceiling, checked before EVERY action rather than once at the
+   * start — a session runs up to an hour, so a start-of-session check would let
+   * the whole hour's worth land in its first five minutes.
+   *
+   * When the ceiling is reached we WAIT instead of returning: closing the tab
+   * and reopening it later is both more suspicious and more expensive than a
+   * person putting their phone down for a few minutes. Polling in short chunks
+   * keeps the kill switch and the session deadline responsive while we sit.
+   * Returns false only when the session should stop entirely.
+   */
+  const RATE_POLL_MS = 15_000;
+  let announcedCeiling = false;
+  const rateGate = async (): Promise<boolean> => {
+    if (await canActNow()) return true;
+    if (!announcedCeiling) {
+      console.log('[casper] hourly ceiling reached — pausing until the window rolls');
+      announcedCeiling = true;
+    }
+    while (timeLeft()) {
+      if (await stopRequested()) return false;
+      const due = await msUntilSlotNow();
+      await wait(Math.min(Math.max(due, 1_000), RATE_POLL_MS));
+      if (await canActNow()) return true;
+    }
+    return false;
+  };
+
   // Profile visits set stopAfterStaleRun > 0: once we've scrolled past a run of
   // posts older than the freshness window, the (reverse-chronological) profile
   // has no more fresh posts, so we stop instead of scrolling its whole history.
@@ -690,7 +719,12 @@ export const runHomeAutopilot = async (
       await wait(600);
 
       // LIKE
-      if (opts.like && likes < opts.maxLikes && total() < opts.totalBudget) {
+      if (
+        opts.like &&
+        likes < opts.maxLikes &&
+        total() < opts.totalBudget &&
+        (await rateGate())
+      ) {
         try {
           const r = await likeInArticle(article);
           if (r === 'liked') {
@@ -712,7 +746,12 @@ export const runHomeAutopilot = async (
       }
 
       // BOOKMARK
-      if (opts.bookmark && bookmarks < opts.maxBookmarks && total() < opts.totalBudget) {
+      if (
+        opts.bookmark &&
+        bookmarks < opts.maxBookmarks &&
+        total() < opts.totalBudget &&
+        (await rateGate())
+      ) {
         try {
           if ((await bookmarkInArticle(article)) === 'bookmarked') {
             result.bookmarked.push({ postUrl: meta.postUrl, postId: meta.postId });
@@ -735,7 +774,8 @@ export const runHomeAutopilot = async (
         meta.text.length >= MIN_REPLY_POST_CHARS &&
         !skipQuote.has(meta.postId) &&
         quotes < opts.maxQuotes &&
-        total() < opts.totalBudget
+        total() < opts.totalBudget &&
+        (await rateGate())
       ) {
         try {
           const r = await quoteInArticle(article, meta, opts.platform);
@@ -764,7 +804,13 @@ export const runHomeAutopilot = async (
       }
 
       // REPOST (skipped if we just quoted this same post)
-      if (opts.repost && !quotedThisPost && reposts < opts.maxReposts && total() < opts.totalBudget) {
+      if (
+        opts.repost &&
+        !quotedThisPost &&
+        reposts < opts.maxReposts &&
+        total() < opts.totalBudget &&
+        (await rateGate())
+      ) {
         try {
           if ((await repostInArticle(article)) === 'reposted') {
             result.reposted.push({ postUrl: meta.postUrl, postId: meta.postId });
@@ -822,7 +868,11 @@ export const runHomeAutopilot = async (
                 result.commentError = 'Could not queue the draft for review.';
               }
             }
-          } else {
+          } else if (await rateGate()) {
+            // Only this branch is gated: approval mode above drafts to the
+            // review queue and types nothing into X, so it costs the hourly
+            // window nothing. Posting the draft later goes through the queued
+            // path, which is gated and counted there.
             const r = opts.interactive
               ? await replyOnPostPage(article, meta, opts.platform)
               : { navigated: false, ...(await commentInArticle(article, meta, opts.platform)) };
@@ -867,15 +917,22 @@ export const runHomeAutopilot = async (
         live &&
         follows < opts.maxFollows &&
         meta.authorHandle &&
-        total() < opts.totalBudget
+        total() < opts.totalBudget &&
+        (await rateGate())
       ) {
         const profileUrl = `https://x.com/${meta.authorHandle}`;
         try {
           if (opts.interactive) {
             // Give their latest post a like while we're on the profile — but
             // only if liking is on and both budgets can absorb the extra action.
+            // A profile visit can land two actions (the follow and a like) but
+            // it only passed one gate, so require the window to have room for
+            // both rather than letting the second one ride in free.
             const alsoLike =
-              opts.like && likes < opts.maxLikes && total() + 1 < opts.totalBudget;
+              opts.like &&
+              likes < opts.maxLikes &&
+              total() + 1 < opts.totalBudget &&
+              (await slotsLeftNow()) >= 2;
             const visit = await visitProfileAndFollow(live, meta.authorHandle, alsoLike);
             if (visit.navigated) didNavigate = true;
             if (visit.followed) {

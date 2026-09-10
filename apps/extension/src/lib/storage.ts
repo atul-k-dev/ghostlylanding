@@ -31,6 +31,8 @@ export const STORAGE_KEYS = {
   selectorConfig: 'casper.selectorConfig',
   /** Why the engine isn't acting — see scheduler/block-reason.ts. */
   blockReason: 'casper.blockReason',
+  /** Rolling 60-minute action window — see scheduler/rate-limit.ts. */
+  rateWindow: 'casper.rateWindow',
 } as const;
 
 export interface StoredAuth {

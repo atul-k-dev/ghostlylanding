@@ -1,6 +1,6 @@
 # Ghostly247 — End-to-End Transformation Plan
 
-> **Status:** Phase 0 in progress (0.1, 0.6 done · 2.5 spike awaiting Chrome verification)
+> **Status:** Phase 0 in progress (0.1, 0.2, 0.6 done · 2.5 spike awaiting Chrome verification)
 > **Owner:** Atul Kumar · **Created:** 2026-09-10 · **Last updated:** 2026-09-10
 > **Baseline commit:** `e29faf6` (on `main`) · **Extension version at baseline:** `2.1.0`
 > **Working branch:** `feat/two-mode-rebuild` — **all work in this plan is committed here, never to `main`.**
@@ -273,7 +273,7 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
         come out here — and not one step earlier. Fixes **D13**.
       - `docs/Ghostly247-Five-Features.pdf` is now safe to re-publish.
 
-- [ ] **0.2 — Add a per-hour action ceiling.**
+- [x] **0.2 — Add a per-hour action ceiling.** ✅ 2026-09-10
       Fixes **D2**.
       - New module `src/scheduler/rate-limit.ts`: a rolling 60-minute counter
         persisted to `chrome.storage.local`, with `canActNow()` and `recordActed()`.
@@ -900,6 +900,8 @@ Append one line per completed step. Never edit or delete earlier lines.
 | 2026-09-10 | **0.6** Block reasons | `5407c34` | New `scheduler/block-reason.ts` — pure `resolveBlockReason` + 11-code precedence table + persistence. Wired into 4 sites in `scheduler.ts`: paused, free-cap, caps-spent, and the idle branch that replaced the `console.log` at the old line 209. Cleared on every dispatch. `STORAGE_KEYS.blockReason` added. `DEGRADED_STREAK_LIMIT` set to **4** to match `DEGRADED_LIMIT` in scheduler.ts. |
 | 2026-09-10 | **0.6 test** | `5407c34` | `scripts/block-reason-smoke.mts`, 25 assertions, registered in the `test` script. Full suite: 7 suites / 175 assertions green. |
 | 2026-09-10 | **2.5** Spike | `d5cdd1f` | Additive only — popup untouched. Added `sidePanel` permission + `side_panel.default_path`, `src/sidepanel/{index.html,spike.ts}`, vite input, `OPEN_SIDE_PANEL` handled synchronously in the `onMessage` listener (never after an `await`, which would drop the gesture), and a dashed spike button on x.com via `content/side-panel-spike.ts`. **RESULT: not yet verified — needs a human in Chrome.** |
-| 2026-09-10 | **0.1** Action delay | `_(this commit)_` | `ACTION_DELAY_MS = { min: 8_000, max: 45_000 }` added to `scheduler/timegate.ts` as the single source; `nextActionDelayMs()` now derives from it. Both hardcoded `3_000/7_000` sites in `executor.ts` (FOLLOW_BACK payload, RUN_HOME payload) read it. `autopilot.ts:612` untouched — it already reads `opts`. **D1 + D13 closed.** `CONTEXT.md` §10's ⚠️ annotation replaced with a statement that the claim is now true; `docs/Ghostly247-Five-Features.pdf` is safe to re-publish. |
-| 2026-09-10 | **0.1 test** | `_(this commit)_` | `scripts/pacing-smoke.mts` started (6 assertions: range bounds, not inverted, 2,000 draws of `nextActionDelayMs()` stay inside the range and actually vary). Registered in the `test` script. Full suite: 8 suites green. The 0.2–0.4 assertion groups get appended to this same file. |
+| 2026-09-10 | **0.1** Action delay | `f9d13f4` | `ACTION_DELAY_MS = { min: 8_000, max: 45_000 }` added to `scheduler/timegate.ts` as the single source; `nextActionDelayMs()` now derives from it. Both hardcoded `3_000/7_000` sites in `executor.ts` (FOLLOW_BACK payload, RUN_HOME payload) read it. `autopilot.ts:612` untouched — it already reads `opts`. **D1 + D13 closed.** `CONTEXT.md` §10's ⚠️ annotation replaced with a statement that the claim is now true; `docs/Ghostly247-Five-Features.pdf` is safe to re-publish. |
+| 2026-09-10 | **0.1 test** | `f9d13f4` | `scripts/pacing-smoke.mts` started (6 assertions: range bounds, not inverted, 2,000 draws of `nextActionDelayMs()` stay inside the range and actually vary). Registered in the `test` script. Full suite: 8 suites green. The 0.2–0.4 assertion groups get appended to this same file. |
+| 2026-09-10 | **0.2** Hourly ceiling | `_(this commit)_` | New `scheduler/rate-limit.ts`: rolling 60-min window in `chrome.storage.local` (`STORAGE_KEYS.rateWindow`), pure maths + persisted `*Now` helpers, `HOURLY_CEILINGS` already keyed for the Phase 1.3 presets (careful 12 / balanced 30 / growth 60), defaulting to **30/h**. Fed from `counters.ts` `incrementCounter` — the one choke point both the RECORD_ACTION path and the queued-task path pass through, so no action can skip the window. Gated in `autopilot.ts` before **each** of like / bookmark / quote / repost / posted-reply / follow; when the ceiling is hit the loop **waits** in ≤15s chunks (kill switch + deadline stay responsive) instead of exiting. Approval-mode drafting is not gated — it types nothing into X. The bonus like inside a profile visit now requires 2 free slots, since it rides one gate. **D2 closed.** |
+| 2026-09-10 | **0.2 test** | `_(this commit)_` | `pacing-smoke.mts` +23 assertions: 30-in-an-hour blocks, the window rolls (not a clock-hour reset), a 3-second burst still blocks a minute later, `msUntilNextSlot` measures from the oldest action, and lowering the ceiling mid-hour lengthens the wait rather than breaking it. 8 suites green, typecheck + build clean. |
 | 2026-09-10 | **§9** Doc debt | `_(this commit)_` | `CONTEXT.md` §6 rewritten to the real 5.x models + API gotchas; §4/§5 flag never-built features; §11 marked superseded and points here; §14 corrected (Ghostly247, X-only, current state). §10's "8–45 seconds" annotated as **not yet true** with a do-not-republish warning on the PDF. |

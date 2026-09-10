@@ -8,6 +8,7 @@ import type {
 import { getCounters, setCounters } from '../lib/storage.js';
 import { localDate } from './timegate.js';
 import { platformCapsForToday } from './quotas.js';
+import { recordActed } from './rate-limit.js';
 
 const emptyByAction = (): DailyCounter['byActionType'] => ({
   like: 0,
@@ -95,4 +96,8 @@ export const incrementCounter = async (
   if (!c) return;
   c.byActionType[action] += 1;
   await setCounters(counters);
+  // Every platform-visible action passes through here — the in-session path
+  // (RECORD_ACTION) and the queued-task path both — which makes this the one
+  // place the rolling hourly window can be fed without missing anything.
+  await recordActed();
 };
