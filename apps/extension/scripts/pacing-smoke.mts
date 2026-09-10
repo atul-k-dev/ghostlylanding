@@ -11,6 +11,15 @@
 import { ACTION_DELAY_MS, nextActionDelayMs } from '../src/scheduler/timegate.js';
 import { ageMultiplier } from '../src/scheduler/quotas.js';
 import { isActiveNow, isWithinActiveHours } from '../src/scheduler/timegate.js';
+import {
+  SCROLL_DISTANCE_PX,
+  SCROLL_PAUSE_MS,
+  DWELL_MS,
+  READ_WORDS_PER_SECOND,
+  nextScrollDistancePx,
+  nextScrollPauseMs,
+  readDwellMs,
+} from '../src/platforms/common/pacing.js';
 import type { ExtensionSettings } from '@casper/shared';
 import {
   RATE_WINDOW_MS,
@@ -152,6 +161,53 @@ assert(!isActiveNow(night, utc(21)), 'overnight: asleep an hour before opening')
 assert(
   isWithinActiveHours(utc(14), 'Not/AZone', { startHour: 9, endHour: 22 }),
   'an unparseable timezone falls back to UTC rather than failing',
+);
+
+// --- 0.5 variable scroll and read dwell -------------------------------------
+assert(SCROLL_DISTANCE_PX.min === 400 && SCROLL_DISTANCE_PX.max === 1_100, 'scroll range is 400–1100px');
+assert(SCROLL_PAUSE_MS.min === 400 && SCROLL_PAUSE_MS.max === 1_400, 'scroll pause range is 400–1400ms');
+
+let sLow = Number.POSITIVE_INFINITY;
+let sHigh = 0;
+let pLow = Number.POSITIVE_INFINITY;
+let pHigh = 0;
+const distinct = new Set<number>();
+for (let i = 0; i < 2_000; i += 1) {
+  const d = nextScrollDistancePx();
+  const p = nextScrollPauseMs();
+  sLow = Math.min(sLow, d);
+  sHigh = Math.max(sHigh, d);
+  pLow = Math.min(pLow, p);
+  pHigh = Math.max(pHigh, p);
+  distinct.add(d);
+}
+assert(sLow >= SCROLL_DISTANCE_PX.min && sHigh <= SCROLL_DISTANCE_PX.max, 'scroll stays in range');
+assert(pLow >= SCROLL_PAUSE_MS.min && pHigh <= SCROLL_PAUSE_MS.max, 'scroll pause stays in range');
+assert(distinct.size > 100, 'the scroll distance is not a metronome');
+
+// Dwell: proportional to length, clamped at both ends. jitter = 1 pins the maths.
+const words = (n: number): string => Array.from({ length: n }, () => 'word').join(' ');
+assert(readDwellMs('', 1) === DWELL_MS.min, 'an empty post still costs the floor');
+assert(readDwellMs(words(2), 1) === DWELL_MS.min, 'a two-word post costs the floor');
+assert(
+  readDwellMs(words(40), 1) === (40 / READ_WORDS_PER_SECOND) * 1_000,
+  '40 words at 4 words/second = 10s',
+);
+assert(readDwellMs(words(400), 1) === DWELL_MS.max, 'a 400-word thread is capped at 12s');
+assert(
+  readDwellMs(words(80), 1) > readDwellMs(words(20), 1),
+  'a longer post gets more attention than a shorter one',
+);
+assert(
+  readDwellMs(words(4_000), 1) <= DWELL_MS.max,
+  'no post, however long, blocks the loop for more than the cap',
+);
+// Jitter must vary the dwell without escaping the clamp.
+const jittered = new Set(Array.from({ length: 200 }, () => readDwellMs(words(30))));
+assert(jittered.size > 5, 'two identical posts do not produce identical dwells');
+assert(
+  Math.min(...jittered) >= DWELL_MS.min && Math.max(...jittered) <= DWELL_MS.max,
+  'jitter never escapes the floor or the cap',
 );
 
 // ---------------------------------------------------------------------------

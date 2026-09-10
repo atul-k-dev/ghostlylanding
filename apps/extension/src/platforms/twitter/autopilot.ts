@@ -18,9 +18,12 @@ import { looksLikeReply } from './stats.js';
 import { isRelevant, isExcluded, MIN_REPLY_POST_CHARS } from '../common/relevance.js';
 import type { HomeAutopilotOptions, HomeAutopilotResult } from '../common/content-messages.js';
 import { canActNow, msUntilSlotNow, slotsLeftNow } from '../../scheduler/rate-limit.js';
-
-const randomInt = (min: number, max: number): number =>
-  Math.floor(Math.random() * (max - min + 1)) + min;
+import {
+  randomInt,
+  nextScrollDistancePx,
+  nextScrollPauseMs,
+  readDwellMs,
+} from '../common/pacing.js';
 
 /** Report one completed action to the background the instant it lands, so the
  *  dashboard counters update live during a long session (instead of only when
@@ -708,6 +711,13 @@ export const runHomeAutopilot = async (
       // A post that is itself a reply is buried in someone else's thread —
       // engaging it spends the day's budget on the lowest-reach posts around.
       if (opts.skipReplies && looksLikeReply(article)) continue;
+
+      // READ IT. This dwell is spent on every post that gets this far, whether
+      // or not anything comes of it — a reader who only ever pauses on the posts
+      // they are about to like has a very distinctive rhythm. Proportional to
+      // length, so a thread costs more attention than a one-liner.
+      await wait(readDwellMs(meta.text));
+
       if (!isRelevant(meta.text, opts.keywords)) continue;
       if (isExcluded(meta.text, opts.excludeKeywords)) continue;
 
@@ -971,9 +981,11 @@ export const runHomeAutopilot = async (
     if (!budgetLeft()) break;
 
     // Keep scrolling so a long session keeps pulling in fresh posts. Twitter
-    // virtualizes the timeline, so the DOM stays bounded as we go.
-    await smoothScrollBy(700);
-    await wait(650);
+    // virtualizes the timeline, so the DOM stays bounded as we go. Distance and
+    // pause are drawn fresh each pass: an exact 700px / 650ms metronome is a
+    // fingerprint whatever the delays around it look like.
+    await smoothScrollBy(nextScrollDistancePx());
+    await wait(nextScrollPauseMs());
 
     // If several passes in a row surface nothing new, we've caught up to the
     // feed — nudge harder and wait a beat before trying again, rather than
