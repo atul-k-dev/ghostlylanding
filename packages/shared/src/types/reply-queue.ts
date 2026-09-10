@@ -21,6 +21,10 @@ export interface PendingReply {
   draftText: string;
   /** ms epoch. */
   createdAt: number;
+  /** Which home-feed keyword this reply's post matched on (updateplan 5.1) —
+   *  carried through approval so the Growth tab's topic attribution is real
+   *  for `replyApproval: true` installs too, which is most of them. */
+  matchedKeyword?: string;
 }
 
 /**

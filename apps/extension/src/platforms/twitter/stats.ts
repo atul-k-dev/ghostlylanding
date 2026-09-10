@@ -34,6 +34,11 @@ export interface ScrapedOutcome {
   reposts: number;
   views: number | null;
   publishedAt: string | null;
+  /** Who this reply was posted under (updateplan 5.1), from the same
+   *  structural read `looksLikeReply` uses — null for a standalone post, or
+   *  a reply the structural check didn't catch (the quote-tweet fallback
+   *  case; see `looksLikeReply`'s docstring). Never guessed. */
+  repliedToHandle: string | null;
 }
 
 /**
@@ -159,24 +164,36 @@ const readEngagement = (
  * that span. Handles are ASCII on every X UI regardless of language, so the
  * href shape itself never varies.
  */
-const BARE_HANDLE_HREF = /^\/[A-Za-z0-9_]{1,20}\/?$/;
+const BARE_HANDLE_HREF = /^\/([A-Za-z0-9_]{1,20})\/?$/;
 
-const looksLikeReplyStructural = (article: HTMLElement): boolean => {
+/**
+ * The first handle in the structural "Replying to" line, or null when this
+ * article isn't (structurally) a reply. Shared by `looksLikeReply` (6.8) and
+ * `collectOwnPostOutcomes`'s `repliedToHandle` capture (updateplan 5.1) —
+ * one scan of the DOM answers both "is this a reply" and "a reply to whom".
+ */
+export const replyContextHandle = (article: HTMLElement): string | null => {
   const userName = article.querySelector<HTMLElement>('[data-testid="User-Name"]');
   const tweetText = article.querySelector<HTMLElement>(S.postText);
-  if (!userName) return false;
+  if (!userName) return null;
   const anchors = Array.from(article.querySelectorAll<HTMLAnchorElement>('a[role="link"][href]'));
-  return anchors.some((a) => {
-    if (userName.contains(a)) return false;
+  for (const a of anchors) {
+    if (userName.contains(a)) continue;
     const afterUserName = Boolean(
       userName.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING,
     );
     const beforeTweetText = tweetText
       ? Boolean(a.compareDocumentPosition(tweetText) & Node.DOCUMENT_POSITION_FOLLOWING)
       : true;
-    return afterUserName && beforeTweetText && BARE_HANDLE_HREF.test(a.getAttribute('href') ?? '');
-  });
+    if (!afterUserName || !beforeTweetText) continue;
+    const m = BARE_HANDLE_HREF.exec(a.getAttribute('href') ?? '');
+    if (m?.[1]) return m[1];
+  }
+  return null;
 };
+
+const looksLikeReplyStructural = (article: HTMLElement): boolean =>
+  replyContextHandle(article) !== null;
 
 /**
  * True when this article is a reply rather than a standalone post.
@@ -227,6 +244,7 @@ export const collectOwnPostOutcomes = async (
         url: `https://x.com/${parsed.handle}/status/${parsed.id}`,
         text: (article.querySelector<HTMLElement>(S.postText)?.textContent ?? '').trim().slice(0, 500),
         isReply: looksLikeReply(article),
+        repliedToHandle: replyContextHandle(article),
         publishedAt: time?.getAttribute('datetime') ?? null,
         ...engagement,
       });

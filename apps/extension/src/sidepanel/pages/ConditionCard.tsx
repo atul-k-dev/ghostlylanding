@@ -113,7 +113,7 @@ const runAction = async (action: CardAction, nav: (t: PanelTarget) => void): Pro
       });
       return;
     case 'write-two':
-      await setPanelIntent('write-two');
+      await setPanelIntent({ type: 'write-two' });
       nav('posts');
       return;
     case 'retry-post':

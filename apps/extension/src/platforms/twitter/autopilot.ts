@@ -15,7 +15,7 @@ import { waitFor, smoothScrollBy, wait } from './dom.js';
 import { typeIntoComposer, submitComment } from './comment.js';
 import { followCurrentProfile, getOwnHandle } from './follow.js';
 import { looksLikeReply } from './stats.js';
-import { isRelevant, isExcluded, MIN_REPLY_POST_CHARS } from '../common/relevance.js';
+import { isRelevant, isExcluded, matchedKeyword, MIN_REPLY_POST_CHARS } from '../common/relevance.js';
 import type {
   DryRunCandidate,
   HomeAutopilotOptions,
@@ -45,6 +45,8 @@ const recordAction = async (
     /** Set when this action came from a search feed (updateplan 6.7 — D8), so
      *  the background spends it from the search budget, not the shared one. */
     source?: 'search';
+    /** Which home-feed keyword this action matched on (updateplan 5.1). */
+    matchedKeyword?: string;
   },
 ): Promise<void> => {
   try {
@@ -227,6 +229,11 @@ const queueDraftForReview = async (
   platform: string,
   meta: PostMeta,
   draft: { id: string; draftText: string },
+  /** Threaded through to the queued reply so the topic-attribution figure in
+   *  the Growth tab (updateplan 5.1) is real for approval-mode users too —
+   *  most installs default to `replyApproval: true`, so this is the common
+   *  path, not the edge case. */
+  matchedTopic: string | null,
 ): Promise<'queued' | 'full' | 'error'> => {
   try {
     const resp = (await chrome.runtime.sendMessage({
@@ -239,6 +246,7 @@ const queueDraftForReview = async (
         postText: meta.text,
         authorHandle: meta.authorHandle,
         draftText: draft.draftText,
+        ...(matchedTopic ? { matchedKeyword: matchedTopic } : {}),
       },
     })) as { ok?: boolean; data?: { queued?: boolean; full?: boolean } } | undefined;
     if (resp?.ok && resp.data?.queued) return 'queued';
@@ -850,6 +858,10 @@ export const runHomeAutopilot = async (
       if (!authorIsWatched && !isRelevant(enriched.text, opts.keywords)) continue;
       if (isExcluded(enriched.text, opts.excludeKeywords)) continue;
       meta.text = enriched.text;
+      // Which keyword actually matched (updateplan 5.1's "which topics are
+      // working") — null when the post matched via `authorIsWatched` instead,
+      // or when there were no keywords to begin with. Never guessed.
+      const matchedTopic = matchedKeyword(enriched.text, opts.keywords);
 
       // DRY RUN — everything above this line is the real selection logic, and
       // everything below it is the part that touches X. A dry run stops here:
@@ -1031,7 +1043,7 @@ export const runHomeAutopilot = async (
             if (!draft.ok) {
               result.commentError = draft.error;
             } else {
-              const outcome = await queueDraftForReview(opts.platform, meta, draft);
+              const outcome = await queueDraftForReview(opts.platform, meta, draft, matchedTopic);
               if (outcome === 'queued') {
                 result.queued.push({
                   postUrl: meta.postUrl,
@@ -1076,6 +1088,7 @@ export const runHomeAutopilot = async (
                 postUrl: meta.postUrl,
                 postId: meta.postId,
                 ...(r.draftId ? { draftId: r.draftId } : {}),
+                ...(matchedTopic ? { matchedKeyword: matchedTopic } : {}),
               });
               await pause();
             } else if (r.error) {

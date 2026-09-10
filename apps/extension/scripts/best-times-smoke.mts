@@ -21,6 +21,7 @@ import {
   describeSlot,
   isHourActive,
   scoreOutcome,
+  scoreGrid,
   FALLBACK_HOURS,
   MIN_DAYS,
   MIN_POSTS,
@@ -60,6 +61,7 @@ const post = (
     reposts: 0,
     views: null,
     publishedAt: d.toISOString(),
+    repliedToHandle: null,
   };
 };
 
@@ -218,6 +220,33 @@ assert(isHourActive(9, HOURS), 'active AT the start hour (half-open window)');
 assert(!isHourActive(22, HOURS), 'asleep AT the end hour');
 assert(isHourActive(23, { startHour: 22, endHour: 6 }), 'overnight window: 11pm is active');
 assert(!isHourActive(12, { startHour: 22, endHour: 6 }), 'overnight window: noon is not');
+
+// --- scoreGrid (updateplan 5.1 — the Growth tab's heatmap) -----------------
+const gridEmpty = scoreGrid([], HOURS);
+assert(gridEmpty.length === 168, 'the grid always has all 168 hour/weekday cells');
+assert(
+  gridEmpty.every((c) => c.score === 0),
+  'no history at all — every cell scores zero rather than throwing',
+);
+assert(
+  gridEmpty.some((c) => c.active) && gridEmpty.some((c) => !c.active),
+  'active-hours flag still varies across the grid with no history',
+);
+
+const peakGrid = scoreGrid(withPeak, HOURS);
+assert(peakGrid.length === 168, 'a real history still returns all 168 cells');
+const tuesday3pm = peakGrid.find((c) => c.weekday === 2 && c.hour === 15);
+const sundayMidnight = peakGrid.find((c) => c.weekday === 0 && c.hour === 0);
+assert(
+  !!tuesday3pm && !!sundayMidnight && tuesday3pm.score > sundayMidnight.score,
+  'the grid agrees with bestTimes: the known peak slot outscores a quiet one',
+);
+const bestSlot = peak.slots[0];
+const bestCell = peakGrid.find((c) => c.weekday === bestSlot?.weekday && c.hour === bestSlot?.hour);
+assert(
+  !!bestCell && peakGrid.every((c) => c.score <= bestCell.score + 1e-9),
+  "bestTimes's #1 pick is also the grid's highest-scoring cell — one scoring function, not two",
+);
 
 // ---------------------------------------------------------------------------
 if (fails.length) {

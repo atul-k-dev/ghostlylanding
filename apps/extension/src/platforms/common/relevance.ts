@@ -56,6 +56,21 @@ export const matchesAny = (text: string, keywords: string[]): boolean => {
 export const isRelevant = (text: string, keywords: string[]): boolean =>
   keywords.length === 0 || matchesAny(text, keywords);
 
+/**
+ * WHICH keyword made a post relevant, first match wins (updateplan 5.1's
+ * "which topics are working" needs to know, not just that SOME keyword hit).
+ * Null when none matched — including when `keywords` is empty, since "engage
+ * with everything" isn't attributable to any one topic.
+ */
+export const matchedKeyword = (text: string, keywords: string[]): string | null => {
+  const hay = text.toLowerCase();
+  for (const keyword of keywords) {
+    const re = matcherFor(keyword);
+    if (re && re.test(hay)) return keyword;
+  }
+  return null;
+};
+
 /** A post is excluded if it contains any blocklist keyword. */
 export const isExcluded = (text: string, excludeKeywords: string[]): boolean =>
   excludeKeywords.length > 0 && matchesAny(text, excludeKeywords);

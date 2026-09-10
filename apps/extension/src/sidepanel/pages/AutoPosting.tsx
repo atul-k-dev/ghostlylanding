@@ -4,7 +4,7 @@ import { sendToBackground } from '../../lib/messages.js';
 import { presetOf } from '../../lib/presets.js';
 import { MIN_DAYS } from '../../lib/best-times.js';
 import { TRUST_OFFER, hasOpenOffer, isTrusted, normalizeTrust } from '../../lib/trust.js';
-import { getSettings, setSettings } from '../../lib/storage.js';
+import { getSettings, setSettings, appendGrowthMilestone } from '../../lib/storage.js';
 import { Section } from './_shared.js';
 
 /**
@@ -96,12 +96,23 @@ export const AutoPosting = ({
   }, []);
 
   const toggle = async () => {
+    const turningOn = !auto.enabled;
     const next: ExtensionSettings = {
       ...settings,
-      autoPost: { ...auto, enabled: !auto.enabled },
+      autoPost: { ...auto, enabled: turningOn },
     };
     onSettings(next);
     await setSettings(next);
+    // Change marker for the Growth tab's follower chart (updateplan 5.1) —
+    // only the moment it turns ON is a decision worth annotating; turning it
+    // back off isn't a growth lever, so it stays out of the chart.
+    if (turningOn) {
+      await appendGrowthMilestone({
+        at: new Date().toISOString(),
+        kind: 'auto-posting-started',
+        detail: 'Auto-posting turned on',
+      });
+    }
   };
 
   const writeNow = async () => {

@@ -44,6 +44,16 @@ export interface PostOutcome {
   views: number | null;
   /** ISO timestamp from the post's <time> element. */
   publishedAt: string | null;
+  /**
+   * The handle this reply was posted under (updateplan 5.1), read off the
+   * "Replying to @X" line the same growth scan already scrolls past — null
+   * for a standalone post, or a reply whose context line wasn't captured.
+   * This is the only honest link between a published reply and the creator
+   * it answered; there is no equivalent link to a home-feed KEYWORD (a reply
+   * isn't "replying to" a topic), which is why target performance below has
+   * an engagement figure and topic performance does not.
+   */
+  repliedToHandle: string | null;
 }
 
 /** A single point on the follower sparkline. */
@@ -59,6 +69,58 @@ export interface GrowthDelta {
   /** Days actually spanned — so the UI can say "since you installed" honestly. */
   days: number;
 }
+
+/**
+ * A milestone worth annotating on the follower chart (updateplan 5.1) — a
+ * decision the user made, read from what actually changed in their settings,
+ * never guessed from the follower curve itself (a bend in the line is not
+ * evidence of a cause; the log entry is).
+ */
+export type GrowthMilestoneKind = 'preset-changed' | 'target-added' | 'auto-posting-started';
+
+export interface GrowthMilestone {
+  at: string;
+  kind: GrowthMilestoneKind;
+  /** Human-readable detail, e.g. the preset name or the handle added. */
+  detail: string;
+}
+
+/**
+ * One target creator's real, attributable numbers (updateplan 5.1).
+ *
+ * `repliesSent` and `lastActionAt` come from the action log — a real count of
+ * what actually happened. `engagement` comes from `PostOutcome.repliedToHandle`
+ * — the likes/replies/reposts/views earned by replies posted under this
+ * creator's posts. There is deliberately NO `followersGained` field: X gives
+ * no way to attribute an individual new follower to an individual past
+ * action, and inventing a number here would be exactly the fabrication this
+ * product refuses everywhere else. `stale` is a plain threshold
+ * (`TARGET_STALE_DAYS`), not a followers judgement — it flags "nothing sent
+ * here in N days", which is real, not "this stopped working", which isn't
+ * knowable.
+ */
+export interface TargetPerformance {
+  handle: string;
+  repliesSent: number;
+  engagement: { likes: number; replies: number; reposts: number; views: number };
+  lastActionAt: string | null;
+  stale: boolean;
+}
+
+/** One home-feed keyword's real numbers. No engagement figure — unlike a
+ *  target creator, a keyword match isn't itself the author of anything, so
+ *  there is no `repliedToHandle`-shaped link to a PostOutcome to sum. */
+export interface TopicPerformance {
+  keyword: string;
+  repliesSent: number;
+  lastActionAt: string | null;
+  stale: boolean;
+}
+
+/** Days of silence before a target/topic is flagged `stale` (updateplan 5.1
+ *  and 6.1 — the same threshold both read, so the number in the Growth tab
+ *  and the one the weekly auto-tune acts on can never disagree). */
+export const ATTRIBUTION_STALE_DAYS = 21;
 
 /**
  * Everything the Growth tab renders, computed server-side so the popup stays
@@ -83,6 +145,20 @@ export interface GrowthSummary {
     /** Best performers first, capped server-side. */
     top: PostOutcome[];
   };
+  /**
+   * Where the engagement is coming from (updateplan 5.1). Follow-backs is a
+   * real FOLLOWER figure (the existing `followedBack`/`followedBackSample`
+   * primitive). `postsLikes`/`repliesLikes` is an ENGAGEMENT split, not a
+   * follower split — there is no honest way to attribute a follower to a
+   * single post or reply, so this answers "what's getting attention" rather
+   * than claiming to answer "who followed because of what".
+   */
+  sources: {
+    postsLikes: number;
+    repliesLikes: number;
+  };
+  targets: TargetPerformance[];
+  topics: TopicPerformance[];
 }
 
 /** Batch size caps — shared so client and server agree. */

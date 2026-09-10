@@ -91,7 +91,9 @@ const PostsInner = ({
   // `takePanelIntent` clears it, so re-opening Posts doesn't re-run it.
   useEffect(() => {
     void takePanelIntent().then((intent) => {
-      if (intent === 'write-two') void suggest(2);
+      if (!intent) return;
+      if (intent.type === 'write-two') void suggest(2);
+      if (intent.type === 'write-like') void suggest(1, intent.seedText);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -297,14 +299,14 @@ const PostsInner = ({
    * by which of their own posts performed. They land as suggestions, never on
    * the schedule — publishing under someone's name stays their decision.
    */
-  const suggest = async (count = 3) => {
+  const suggest = async (count = 3, seedText?: string) => {
     setIdeasBusy(true);
     setError(null);
     try {
       const r = await sendToBackground<
         | { ok: true; data: { ideas: string[]; basedOnWinners: number } }
         | { ok: false; error: { message: string } | string }
-      >({ type: 'GENERATE_IDEAS', payload: { count } });
+      >({ type: 'GENERATE_IDEAS', payload: { count, ...(seedText ? { seedText } : {}) } });
       if (r.ok) {
         setIdeas(r.data.ideas);
         setNotice(

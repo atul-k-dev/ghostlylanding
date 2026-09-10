@@ -10,6 +10,9 @@ const actionLogSchema = new Schema(
     actionType: { type: String, enum: ACTION_TYPES, required: true },
     targetUrl: { type: String, required: true },
     targetHandle: { type: String, default: null },
+    /** Home-feed keyword this action matched on (updateplan 5.1's "which
+     *  topics are working") — absent for target-creator/unfiltered actions. */
+    matchedKeyword: { type: String, default: null },
     success: { type: Boolean, required: true },
     errorMessage: { type: String, default: null },
     timestamp: { type: Date, required: true, index: true },
@@ -18,6 +21,9 @@ const actionLogSchema = new Schema(
 );
 
 actionLogSchema.index({ userId: 1, timestamp: -1 });
+// The Growth tab's per-target/per-topic aggregations (5.1) group on these.
+actionLogSchema.index({ userId: 1, targetHandle: 1, timestamp: -1 });
+actionLogSchema.index({ userId: 1, matchedKeyword: 1, timestamp: -1 });
 // Idempotency: one row per (user, clientId). Partial so the many legacy rows
 // with no clientId don't all collide on null.
 actionLogSchema.index(

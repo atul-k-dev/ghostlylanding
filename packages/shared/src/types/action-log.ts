@@ -15,6 +15,13 @@ export interface ActionLog {
   actionType: ActionType;
   targetUrl: string;
   targetHandle?: string;
+  /**
+   * The home-feed keyword that made this post relevant (updateplan 5.1's
+   * "which topics are working"), when the action came from a keyword match
+   * rather than a target creator's profile or an unfiltered feed. Absent for
+   * everything else — never guessed after the fact.
+   */
+  matchedKeyword?: string;
   success: boolean;
   errorMessage?: string;
   timestamp: string;

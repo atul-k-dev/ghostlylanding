@@ -8,7 +8,7 @@ import type {
 } from '@casper/shared';
 import type { PendingReply } from '@casper/shared';
 import { REPLY_QUEUE_MAX } from '@casper/shared';
-import type { PostOutcome } from '@casper/shared';
+import type { PostOutcome, GrowthMilestone } from '@casper/shared';
 import type { QueuedTask, SchedulerState, TargetStateMap } from '../scheduler/types.js';
 import { INITIAL_TRUST, normalizeTrust } from './trust.js';
 
@@ -54,17 +54,27 @@ export const STORAGE_KEYS = {
   mentionAuthorFollowers: 'casper.mentionAuthorFollowers',
   /** Daily browser-notification budget + per-episode dedupe (4.3). */
   notifyState: 'casper.notifyState',
+  /** Change markers for the Growth tab's follower chart (5.1) — decisions the
+   *  user made (preset switched, target added, auto-posting started), NOT
+   *  the action log (that's likes/replies/follows, a different kind of
+   *  event; conflating the two in one store would be a lie about what each
+   *  entry means). */
+  growthMilestones: 'casper.growthMilestones',
 } as const;
 
 /**
- * What a condition card asked the destination page to do on arrival.
+ * What a condition card (or a Growth-tab button) asked the destination page
+ * to do on arrival.
  *
  * Deliberately one-shot and deliberately tiny: "Write two for me" has to send
  * the user to Posts AND make Posts do the writing, and the alternative — a
  * prop threaded through the whole shell — would be a permanent piece of
- * plumbing for a single button.
+ * plumbing for a couple of buttons. `write-like` carries the best post's own
+ * text (updateplan 5.1's "Write more like this") as an extra topic hint —
+ * fed into the SAME `/api/posts/ideas` call as everything else, not a second
+ * generation path.
  */
-export type PanelIntent = 'write-two';
+export type PanelIntent = { type: 'write-two' } | { type: 'write-like'; seedText: string };
 
 export const setPanelIntent = async (intent: PanelIntent): Promise<void> => {
   await chrome.storage.local.set({ [STORAGE_KEYS.panelIntent]: intent });
@@ -916,4 +926,24 @@ export const appendCorrectedDraft = async (entry: CorrectedDraft): Promise<void>
 export const getCorrectedDrafts = async (): Promise<CorrectedDraft[]> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.correctedDrafts);
   return (got[STORAGE_KEYS.correctedDrafts] as CorrectedDraft[] | undefined) ?? [];
+};
+
+const GROWTH_MILESTONES_MAX = 100;
+
+/**
+ * Record a change worth annotating on the Growth tab's follower chart
+ * (updateplan 5.1). Called from wherever the underlying decision is actually
+ * made (Settings, Who I watch, Posts) — never inferred from a bend in the
+ * follower curve, which is evidence of nothing on its own.
+ */
+export const appendGrowthMilestone = async (entry: GrowthMilestone): Promise<void> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.growthMilestones);
+  const existing = (got[STORAGE_KEYS.growthMilestones] as GrowthMilestone[] | undefined) ?? [];
+  const next = [...existing, entry].slice(-GROWTH_MILESTONES_MAX);
+  await chrome.storage.local.set({ [STORAGE_KEYS.growthMilestones]: next });
+};
+
+export const getGrowthMilestones = async (): Promise<GrowthMilestone[]> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.growthMilestones);
+  return (got[STORAGE_KEYS.growthMilestones] as GrowthMilestone[] | undefined) ?? [];
 };

@@ -24,12 +24,18 @@ const postOutcomeSchema = new Schema(
     publishedAt: { type: Date, default: null },
     /** When we last read these numbers off the profile. */
     lastCheckedAt: { type: Date, default: Date.now },
+    /** Who this reply was posted under, read off the "Replying to @X" line
+     *  (updateplan 5.1) — null for a standalone post. The only honest link
+     *  between a published reply and the target creator it answered. */
+    repliedToHandle: { type: String, default: null },
   },
   { timestamps: true },
 );
 
-// One row per post per user; plus the "best performers" query.
+// One row per post per user; plus the "best performers" query and the Growth
+// tab's per-target engagement aggregation (5.1).
 postOutcomeSchema.index({ userId: 1, tweetId: 1 }, { unique: true });
 postOutcomeSchema.index({ userId: 1, likes: -1 });
+postOutcomeSchema.index({ userId: 1, repliedToHandle: 1 });
 
 export const PostOutcomeModel = model('PostOutcome', postOutcomeSchema);

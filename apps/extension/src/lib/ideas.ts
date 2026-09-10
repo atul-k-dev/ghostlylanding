@@ -14,6 +14,10 @@ import { getSettings, tweetLimitFor } from './storage.js';
  */
 export interface IdeaRequest {
   count: number;
+  /** "Write more like this" (updateplan 5.1) — one extra topic hint, derived
+   *  from a specific best-performing post, for this call only. Never written
+   *  to `settings.contentTopics`. */
+  seedText?: string;
 }
 
 export interface IdeaResult {
@@ -27,15 +31,21 @@ export const MAX_IDEAS = 5;
 
 export const requestPostIdeas = async ({
   count,
+  seedText,
 }: IdeaRequest): Promise<
   { ok: true; data: IdeaResult } | { ok: false; error: { code: string; message: string } }
 > => {
   const settings = await getSettings();
   const tone: TonePreset = TONE_PRESETS.includes(settings.tone) ? settings.tone : 'friendly';
+  // A trimmed excerpt, not the whole post — this is a topic HINT for the
+  // model to draw on, not a request to paraphrase one specific post.
+  const topics = seedText
+    ? [seedText.slice(0, 200), ...settings.contentTopics.slice(0, 9)]
+    : settings.contentTopics.slice(0, 10);
   return await apiFetch<IdeaResult>('/api/posts/ideas', {
     method: 'POST',
     body: {
-      topics: settings.contentTopics.slice(0, 10),
+      topics,
       count: Math.min(Math.max(count, 1), MAX_IDEAS),
       maxChars: tweetLimitFor(settings.xAccountPlan, settings.postLength),
       tone,

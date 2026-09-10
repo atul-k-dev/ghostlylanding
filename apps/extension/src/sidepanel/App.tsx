@@ -208,7 +208,7 @@ export const App = () => {
       {!overlay && tab === 'today' && <Today status={status} onNavigate={navigate} />}
       {!overlay && tab === 'review' && <Review />}
       {!overlay && tab === 'posts' && <Posts />}
-      {!overlay && tab === 'growth' && <Growth />}
+      {!overlay && tab === 'growth' && <Growth onNavigate={navigate} />}
       {!overlay && tab === 'ask' && <Ask />}
     </Panel>
   );

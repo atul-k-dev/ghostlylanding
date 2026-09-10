@@ -72,7 +72,12 @@ import {
   effectivePostLength,
   type ScheduledPost,
 } from '../lib/storage.js';
-import { bestTimes, describeSlot, MIN_DAYS as BEST_TIMES_MIN_DAYS } from '../lib/best-times.js';
+import {
+  bestTimes,
+  describeSlot,
+  scoreGrid,
+  MIN_DAYS as BEST_TIMES_MIN_DAYS,
+} from '../lib/best-times.js';
 import {
   recordApproval,
   answerOffer,
@@ -693,11 +698,16 @@ async function handleDraftComment(payload: unknown) {
  * composer, not on the schedule.
  */
 async function handleGenerateIdeas(payload: unknown) {
-  const { count } = (payload ?? {}) as { count?: number };
+  const { count, seedText } = (payload ?? {}) as { count?: number; seedText?: string };
   // The request itself moved to `lib/ideas.ts` in updateplan 3.2 so the
   // auto-draft loop asks for ideas the same way this handler does — one call
   // site, one set of topics, one moderation pass.
-  return await requestPostIdeas({ count: count ?? 3 });
+  return await requestPostIdeas({
+    count: count ?? 3,
+    // "Write more like this" (5.1) — the best post's own text, fed in as one
+    // more topic hint for THIS call only, never persisted to contentTopics.
+    ...(seedText ? { seedText } : {}),
+  });
 }
 
 /** Draft an original tweet from a short description via the server (OpenAI). */
@@ -861,6 +871,7 @@ async function handleQueueReply(payload: unknown) {
     authorHandle: p.authorHandle ?? null,
     draftText: p.draftText,
     createdAt: Date.now(),
+    ...(p.matchedKeyword ? { matchedKeyword: p.matchedKeyword } : {}),
   });
   // Only mark it drafted when it actually landed in the queue. A draft refused
   // because the queue was full is one the user never saw — marking it would
@@ -939,6 +950,13 @@ async function handleApproveDraft(payload: unknown) {
     postUrl: draft.postUrl,
     postId: draft.postId,
     commentText: finalText,
+    // Carried through to the action-log entry the queued path writes
+    // (updateplan 5.1), same as the inline autopilot path already does —
+    // without this, "which targets/topics are working" would be blind to
+    // every reply that went through review, which is most of them
+    // (`replyApproval` defaults on).
+    ...(draft.authorHandle ? { targetHandle: draft.authorHandle } : {}),
+    ...(draft.matchedKeyword ? { matchedKeyword: draft.matchedKeyword } : {}),
   });
   // Post it promptly rather than waiting on the next cooldown — the user is
   // watching. Still gated by the engine being Active.
@@ -1410,7 +1428,14 @@ async function handleGetBestTimes(payload: unknown) {
   });
   return {
     ok: true,
-    data: { ...best, labels: best.slots.map(describeSlot), minDays: BEST_TIMES_MIN_DAYS },
+    data: {
+      ...best,
+      labels: best.slots.map(describeSlot),
+      minDays: BEST_TIMES_MIN_DAYS,
+      // The Growth tab's heatmap (updateplan 5.1) — same scoring as `best`,
+      // just the full 7×24 grid behind it rather than only the top picks.
+      heatmap: scoreGrid(outcomes, settings.activeHours),
+    },
   };
 }
 

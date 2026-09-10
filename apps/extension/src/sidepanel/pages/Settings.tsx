@@ -6,6 +6,7 @@ import {
   setSettings,
   getDiagnostics,
   clearDiagnostics,
+  appendGrowthMilestone,
   type DiagnosticEntry,
 } from '../../lib/storage.js';
 import { SAFETY_PRESETS, applyPreset } from '../../lib/presets.js';
@@ -76,7 +77,19 @@ export const Settings = () => {
               <button
                 key={name}
                 type="button"
-                onClick={() => onChange(applyPreset(settings, name))}
+                onClick={() => {
+                  // A change marker for the Growth tab's follower chart
+                  // (updateplan 5.1) — only when the preset actually changes,
+                  // not every render-triggering click on the already-active card.
+                  if (!on) {
+                    void appendGrowthMilestone({
+                      at: new Date().toISOString(),
+                      kind: 'preset-changed',
+                      detail: `Switched to ${SAFETY_PRESETS[name].label}`,
+                    });
+                  }
+                  onChange(applyPreset(settings, name));
+                }}
                 aria-pressed={on}
                 className={[
                   'cursor-pointer rounded-xl border px-3 py-2 text-left transition-colors',

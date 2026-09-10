@@ -119,6 +119,78 @@ export interface BestTimesOptions {
   activeHours: ActiveHours;
 }
 
+/** One cell of the 7×24 heatmap (updateplan 5.1's Growth tab). */
+export interface HeatmapCell {
+  weekday: number;
+  hour: number;
+  /** The same shrunk score `bestTimes` ranks on, 0 when the hour is outside
+   *  active hours (never engaged, so there's nothing to show). */
+  score: number;
+  active: boolean;
+}
+
+/**
+ * The full 7×24 grid behind `bestTimes`'s picks — shares its exact scoring
+ * (same PRIOR shrinkage, same weighted hour/day/exact blend), so the heatmap
+ * and the chosen slots can never tell two different stories about the same
+ * data. Returns an all-zero, all-inactive-by-hour grid rather than an empty
+ * array below the personalisation threshold — a heatmap with nothing lit up
+ * is an honest picture of "not enough data yet", not a missing chart.
+ */
+export const scoreGrid = (
+  outcomes: readonly PostOutcome[],
+  activeHours: ActiveHours,
+): HeatmapCell[] => {
+  const usable = outcomes
+    .filter((o) => !o.isReply && o.publishedAt !== null)
+    .map((o) => ({ at: Date.parse(o.publishedAt as string), score: scoreOutcome(o) }))
+    .filter((o) => Number.isFinite(o.at));
+
+  const grid: HeatmapCell[] = [];
+  const empty = (): HeatmapCell[] => {
+    for (let wd = 0; wd < 7; wd += 1) {
+      for (let h = 0; h < 24; h += 1) {
+        grid.push({ weekday: wd, hour: h, score: 0, active: isHourActive(h, activeHours) });
+      }
+    }
+    return grid;
+  };
+  if (usable.length === 0) return empty();
+
+  const mean = usable.reduce((sum, o) => sum + o.score, 0) / usable.length;
+  const hourSum = new Array<number>(24).fill(0);
+  const hourN = new Array<number>(24).fill(0);
+  const daySum = new Array<number>(7).fill(0);
+  const dayN = new Array<number>(7).fill(0);
+  const exactSum = new Map<string, number>();
+  const exactN = new Map<string, number>();
+  for (const { at, score } of usable) {
+    const d = new Date(at);
+    const h = d.getHours();
+    const wd = d.getDay();
+    const key = `${wd}:${h}`;
+    hourSum[h] = (hourSum[h] ?? 0) + score;
+    hourN[h] = (hourN[h] ?? 0) + 1;
+    daySum[wd] = (daySum[wd] ?? 0) + score;
+    dayN[wd] = (dayN[wd] ?? 0) + 1;
+    exactSum.set(key, (exactSum.get(key) ?? 0) + score);
+    exactN.set(key, (exactN.get(key) ?? 0) + 1);
+  }
+  const shrunk = (sum: number, n: number): number => (sum + PRIOR * mean) / (n + PRIOR);
+
+  for (let wd = 0; wd < 7; wd += 1) {
+    for (let h = 0; h < 24; h += 1) {
+      const key = `${wd}:${h}`;
+      const score =
+        W_HOUR * shrunk(hourSum[h] ?? 0, hourN[h] ?? 0) +
+        W_DAY * shrunk(daySum[wd] ?? 0, dayN[wd] ?? 0) +
+        W_EXACT * shrunk(exactSum.get(key) ?? 0, exactN.get(key) ?? 0);
+      grid.push({ weekday: wd, hour: h, score, active: isHourActive(h, activeHours) });
+    }
+  }
+  return grid;
+};
+
 /**
  * Rank publishing slots from the user's own results.
  *

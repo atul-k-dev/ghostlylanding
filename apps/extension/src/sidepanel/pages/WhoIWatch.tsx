@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ExtensionSettings, Platform, TargetCreator, SearchQuery } from '@casper/shared';
 import { MAX_SEARCH_QUERIES } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
-import { getSettings, setSettings } from '../../lib/storage.js';
+import { getSettings, setSettings, appendGrowthMilestone } from '../../lib/storage.js';
 import { Section } from './_shared.js';
 
 /**
@@ -421,6 +421,12 @@ const TargetsSection = ({
       handle: clean,
       addedAt: new Date().toISOString(),
     };
+    // Change marker for the Growth tab's follower chart (updateplan 5.1).
+    void appendGrowthMilestone({
+      at: next.addedAt,
+      kind: 'target-added',
+      detail: `Added @${clean}`,
+    });
     onChange({ ...settings, targetCreators: [...settings.targetCreators, next] });
     setHandle('');
   };

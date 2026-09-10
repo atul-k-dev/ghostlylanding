@@ -1,18 +1,44 @@
 import { useEffect, useState } from 'react';
-import type { GrowthSummary, GrowthDelta, PostOutcome } from '@casper/shared';
+import type {
+  GrowthSummary,
+  GrowthDelta,
+  PostOutcome,
+  GrowthMilestone,
+  TargetPerformance,
+  TopicPerformance,
+} from '@casper/shared';
+import type { HeatmapCell } from '../../lib/best-times.js';
 import { sendToBackground } from '../../lib/messages.js';
+import { getSettings, setSettings, getGrowthMilestones, setPanelIntent } from '../../lib/storage.js';
+import type { PanelTarget } from '../navigation.js';
 import { fmtNum } from './_shared.js';
 
 /**
- * Growth — followers over time and what earned them.
+ * Growth — followers over time, and why (updateplan 5.1).
  *
- * Ported unchanged from `popup/views/Dashboard.tsx:1113-1380` in updateplan 1.6,
- * exactly as the plan asks. Phase 5.1 rebuilds it around attribution; until then
- * changing it here would be two rewrites of the same screen.
+ * Rebuilt around attribution: change markers on the chart, where the
+ * engagement is actually coming from, which targets/topics are earning their
+ * keep, the best-time heatmap, and the best posts with a one-click "write
+ * another like this". Every number here is real — either a follower count,
+ * or a count of actions the action log actually recorded. There is
+ * deliberately no per-target or per-topic FOLLOWER figure: X gives no way to
+ * attribute an individual new follower to an individual past action, and
+ * this product refuses to invent one.
  */
 
-/** Follower trend. Uniform-scaled points; a single reading renders as a dot. */
-const Sparkline = ({ points }: { points: number[] }) => {
+const MS_DAY = 86_400_000;
+
+/** Follower trend with change markers (updateplan 5.1). Uniform-scaled
+ *  points; a single reading renders as a dot. */
+const Sparkline = ({
+  points,
+  dates,
+  milestones,
+}: {
+  points: number[];
+  dates: string[];
+  milestones: GrowthMilestone[];
+}) => {
   const W = 400;
   const H = 64;
   const PAD = 6;
@@ -20,7 +46,6 @@ const Sparkline = ({ points }: { points: number[] }) => {
 
   const min = Math.min(...points);
   const max = Math.max(...points);
-  // A flat line (no growth yet) would divide by zero — park it mid-height.
   const span = max - min || 1;
   const x = (i: number): number => (points.length === 1 ? W / 2 : (i / (points.length - 1)) * W);
   const y = (v: number): number =>
@@ -28,11 +53,34 @@ const Sparkline = ({ points }: { points: number[] }) => {
 
   const line = points.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
 
+  // A milestone lands on the sparkline at the nearest snapshot date, never
+  // interpolated — it marks "this happened around here", not an exact pixel.
+  const markers = dates.length > 1
+    ? milestones
+        .map((m) => {
+          const at = Date.parse(m.at);
+          if (!Number.isFinite(at)) return null;
+          let nearest = 0;
+          let nearestDist = Infinity;
+          dates.forEach((d, i) => {
+            const dist = Math.abs(Date.parse(d) - at);
+            if (dist < nearestDist) {
+              nearestDist = dist;
+              nearest = i;
+            }
+          });
+          // Don't mark a milestone that happened well outside the visible window.
+          if (nearestDist > MS_DAY * 3) return null;
+          return { ...m, xPos: x(nearest) };
+        })
+        .filter((m): m is GrowthMilestone & { xPos: number } => m !== null)
+    : [];
+
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
-      className="h-16 w-full"
+      className="h-16 w-full overflow-visible"
       role="img"
       aria-label={`Follower trend over the last ${points.length} readings`}
     >
@@ -56,6 +104,21 @@ const Sparkline = ({ points }: { points: number[] }) => {
           />
         </>
       )}
+      {markers.map((m, i) => (
+        <line
+          key={i}
+          x1={m.xPos}
+          x2={m.xPos}
+          y1={0}
+          y2={H}
+          stroke="#e6a53a"
+          strokeWidth="1"
+          strokeDasharray="2 2"
+          vectorEffect="non-scaling-stroke"
+        >
+          <title>{m.detail}</title>
+        </line>
+      ))}
       <circle
         cx={x(points.length - 1)}
         cy={y(points[points.length - 1] ?? 0)}
@@ -92,47 +155,231 @@ const DeltaTile = ({ label, delta }: { label: string; delta: GrowthDelta }) => {
   );
 };
 
-const TopReply = ({ post }: { post: PostOutcome }) => (
-  <a
-    href={post.url}
-    target="_blank"
-    rel="noreferrer"
-    className="block rounded-xl border border-casper-border bg-casper-surface p-2.5 transition hover:bg-white/5"
-  >
-    <div className="mb-1 flex items-center gap-3 text-xs">
-      <span className="font-semibold text-casper-violet">♥ {fmtNum(post.likes)}</span>
-      <span className="text-casper-ink/50">💬 {fmtNum(post.replies)}</span>
-      {post.reposts > 0 && <span className="text-casper-ink/50">🔁 {fmtNum(post.reposts)}</span>}
-      {post.views !== null && (
-        <span className="ml-auto text-xs text-casper-ink/35">
-          {fmtNum(post.views)} views
-        </span>
-      )}
-    </div>
-    <p className="line-clamp-2 text-xs leading-snug text-casper-ink/70">
-      {post.text || (post.isReply ? '(reply)' : '(post)')}
-    </p>
-  </a>
+const TopReply = ({
+  post,
+  onWriteLike,
+}: {
+  post: PostOutcome;
+  onWriteLike: (text: string) => void;
+}) => (
+  <div className="rounded-xl border border-casper-border bg-casper-surface p-2.5">
+    <a href={post.url} target="_blank" rel="noreferrer" className="block transition hover:opacity-80">
+      <div className="mb-1 flex items-center gap-3 text-xs">
+        <span className="font-semibold text-casper-violet">♥ {fmtNum(post.likes)}</span>
+        <span className="text-casper-ink/50">💬 {fmtNum(post.replies)}</span>
+        {post.reposts > 0 && <span className="text-casper-ink/50">🔁 {fmtNum(post.reposts)}</span>}
+        {post.views !== null && (
+          <span className="ml-auto text-xs text-casper-ink/35">{fmtNum(post.views)} views</span>
+        )}
+      </div>
+      <p className="line-clamp-2 text-xs leading-snug text-casper-ink/70">
+        {post.text || (post.isReply ? '(reply)' : '(post)')}
+      </p>
+    </a>
+    {!post.isReply && post.text && (
+      <button
+        type="button"
+        onClick={() => onWriteLike(post.text)}
+        className="mt-2 text-xs text-casper-violet transition hover:opacity-80"
+      >
+        Write another like this →
+      </button>
+    )}
+  </div>
 );
 
+/** Where the engagement is coming from (5.1). Follow-backs is a real
+ *  FOLLOWER figure; the posts/replies split is an ENGAGEMENT figure — there
+ *  is no honest way to attribute a follower to one post or reply. */
+const SourcesCard = ({ summary }: { summary: GrowthSummary }) => {
+  const { postsLikes, repliesLikes } = summary.sources;
+  const total = postsLikes + repliesLikes;
+  const latest = summary.latest;
+  return (
+    <div className="rounded-2xl border border-casper-border bg-casper-surface p-3">
+      <p className="mb-2 text-xs font-semibold">Where the attention is coming from</p>
+      {total > 0 ? (
+        <>
+          <div className="flex h-2 overflow-hidden rounded-full bg-casper-cloud">
+            <div
+              className="h-full bg-casper-violet"
+              style={{ width: `${(postsLikes / total) * 100}%` }}
+            />
+            <div
+              className="h-full bg-casper-coral"
+              style={{ width: `${(repliesLikes / total) * 100}%` }}
+            />
+          </div>
+          <div className="mt-2 flex justify-between text-xs text-casper-ink/60">
+            <span>
+              <span className="inline-block h-2 w-2 rounded-full bg-casper-violet" /> Posts ·{' '}
+              {fmtNum(postsLikes)} likes
+            </span>
+            <span>
+              Replies · {fmtNum(repliesLikes)} likes{' '}
+              <span className="inline-block h-2 w-2 rounded-full bg-casper-coral" />
+            </span>
+          </div>
+        </>
+      ) : (
+        <p className="text-xs text-casper-ink/40">Nothing measured yet.</p>
+      )}
+      {latest?.followedBack !== null && latest?.followedBackSample ? (
+        <p className="mt-2 border-t border-casper-border pt-2 text-xs text-casper-ink/70">
+          <span className="font-semibold text-casper-violet">{fmtNum(latest.followedBack)}</span> of
+          your last {fmtNum(latest.followedBackSample)} followers are accounts Ghostly followed
+          first — a real follower count, unlike the split above.
+        </p>
+      ) : null}
+    </div>
+  );
+};
 
-export const Growth = () => {
+const StaleBadge = () => (
+  <span className="rounded-full bg-casper-attention/15 px-1.5 py-0.5 text-[10px] font-medium text-casper-attention">
+    quiet
+  </span>
+);
+
+const TargetsTable = ({
+  targets,
+  onDrop,
+}: {
+  targets: TargetPerformance[];
+  onDrop: (handle: string) => void;
+}) => {
+  if (targets.length === 0) {
+    return (
+      <p className="py-2 text-center text-xs text-casper-ink/40">
+        No replies to a target creator's post yet.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      {targets.map((t) => (
+        <div
+          key={t.handle}
+          className="flex items-center gap-2 rounded-lg bg-casper-cloud px-2 py-1.5 text-xs"
+        >
+          <span className="flex-1 truncate">
+            @{t.handle} {t.stale && <StaleBadge />}
+          </span>
+          <span className="tabular-nums text-casper-ink/50">{t.repliesSent} replies</span>
+          <span className="tabular-nums text-casper-ink/50">♥{fmtNum(t.engagement.likes)}</span>
+          {t.stale && (
+            <button
+              type="button"
+              onClick={() => onDrop(t.handle)}
+              className="rounded px-2 py-0.5 text-rose-400 hover:bg-rose-500/10"
+            >
+              Drop
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const TopicsTable = ({ topics }: { topics: TopicPerformance[] }) => {
+  if (topics.length === 0) {
+    return (
+      <p className="py-2 text-center text-xs text-casper-ink/40">
+        No keyword-matched replies yet.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      {topics.map((t) => (
+        <div
+          key={t.keyword}
+          className="flex items-center gap-2 rounded-lg bg-casper-cloud px-2 py-1.5 text-xs"
+        >
+          <span className="flex-1 truncate">
+            "{t.keyword}" {t.stale && <StaleBadge />}
+          </span>
+          <span className="tabular-nums text-casper-ink/50">{t.repliesSent} replies</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/** A compact 7×24 heatmap. Cell intensity is relative to the grid's own max
+ *  score, so it always reads clearly regardless of the account's scale. */
+const Heatmap = ({ cells, personalised }: { cells: HeatmapCell[]; personalised: boolean }) => {
+  const max = Math.max(1, ...cells.map((c) => c.score));
+  const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  return (
+    <div>
+      <div className="grid grid-cols-[16px_repeat(24,1fr)] gap-[2px]">
+        {Array.from({ length: 7 }).map((_, wd) => (
+          <>
+            <div key={`d${wd}`} className="flex items-center text-[9px] text-casper-ink/40">
+              {days[wd]}
+            </div>
+            {Array.from({ length: 24 }).map((_, h) => {
+              const cell = cells.find((c) => c.weekday === wd && c.hour === h);
+              const intensity = cell && cell.active ? cell.score / max : 0;
+              return (
+                <div
+                  key={`${wd}-${h}`}
+                  title={cell ? `${days[wd]} ${h}:00 · score ${cell.score.toFixed(1)}` : undefined}
+                  className="aspect-square rounded-[2px]"
+                  style={{
+                    background: cell?.active
+                      ? `rgba(244, 77, 96, ${0.08 + intensity * 0.8})`
+                      : 'rgba(255,255,255,0.03)',
+                  }}
+                />
+              );
+            })}
+          </>
+        ))}
+      </div>
+      <p className="mt-1.5 text-xs text-casper-ink/40">
+        {personalised
+          ? 'Darker = better performing hour, from your own history.'
+          : 'Not personalised yet — needs 14 days and 8 posts of your own history. Shown as flat for now.'}
+      </p>
+    </div>
+  );
+};
+
+export const Growth = ({ onNavigate }: { onNavigate?: (t: PanelTarget) => void }) => {
   const [summary, setSummary] = useState<GrowthSummary | null>(null);
+  const [milestones, setMilestones] = useState<GrowthMilestone[]>([]);
+  const [heatmap, setHeatmap] = useState<{ cells: HeatmapCell[]; personalised: boolean } | null>(
+    null,
+  );
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = async () => {
     try {
-      const resp = await sendToBackground<
-        { ok: true; data: GrowthSummary } | { ok: false; error: { message: string } | string }
-      >({ type: 'GET_GROWTH', payload: { days: 30 } });
-      if (resp.ok) {
-        setSummary(resp.data);
+      const [growthResp, timesResp, ms] = await Promise.all([
+        sendToBackground<
+          { ok: true; data: GrowthSummary } | { ok: false; error: { message: string } | string }
+        >({ type: 'GET_GROWTH', payload: { days: 30 } }),
+        sendToBackground<
+          | { ok: true; data: { heatmap: HeatmapCell[]; personalised: boolean } }
+          | { ok: false; error: unknown }
+        >({ type: 'GET_BEST_TIMES', payload: { count: 4 } }),
+        getGrowthMilestones(),
+      ]);
+      if (growthResp.ok) {
+        setSummary(growthResp.data);
         setError(null);
       } else {
-        setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
+        setError(typeof growthResp.error === 'string' ? growthResp.error : growthResp.error.message);
       }
+      if (timesResp.ok) {
+        setHeatmap({ cells: timesResp.data.heatmap, personalised: timesResp.data.personalised });
+      }
+      setMilestones(ms);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'failed');
     } finally {
@@ -162,6 +409,24 @@ export const Growth = () => {
       setRefreshing(false);
       await load();
     }
+  };
+
+  const dropTarget = async (handle: string) => {
+    const settings = await getSettings();
+    await setSettings({
+      ...settings,
+      targetCreators: settings.targetCreators.filter(
+        (t) => t.handle.toLowerCase() !== handle.toLowerCase(),
+      ),
+    });
+    if (summary) {
+      setSummary({ ...summary, targets: summary.targets.filter((t) => t.handle !== handle) });
+    }
+  };
+
+  const writeLike = async (text: string) => {
+    await setPanelIntent({ type: 'write-like', seedText: text });
+    onNavigate?.('posts');
   };
 
   if (!loaded) {
@@ -200,7 +465,7 @@ export const Growth = () => {
         </div>
       ) : (
         <>
-          {/* Headline: followers + trend */}
+          {/* Headline: followers + trend + change markers */}
           <div className="rounded-2xl border border-casper-border bg-casper-surface p-3">
             <div className="flex items-baseline justify-between">
               <div>
@@ -216,7 +481,11 @@ export const Growth = () => {
               </p>
             </div>
             <div className="mt-2">
-              <Sparkline points={series.map((p) => p.followers)} />
+              <Sparkline
+                points={series.map((p) => p.followers)}
+                dates={series.map((p) => p.date)}
+                milestones={milestones}
+              />
             </div>
           </div>
 
@@ -229,23 +498,32 @@ export const Growth = () => {
             </div>
           )}
 
-          {/* Follow-back payoff */}
-          {latest.followedBack !== null && latest.followedBackSample ? (
-            <div className="rounded-xl border border-casper-border bg-casper-surface p-3">
-              <p className="text-xs text-casper-ink/70">
-                <span className="font-semibold text-casper-violet">
-                  {fmtNum(latest.followedBack)}
-                </span>{' '}
-                of your last {fmtNum(latest.followedBackSample)} followers are accounts Ghostly
-                followed first.
-              </p>
-            </div>
-          ) : null}
+          {summary && <SourcesCard summary={summary} />}
 
-          {/* Reply performance */}
+          {/* Which targets are working */}
+          <div className="rounded-2xl border border-casper-border bg-casper-surface p-3">
+            <p className="mb-2 text-xs font-semibold">Which targets are working</p>
+            {summary && <TargetsTable targets={summary.targets} onDrop={dropTarget} />}
+          </div>
+
+          {/* Which topics are working */}
+          <div className="rounded-2xl border border-casper-border bg-casper-surface p-3">
+            <p className="mb-2 text-xs font-semibold">Which topics are working</p>
+            {summary && <TopicsTable topics={summary.topics} />}
+          </div>
+
+          {/* Best times */}
+          {heatmap && (
+            <div className="rounded-2xl border border-casper-border bg-casper-surface p-3">
+              <p className="mb-2 text-xs font-semibold">Best times to post</p>
+              <Heatmap cells={heatmap.cells} personalised={heatmap.personalised} />
+            </div>
+          )}
+
+          {/* Reply performance / best posts */}
           <div className="rounded-2xl border border-casper-border bg-casper-surface p-3">
             <div className="mb-2 flex items-baseline justify-between">
-              <p className="text-xs font-semibold">Your replies</p>
+              <p className="text-xs font-semibold">Your best posts</p>
               <p className="text-xs text-casper-ink/40">
                 {replies?.tracked ?? 0} measured · {fmtNum(replies?.totalLikes ?? 0)} likes · avg{' '}
                 {replies?.avgLikes ?? 0}
@@ -254,7 +532,7 @@ export const Growth = () => {
             {replies && replies.top.length > 0 ? (
               <div className="space-y-2">
                 {replies.top.map((post) => (
-                  <TopReply key={post.tweetId} post={post} />
+                  <TopReply key={post.tweetId} post={post} onWriteLike={writeLike} />
                 ))}
               </div>
             ) : (
@@ -277,4 +555,3 @@ export const Growth = () => {
     </div>
   );
 };
-

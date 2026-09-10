@@ -7,8 +7,8 @@
  */
 import { Router } from 'express';
 import { z } from 'zod';
-import { ok, err, GROWTH_LIMITS } from '@casper/shared';
-import type { GrowthSummary, PostOutcome } from '@casper/shared';
+import { ok, err, GROWTH_LIMITS, ATTRIBUTION_STALE_DAYS } from '@casper/shared';
+import type { GrowthSummary, PostOutcome, TargetPerformance, TopicPerformance } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -16,7 +16,10 @@ import { rateLimit } from '../middleware/rate-limit.js';
 import { Types } from 'mongoose';
 import { GrowthSnapshotModel } from '../models/growth-snapshot.model.js';
 import { PostOutcomeModel } from '../models/post-outcome.model.js';
+import { ActionLogModel } from '../models/action-log.model.js';
 import { deltaOver } from '../growth/series.js';
+
+const STALE_MS = ATTRIBUTION_STALE_DAYS * 24 * 60 * 60 * 1000;
 
 export const growthRouter = Router();
 
@@ -84,6 +87,9 @@ const outcomeSchema = z.object({
   reposts: z.number().int().min(0).max(100_000_000),
   views: z.number().int().min(0).max(100_000_000_000).nullable().optional(),
   publishedAt: z.string().datetime().nullable().optional(),
+  /** Who this reply was posted under (updateplan 5.1) — omitted/null for a
+   *  standalone post. */
+  repliedToHandle: z.string().max(80).nullable().optional(),
 });
 
 const outcomesSchema = z.object({
@@ -119,6 +125,10 @@ growthRouter.post(
             isReply: o.isReply,
             publishedAt: o.publishedAt ? new Date(o.publishedAt) : null,
             lastCheckedAt: now,
+            // Only overwrite when this scan actually read a "Replying to"
+            // line — an older extension (or a standalone post) sends none,
+            // and that must not blank out a value a previous scan captured.
+            ...(o.repliedToHandle ? { repliedToHandle: o.repliedToHandle } : {}),
           },
           $max: {
             likes: o.likes,
@@ -161,30 +171,102 @@ growthRouter.get(
       return;
     }
     const { days } = req.query as unknown as z.infer<typeof summarySchema>;
+    const userObjectId = new Types.ObjectId(req.auth.sub);
 
-    const [snapshots, top, totals] = await Promise.all([
-      GrowthSnapshotModel.find({ userId: req.auth.sub })
-        .sort({ date: -1 })
-        .limit(days)
-        .lean(),
-      PostOutcomeModel.find({ userId: req.auth.sub })
-        .sort({ likes: -1, replies: -1 })
-        .limit(GROWTH_LIMITS.topPosts)
-        .lean(),
-      // aggregate() bypasses Mongoose casting — $match needs a real ObjectId
-      // here, unlike the find() calls above.
-      PostOutcomeModel.aggregate<{ tracked: number; totalLikes: number; totalReplies: number }>([
-        { $match: { userId: new Types.ObjectId(req.auth.sub) } },
-        {
-          $group: {
-            _id: null,
-            tracked: { $sum: 1 },
-            totalLikes: { $sum: '$likes' },
-            totalReplies: { $sum: '$replies' },
+    const [snapshots, top, totals, sourcesAgg, targetEngagementAgg, targetRepliesAgg, topicsAgg] =
+      await Promise.all([
+        GrowthSnapshotModel.find({ userId: req.auth.sub })
+          .sort({ date: -1 })
+          .limit(days)
+          .lean(),
+        PostOutcomeModel.find({ userId: req.auth.sub })
+          .sort({ likes: -1, replies: -1 })
+          .limit(GROWTH_LIMITS.topPosts)
+          .lean(),
+        // aggregate() bypasses Mongoose casting — $match needs a real ObjectId
+        // here, unlike the find() calls above.
+        PostOutcomeModel.aggregate<{ tracked: number; totalLikes: number; totalReplies: number }>([
+          { $match: { userId: userObjectId } },
+          {
+            $group: {
+              _id: null,
+              tracked: { $sum: 1 },
+              totalLikes: { $sum: '$likes' },
+              totalReplies: { $sum: '$replies' },
+            },
           },
-        },
-      ]),
-    ]);
+        ]),
+        // Where the engagement is coming from (5.1) — split by whether the
+        // user's own post WAS a reply, not a follower attribution (there
+        // isn't one).
+        PostOutcomeModel.aggregate<{ _id: boolean; likes: number }>([
+          { $match: { userId: userObjectId } },
+          { $group: { _id: '$isReply', likes: { $sum: '$likes' } } },
+        ]),
+        // Per-target engagement: sum of what THIS user's own replies earned,
+        // grouped by who they replied to (5.1's TargetPerformance.engagement).
+        PostOutcomeModel.aggregate<{
+          _id: string;
+          likes: number;
+          replies: number;
+          reposts: number;
+          views: number;
+        }>([
+          { $match: { userId: userObjectId, repliedToHandle: { $ne: null } } },
+          {
+            $group: {
+              _id: { $toLower: '$repliedToHandle' },
+              likes: { $sum: '$likes' },
+              replies: { $sum: '$replies' },
+              reposts: { $sum: '$reposts' },
+              views: { $sum: { $ifNull: ['$views', 0] } },
+            },
+          },
+        ]),
+        // Per-target REPLIES SENT — a real count from the action log, not from
+        // scraped outcomes (which only cover what the growth scan has read so
+        // far). Also carries the handle's original casing, via $first.
+        ActionLogModel.aggregate<{ _id: string; handle: string; repliesSent: number; lastActionAt: Date }>(
+          [
+            {
+              $match: {
+                userId: userObjectId,
+                actionType: 'comment',
+                success: true,
+                targetHandle: { $ne: null },
+              },
+            },
+            {
+              $group: {
+                _id: { $toLower: '$targetHandle' },
+                handle: { $first: '$targetHandle' },
+                repliesSent: { $sum: 1 },
+                lastActionAt: { $max: '$timestamp' },
+              },
+            },
+          ],
+        ),
+        // Per-topic replies sent (5.1's TopicPerformance). No engagement figure
+        // — a keyword match isn't the author of anything a PostOutcome could
+        // be linked back to, unlike a target creator's handle.
+        ActionLogModel.aggregate<{ _id: string; repliesSent: number; lastActionAt: Date }>([
+          {
+            $match: {
+              userId: userObjectId,
+              actionType: 'comment',
+              success: true,
+              matchedKeyword: { $ne: null },
+            },
+          },
+          {
+            $group: {
+              _id: '$matchedKeyword',
+              repliesSent: { $sum: 1 },
+              lastActionAt: { $max: '$timestamp' },
+            },
+          },
+        ]),
+      ]);
 
     // Mongo gave us newest-first (so `limit` keeps the RECENT days); the series
     // and every delta below read oldest-first.
@@ -192,6 +274,39 @@ growthRouter.get(
     const series = ordered.map((s) => ({ date: s.date, followers: s.followers }));
     const newest = ordered[ordered.length - 1];
     const agg = totals[0] ?? { tracked: 0, totalLikes: 0, totalReplies: 0 };
+
+    const postsLikes = sourcesAgg.find((s) => s._id === false)?.likes ?? 0;
+    const repliesLikes = sourcesAgg.find((s) => s._id === true)?.likes ?? 0;
+
+    const now = Date.now();
+    const engagementByHandle = new Map(targetEngagementAgg.map((e) => [e._id, e]));
+    const targets: TargetPerformance[] = targetRepliesAgg
+      .map((t): TargetPerformance => {
+        const eng = engagementByHandle.get(t._id);
+        const lastActionAt = t.lastActionAt ? t.lastActionAt.toISOString() : null;
+        return {
+          handle: t.handle,
+          repliesSent: t.repliesSent,
+          engagement: {
+            likes: eng?.likes ?? 0,
+            replies: eng?.replies ?? 0,
+            reposts: eng?.reposts ?? 0,
+            views: eng?.views ?? 0,
+          },
+          lastActionAt,
+          stale: t.lastActionAt ? now - t.lastActionAt.getTime() > STALE_MS : true,
+        };
+      })
+      .sort((a, b) => b.repliesSent - a.repliesSent);
+
+    const topics: TopicPerformance[] = topicsAgg
+      .map((t): TopicPerformance => ({
+        keyword: t._id,
+        repliesSent: t.repliesSent,
+        lastActionAt: t.lastActionAt ? t.lastActionAt.toISOString() : null,
+        stale: t.lastActionAt ? now - t.lastActionAt.getTime() > STALE_MS : true,
+      }))
+      .sort((a, b) => b.repliesSent - a.repliesSent);
 
     const summary: GrowthSummary = {
       latest: newest
@@ -226,9 +341,13 @@ growthRouter.get(
             reposts: t.reposts ?? 0,
             views: t.views ?? null,
             publishedAt: t.publishedAt ? (t.publishedAt as Date).toISOString() : null,
+            repliedToHandle: t.repliedToHandle ?? null,
           }),
         ),
       },
+      sources: { postsLikes, repliesLikes },
+      targets,
+      topics,
     };
 
     res.json(ok(summary));

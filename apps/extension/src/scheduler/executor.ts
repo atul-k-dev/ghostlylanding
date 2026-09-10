@@ -41,6 +41,7 @@ import {
   setCachedFollowerCount,
 } from '../lib/storage.js';
 import { isWhitelisted } from '../lib/whitelist.js';
+import { computeFollowedBack } from '../lib/attribution.js';
 import {
   buildProfileUrl as twitterProfileUrl,
   buildFollowersUrl as twitterFollowersUrl,
@@ -172,6 +173,15 @@ const executeComment = async (task: QueuedTask): Promise<ExecutorResult> => {
   const commentText = task.payload.commentText as string | undefined;
   const draftId = task.payload.draftId as string | undefined;
   const postId = (task.payload.postId as string | undefined) ?? extractPostId(task.platform, postUrl ?? '');
+  // Attribution (updateplan 5.1), carried in by `handleApproveDraft` from the
+  // pending reply it approved — this is the queued-task path, so it has to
+  // be threaded through the task payload rather than read from a live DOM.
+  const targetHandle = task.payload.targetHandle as string | undefined;
+  const matchedKeyword = task.payload.matchedKeyword as string | undefined;
+  const attribution = {
+    ...(targetHandle ? { targetHandle } : {}),
+    ...(matchedKeyword ? { matchedKeyword } : {}),
+  };
   if (!postUrl || !commentText) {
     return { success: false, errorMessage: 'missing postUrl or commentText' };
   }
@@ -182,6 +192,7 @@ const executeComment = async (task: QueuedTask): Promise<ExecutorResult> => {
         platform: task.platform,
         actionType: 'comment',
         targetUrl: postUrl,
+        ...attribution,
         success: true,
         errorMessage: 'already_commented',
         timestamp: new Date().toISOString(),
@@ -206,6 +217,7 @@ const executeComment = async (task: QueuedTask): Promise<ExecutorResult> => {
         platform: task.platform,
         actionType: 'comment',
         targetUrl: postUrl,
+        ...attribution,
         success: false,
         errorMessage: msg,
         timestamp: new Date().toISOString(),
@@ -237,6 +249,7 @@ const executeComment = async (task: QueuedTask): Promise<ExecutorResult> => {
       platform: task.platform,
       actionType: 'comment',
       targetUrl: postUrl,
+      ...attribution,
       success: posted,
       ...(error ? { errorMessage: error } : {}),
       timestamp: new Date().toISOString(),
@@ -923,11 +936,11 @@ const executeGrowthScan = async (): Promise<ExecutorResult> => {
         { settleMs: 3_500, forceBackground: true },
       );
       if (resp.type === 'FOLLOWERS_RESULT') {
-        const sample = resp.payload.followers;
-        followedBackSample = sample.length;
-        followedBack = sample.filter((f) =>
-          followedSet.has(f.handle.replace(/^@/, '').toLowerCase()),
-        ).length;
+        const result = computeFollowedBack(resp.payload.followers, followedSet);
+        if (result) {
+          followedBack = result.followedBack;
+          followedBackSample = result.followedBackSample;
+        }
       }
     } catch (err) {
       console.warn('[casper] growth: follower sample failed —', err);
