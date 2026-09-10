@@ -20,6 +20,8 @@ import {
   markCommented,
   isAlreadyFollowed,
   markFollowed,
+  isAlreadyDrafted,
+  markDrafted,
   getTargetState,
   setTargetState,
   getSettings,
@@ -31,14 +33,18 @@ import {
   getDraftedPosts,
   getQuotedPosts,
   pendingReplySpace,
+  queuePendingReply,
   getFollowedHandles,
   appendDiagnostic,
   mergePostOutcomes,
+  getCachedFollowerCount,
+  setCachedFollowerCount,
 } from '../lib/storage.js';
 import {
   buildProfileUrl as twitterProfileUrl,
   buildFollowersUrl as twitterFollowersUrl,
   buildSearchUrl as twitterSearchUrl,
+  MENTIONS_URL,
 } from '../platforms/twitter/selectors.js';
 import { apiFetch } from '../lib/api.js';
 import { ensureToday } from './counters.js';
@@ -46,6 +52,12 @@ import { localDate } from './timegate.js';
 import { actionDelayFor } from '../lib/presets.js';
 import { GROWTH_LIMITS } from '@casper/shared';
 import type { ScrapedOutcome } from '../platforms/common/content-messages.js';
+import { MIN_REPLY_POST_CHARS } from '../platforms/common/relevance.js';
+import { requestCommentDraft } from '../lib/comment-draft.js';
+import { isTrusted } from '../lib/trust.js';
+import { classifyMention, rankMentions, type MentionCandidate } from '../lib/mentions.js';
+import { enqueue } from './queue.js';
+import { maybeNotifyBigReply } from '../lib/browser-notify.js';
 
 // Twitter/X is the only automated platform. (LinkedIn automation was removed.)
 const profileUrlFor = (handle: string): string => twitterProfileUrl(handle);
@@ -950,6 +962,181 @@ const runFollowBack = async (task: QueuedTask): Promise<ExecutorResult> => {
   return followOutcomeResult(outcome, 'follow-back');
 };
 
+/** Mention articles read per scan. The tab is doing nothing else while we look. */
+const MENTIONS_SCAN_MAX = 20;
+/** Drafts requested per scan — bounds the OpenAI + moderation cost of a burst. */
+const MENTIONS_DRAFT_BUDGET = 3;
+/** Fresh profile visits per scan, for candidates whose follower count isn't
+ *  cached — bounds tab churn when several strangers mention the user at once. */
+const MENTIONS_FOLLOWER_LOOKUP_MAX = 3;
+
+/** A real follower-count read, cached so a repeat mention from the same person
+ *  doesn't cost another profile visit for a day. */
+const lookupFollowerCount = async (handle: string): Promise<number | null> => {
+  const cached = await getCachedFollowerCount(handle);
+  if (cached !== null) return cached;
+  try {
+    const resp = await driveTab(
+      profileUrlFor(handle),
+      { type: 'READ_PROFILE_STATS', payload: {} },
+      { settleMs: 2_500, forceBackground: true },
+    );
+    const followers = resp.type === 'PROFILE_STATS_RESULT' ? (resp.payload.stats?.followers ?? null) : null;
+    if (followers !== null) await setCachedFollowerCount(handle, followers);
+    return followers;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Read the notifications/mentions tab and draft replies (updateplan 4.1/4.2).
+ *
+ * The highest-value, lowest-risk automation this product doesn't have (D15):
+ * answering your own mentions never touches anyone else's timeline, so it runs
+ * regardless of whatever the feed-engagement settings say. What it produces —
+ * either a queued draft or a normal 'comment' task — is exactly what the home
+ * feed already produces, so posting one costs the same cap and leaves the same
+ * action-log entry as any other reply. Never a second, looser path to publish
+ * under the user's name.
+ */
+const executeMentionsScan = async (): Promise<ExecutorResult> => {
+  const settings = await getSettings();
+  if (!settings.mentions.enabled) {
+    return { success: true, errorMessage: 'mentions: disabled', scanned: 0, acted: 0 };
+  }
+
+  const ownHandle = await getOwnHandle();
+
+  let resp;
+  try {
+    resp = await driveTab(
+      MENTIONS_URL,
+      { type: 'SCAN_MENTIONS', payload: { max: MENTIONS_SCAN_MAX, ownHandle } },
+      { settleMs: 3_000, forceBackground: true },
+    );
+  } catch (err) {
+    return {
+      success: false,
+      health: 'degraded',
+      errorMessage: err instanceof Error ? err.message : 'tab driver failed',
+    };
+  }
+  if (resp.type !== 'MENTIONS_RESULT') {
+    return {
+      success: false,
+      health: 'degraded',
+      errorMessage: resp.type === 'ERROR' ? resp.payload.message : 'unexpected mentions response',
+    };
+  }
+
+  const raw = resp.payload.mentions;
+  // Zero mentions read is either a quiet inbox or a broken selector, same as
+  // any other scan — 'ok' either way; there's nothing more we can tell apart
+  // from here, and a quiet inbox is the common case for most accounts.
+  if (raw.length === 0) return { success: true, health: 'ok', scanned: 0, acted: 0 };
+
+  // Drop anything too short to answer, and anything already drafted or already
+  // replied to — the persistence side of "never drafted twice".
+  const undrafted: typeof raw = [];
+  for (const m of raw) {
+    if (m.text.length < MIN_REPLY_POST_CHARS) continue;
+    if (await isAlreadyDrafted('twitter', m.postId)) continue;
+    if (await isAlreadyCommented('twitter', m.postId)) continue;
+    undrafted.push(m);
+  }
+  if (undrafted.length === 0) return { success: true, health: 'ok', scanned: raw.length, acted: 0 };
+
+  let candidates: MentionCandidate[] = await Promise.all(
+    undrafted.map(async (m) => ({
+      postId: m.postId,
+      postUrl: m.postUrl,
+      authorHandle: m.authorHandle,
+      text: m.text,
+      publishedAt: m.publishedAt,
+      type: classifyMention({
+        text: m.text,
+        ownHandle,
+        replyingToHandles: m.replyingToHandles,
+        quotedAuthorHandle: m.quotedAuthorHandle,
+      }),
+      authorFollowers: m.authorHandle ? await getCachedFollowerCount(m.authorHandle) : null,
+    })),
+  );
+
+  // Provisional rank on what we already know, then spend a handful of real
+  // profile visits refining the front of the queue — not every mention, so a
+  // burst of replies-to-a-viral-post can't spawn a burst of profile visits.
+  const now = Date.now();
+  const provisional = rankMentions(candidates, now);
+  const toLookUp = provisional
+    .filter((c) => c.authorFollowers === null && c.authorHandle)
+    .slice(0, MENTIONS_FOLLOWER_LOOKUP_MAX);
+  if (toLookUp.length > 0) {
+    const resolved = new Map<string, number | null>();
+    for (const c of toLookUp) {
+      resolved.set(c.postId, await lookupFollowerCount(c.authorHandle as string));
+    }
+    candidates = candidates.map((c) =>
+      resolved.has(c.postId) ? { ...c, authorFollowers: resolved.get(c.postId) ?? null } : c,
+    );
+  }
+
+  const ranked = rankMentions(candidates, now).slice(0, MENTIONS_DRAFT_BUDGET);
+  const trusted = isTrusted(settings.trust);
+  let acted = 0;
+
+  for (const cand of ranked) {
+    const draft = await requestCommentDraft({
+      platform: 'twitter',
+      postText: cand.text,
+      postUrl: cand.postUrl,
+      ...(cand.type === 'reply-to-your-post'
+        ? (() => {
+            const source = undrafted.find((m) => m.postId === cand.postId);
+            return source?.parentOwnText ? { threadContext: source.parentOwnText } : {};
+          })()
+        : {}),
+    });
+    // Mark it handled regardless of outcome — a generation failure isn't worth
+    // retrying every ~10 minutes forever; the next scan will find fresh mentions.
+    await markDrafted('twitter', cand.postId);
+    if (!draft.ok) continue;
+
+    if (!settings.replyApproval || trusted) {
+      // Exactly the same 'comment' task type the feed uses — same caps, same
+      // pacing, same dedupe, same action-log entry.
+      await enqueue('twitter', 'comment', {
+        postUrl: cand.postUrl,
+        postId: cand.postId,
+        commentText: draft.data.draftText,
+        draftId: draft.data.id,
+      });
+    } else {
+      await queuePendingReply({
+        id: draft.data.id,
+        platform: 'twitter',
+        postId: cand.postId,
+        postUrl: cand.postUrl,
+        postText: cand.text.slice(0, 1_000),
+        authorHandle: cand.authorHandle,
+        draftText: draft.data.draftText,
+        createdAt: Date.now(),
+      });
+      // "Want me to answer?" (4.3) only makes sense for a draft that's actually
+      // waiting on the user — one that auto-published already has its answer.
+      void maybeNotifyBigReply({
+        authorHandle: cand.authorHandle,
+        authorFollowers: cand.authorFollowers,
+        postUrl: cand.postUrl,
+      });
+    }
+    acted++;
+  }
+
+  return { success: true, health: 'ok', scanned: raw.length, acted };
+};
+
 export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => {
   // Twitter/X only. Any stray non-Twitter task (e.g. left in the queue from a
   // previous build) completes as a no-op so it never opens a tab or retries.
@@ -971,6 +1158,8 @@ export const executeTask = async (task: QueuedTask): Promise<ExecutorResult> => 
       return executeGrowthScan();
     case 'scan-search':
       return executeSearchScan(task);
+    case 'scan-mentions':
+      return executeMentionsScan();
     case 'comment':
       return executeComment(task);
     case 'follow':

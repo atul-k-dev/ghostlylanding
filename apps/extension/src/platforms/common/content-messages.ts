@@ -6,6 +6,8 @@
 /** Growth-scan payloads — defined next to the scraper that produces them. */
 export type { ProfileStats, ScrapedOutcome } from '../twitter/stats.js';
 import type { ProfileStats, ScrapedOutcome } from '../twitter/stats.js';
+export type { RawMention } from '../twitter/mentions.js';
+import type { RawMention } from '../twitter/mentions.js';
 
 export interface ScannedPost {
   postUrl: string;
@@ -107,6 +109,11 @@ export type ContentRequest =
         /** Lowercased handles to never follow back (whitelist). */
         skipHandles: string[];
       };
+    }
+  | {
+      /** Read the notifications/mentions tab (updateplan 4.1). */
+      type: 'SCAN_MENTIONS';
+      payload: { max: number; ownHandle: string | null };
     };
 
 /** Inline home-feed autopilot — one tab smoothly scrolls and acts in place. */
@@ -269,6 +276,10 @@ export type ContentResponse =
   | {
       type: 'FOLLOW_BACK_RESULT';
       payload: { followed: { handle: string; profileUrl: string }[] };
+    }
+  | {
+      type: 'MENTIONS_RESULT';
+      payload: { mentions: RawMention[] };
     }
   | {
       type: 'ERROR';

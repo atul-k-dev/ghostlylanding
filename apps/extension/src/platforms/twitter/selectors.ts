@@ -149,3 +149,6 @@ export const buildFollowersUrl = (handle: string): string => {
   // /followers always exists on a public profile.
   return `https://x.com/${encodeURIComponent(clean)}/followers`;
 };
+
+/** The Mentions sub-tab of Notifications (updateplan 4.1). */
+export const MENTIONS_URL = 'https://x.com/notifications/mentions';

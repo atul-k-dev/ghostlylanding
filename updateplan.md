@@ -714,20 +714,20 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Steps
 
-- [ ] **4.1 — Read the notifications tab.**
+- [x] ✅ 2026-09-10 — **4.1 — Read the notifications tab.**
       - Add selectors for `x.com/notifications` and the Mentions sub-tab to
         `selectors.ts` (and the server-side override map in
         `server/src/config/selectors.ts`, so a DOM change is a deploy not a review).
       - New scan task `scan-mentions` in `scheduler/types.ts`, on a ~10 min interval.
       - Parse: who, what they said, which of the user's posts it replies to, when.
 
-- [ ] **4.2 — Draft replies to mentions.**
+- [x] ✅ 2026-09-10 — **4.2 — Draft replies to mentions.**
       - Route through the existing `DRAFT_COMMENT` path with added thread context.
       - Prioritise by follower count and recency — a big account asking a question
         decays fastest.
       - Respect approval/trust settings exactly as feed replies do.
 
-- [ ] **4.3 — Browser notifications.**
+- [x] ✅ 2026-09-10 — **4.3 — Browser notifications.**
       - Add `"notifications"` to `permissions`.
       - **Capped at 1–2/day.** Off by default for everything except "something is broken".
       - Reserved for decaying moments only:
@@ -749,9 +749,11 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Tests
 
-- [ ] **New:** `scripts/mentions-smoke.mts` — parsing fixtures for the mention
+- [x] ✅ 2026-09-10 — **New:** `scripts/mentions-smoke.mts` — parsing fixtures for the mention
       shapes X renders (reply-to-your-post, plain @mention, quote of your post);
       prioritisation ordering; dedup so a mention is never drafted twice.
+      17 assertions, green. Plus `scripts/browser-notify-smoke.mts` (8
+      assertions) pinning the daily notification cap and its day-rollover.
 - [ ] **Server:** weekly-summary dedup test mirroring the daily one — two
       concurrent runners send exactly one email.
 - [ ] All 13 suites green; server tests green.
@@ -1017,3 +1019,10 @@ Append one line per completed step. Never edit or delete earlier lines.
 | 2026-09-10 | **3.6** Quote cards | `588d906` | New `lib/quote-card.ts`: the post's own words as SVG — greedy wrap, a type scale that sets a short quote large and a long one readable, hard-splitting any token wider than a line, and XML-escaping throughout because a post is untrusted text. **No generated imagery, and the test asserts there is none**: glossy AI art reads as "bot" on X and would undo everything `humanize.ts` does to the words underneath it. Rasterised to PNG through a data-URL image and a canvas (so nothing is fetched and the canvas is never tainted), returning null rather than throwing — a card is a nicety, the post it decorates is not. |
 | 2026-09-10 | **Phase 3 tests** | `588d906` · `a31a7ff` | `best-times-smoke` (33), `trust-smoke` (37, covering `decideAutoDraft` too — the two halves of the same promise), `quote-card-smoke` (25), and `schedule-smoke` extended for drafts. Suite is **15 suites / 620 assertions** green (the plan says 12; 0.6, 1.4, 1.7, 2.2 and 3.6 are the additions). `pnpm typecheck` and `pnpm build` clean across every workspace. |
 | 2026-09-10 | **3.x** ⚠️ Owner | `a31a7ff` | Three things to know. (1) **Version stays `2.1.0`** — rule 8 bumps on a *verified* phase, and Phase 3's Manual QA is deferred with the rest. (2) **Nothing publishes itself.** With trust ungranted (the only state any existing install can be in), auto-drafted posts land as `draft`, which the publisher cannot select; the Manual QA line about a draft publishing at its slot only applies after the graduation offer has been accepted. (3) **Auto-posting is off for everyone** until it is switched on in Posts, and `contentTopics` must be set — an install that never went through 1.4's setup will find the switch does nothing and says so. |
+| 2026-09-10 | **4.1** Read mentions | `_(this commit)_` | New `platforms/twitter/mentions.ts` reuses `readArticle` (the SAME parser the feed uses) against `x.com/notifications/mentions`, since X renders it with the identical `article[data-testid="tweet"]` cells. Reply/quote context is read as TEXT ("Replying to @x") rather than a guessed selector — X has never shipped a stable one for that line, and text survives a class rename a selector wouldn't. New `scan-mentions` task, on a 10-minute interval, enqueued in `maybeRefillScans` **regardless of feed-engagement settings** — answering your own mentions carries no ban risk (D15), so it has its own switch (`settings.mentions.enabled`, default **on**) rather than piggybacking on the home feed's. No new selector-override keys needed: everything reused already ships in the server's map. |
+| 2026-09-10 | **4.1** ⚠️ not-configured fix | `_(this commit)_` | `resolveBlockReason` treated “no targets, no search, no home feed” as `not-configured` unconditionally — which would have told a mentions-only user “I don't know who to watch yet” for a feature that needs no watching. Added `mentionsEnabled` to `BlockReasonInput`; `not-configured` now requires ALL FOUR sources absent, and `feed-off` only fires when an actual feed source exists but isn't running. Caught and fixed before commit via `block-reason-smoke`, which is the one file this touches without a plan step naming it. |
+| 2026-09-10 | **4.2** Draft + thread context | `_(this commit)_` | New `lib/comment-draft.ts` — `requestCommentDraft`, the ONE function that calls `/api/comments/generate`, used by both `DRAFT_COMMENT` (content-script side) and the mentions scan (service-worker side, which can't message itself the way a content script messages the background). `handleDraftComment` now delegates to it instead of duplicating the tone/length lookup. Server's `buildCommentPrompt` gained an optional `threadContext` paragraph ("here is what they originally said, for context only") — filled from the post immediately above a reply-to-your-post mention in the DOM, when that post's author is the signed-in user; empty otherwise, and the reply is still perfectly fine without it. |
+| 2026-09-10 | **4.2** Priority | `_(this commit)_` | `lib/mentions.ts`'s `mentionPriority`: read “a big account decays fastest” literally — a half-life that SHRINKS as follower count grows, not just “biggest first”. Pinned with two concrete cases in `mentions-smoke`: a fresh 40k-follower mention outranks a 2-hour-old 200-follower one, but a 6-hour-old 40k-follower mention is overtaken by that same 200-follower one — the big account's lead has decayed away. Follower counts are looked up lazily and cached for a day (`getCachedFollowerCount`), bounded to 3 fresh profile visits per scan, so a viral mention can't spawn a burst of tab churn. |
+| 2026-09-10 | **4.2** Same publish path | `_(this commit)_` | A drafted mention reply is never a special case: trusted or `!replyApproval` → `enqueue('twitter', 'comment', ...)`, the EXACT task type the feed already uses (same caps, same pacing, same dedupe, same action-log entry); otherwise → `queuePendingReply`, the same review queue Reply-for-me and the feed use. “Never drafted twice” is enforced with the existing `isAlreadyDrafted`/`isAlreadyCommented` maps — no new dedupe store, because those two already answer the question. |
+| 2026-09-10 | **4.3** Browser notifications | `_(this commit)_` | New `lib/browser-notify.ts`. **The 1–2/day cap is enforced in code** (`MAX_NOTIFICATIONS_PER_DAY`), never by a setting — `settings.notifications.{problems,bigReplies}` only gate whether a CLASS of alert may fire at all, and can never raise the ceiling. `problems` defaults **on** (the plan's “something is broken” exception); `bigReplies` defaults **off**. Manifest gains the `notifications` permission. `scripts/browser-notify-smoke.mts` pins the cap arithmetic and its day-rollover directly, since nothing else in the module re-checks it. |
+| 2026-09-10 | **4.3** The two moments | `_(this commit)_` | “Signed out for 2 hours” fires from `reportIdleReason`, keyed on the persisted `BlockReason.since` so a single long episode notifies once, not every tick past the 2-hour mark. “A big account replied” fires only from the REVIEW-queue branch of the mentions scan, never the auto-publish one — there is nothing left to ask once it already went out — gated on `BIG_ACCOUNT_FOLLOWERS` (10,000). A third moment the plan's examples imply but don't name — the selector-break circuit breaker auto-pausing the engine — got the same treatment, since a stopped engine with the panel closed is exactly the kind of thing 4.3 exists for. |

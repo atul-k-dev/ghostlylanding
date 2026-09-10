@@ -19,6 +19,7 @@ import {
 import { runHomeAutopilot } from './autopilot.js';
 import { publishPost } from './compose.js';
 import { readProfileStats, collectOwnPostOutcomes } from './stats.js';
+import { scanMentions } from './mentions.js';
 
 export const installTwitterHandler = (ready: Promise<void> = Promise.resolve()): void => {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -104,6 +105,12 @@ export const installTwitterHandler = (ready: Promise<void> = Promise.resolve()):
         if (req.type === 'SCAN_FOLLOWING') {
           const profiles = await scanFollowing(req.payload.max);
           const resp: ContentResponse = { type: 'FOLLOWING_RESULT', payload: { profiles } };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'SCAN_MENTIONS') {
+          const mentions = await scanMentions(req.payload.max, req.payload.ownHandle);
+          const resp: ContentResponse = { type: 'MENTIONS_RESULT', payload: { mentions } };
           sendResponse(resp);
           return;
         }

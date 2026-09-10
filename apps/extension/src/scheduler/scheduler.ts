@@ -61,7 +61,8 @@ import {
   stats as queueStats,
 } from './queue.js';
 import { executeTask } from './executor.js';
-import { setBlockReason, clearBlockReason, resolveBlockReason } from './block-reason.js';
+import { setBlockReason, clearBlockReason, resolveBlockReason, getBlockReason } from './block-reason.js';
+import { maybeNotifySignedOut, maybeNotifyAutoPause } from '../lib/browser-notify.js';
 import type { ExecutorResult, QueuedTask } from './types.js';
 import { appendActionLog, flushActionLog, shouldFlush } from './action-log.js';
 import { flushDiagnostics, shouldFlushDiagnostics } from './diagnostics-log.js';
@@ -99,6 +100,12 @@ const SEARCH_INTERVAL_MS = 45 * 60 * 1000;
  * we do find is still only minutes old.
  */
 const EARLY_REPLY_INTERVAL_MS = 6 * 60 * 1000;
+/**
+ * How often to read the notifications/mentions tab (updateplan 4.1). Ten
+ * minutes: mentions decay fast (see `lib/mentions.ts`'s priority scoring), and
+ * this is a read-only scan — it never touches the daily caps.
+ */
+const MENTIONS_INTERVAL_MS = 10 * 60 * 1000;
 
 /**
  * Consecutive 'degraded' runs before the engine stops itself. Degraded means we
@@ -374,13 +381,15 @@ export const handleTick = async (): Promise<void> => {
           degradedStreak: 0,
         });
         stopKeepAlive();
-        await appendDiagnostic({
-          kind: 'auto_pause',
-          context: 'safety:degraded',
-          detail:
+        {
+          const detail =
             `Paused after ${streak} runs that couldn't read your timeline. ` +
-            'Open x.com and check you are signed in, then toggle Active to resume.',
-        });
+            'Open x.com and check you are signed in, then toggle Active to resume.';
+          await appendDiagnostic({ kind: 'auto_pause', context: 'safety:degraded', detail });
+          // A worse-than-idle moment (updateplan 4.3): the engine stopped
+          // itself and the panel may well be closed when it happened.
+          void maybeNotifyAutoPause(detail);
+        }
         await maybeFlush();
         return;
       }
@@ -478,6 +487,22 @@ const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
     if (now - (existing.lastGrowthScanAt ?? 0) >= GROWTH_INTERVAL_MS) {
       await enqueue('twitter', 'scan-growth', {});
       existing.lastGrowthScanAt = now;
+      targetState[key] = existing;
+      mutated = true;
+    }
+  }
+
+  // Mentions (updateplan 4.1) also run regardless of what engagement is
+  // configured — replying to your own mentions carries no ban risk, and a user
+  // who has switched off all feed engagement may still want their mentions
+  // answered. It has its own on/off switch (`settings.mentions.enabled`)
+  // rather than piggybacking on the home feed's.
+  if (settings.mentions.enabled) {
+    const key = 'mentions:twitter';
+    const existing = targetState[key] ?? { lastScannedAt: 0 };
+    if (now - (existing.lastMentionsScanAt ?? 0) >= MENTIONS_INTERVAL_MS) {
+      await enqueue('twitter', 'scan-mentions', {});
+      existing.lastMentionsScanAt = now;
       targetState[key] = existing;
       mutated = true;
     }
@@ -686,6 +711,7 @@ const reportIdleReason = async (settings: ExtensionSettings): Promise<void> => {
     hasSearchQueries: settings.searchQueries.length > 0,
     homeFeedEnabled: hf.enabled,
     anyActionEnabled,
+    mentionsEnabled: settings.mentions.enabled,
     // The queue being empty after a refill pass means the scans found nothing
     // worth queueing — a quiet feed, not a fault. Only claim it once a scan has
     // actually read posts and passed on them: "Skipped 0 posts" would be a
@@ -700,6 +726,11 @@ const reportIdleReason = async (settings: ExtensionSettings): Promise<void> => {
   }
   await setBlockReason(code, code === 'nothing-matched' ? String(skipped) : undefined);
   console.log(`[casper] tick: idle — ${code}`);
+  // "I've been signed out for 2 hours" (updateplan 4.3) — a decaying moment
+  // worth a Chrome-level alert even with the panel closed. Reads the reason
+  // straight back so it has the real `since`, not a guess at when this tick
+  // happens to be running.
+  void maybeNotifySignedOut(await getBlockReason());
 };
 
 const scheduleNext = async (): Promise<void> => {

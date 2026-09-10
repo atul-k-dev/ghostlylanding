@@ -41,6 +41,7 @@ const healthy: BlockReasonInput = {
   hasSearchQueries: true,
   homeFeedEnabled: true,
   anyActionEnabled: true,
+  mentionsEnabled: true,
   scannedButNoMatch: false,
 };
 
@@ -62,10 +63,32 @@ assert(
 assert(of({ capsSpent: true }) === 'caps-spent', 'daily caps spent');
 assert(of({ withinActiveHours: false }) === 'outside-hours', 'outside active hours');
 assert(
-  of({ hasTargets: false, hasSearchQueries: false, homeFeedEnabled: false }) === 'not-configured',
-  'no targets, no topics, no home feed → not configured',
+  of({
+    hasTargets: false,
+    hasSearchQueries: false,
+    homeFeedEnabled: false,
+    mentionsEnabled: false,
+  }) === 'not-configured',
+  'no targets, no topics, no home feed, no mentions → not configured',
 );
 assert(of({ scannedButNoMatch: true }) === 'nothing-matched', 'scanned and matched nothing');
+
+// --- mentions is its own source, independent of the feed toggles -----------
+assert(
+  of({ hasTargets: false, hasSearchQueries: false, homeFeedEnabled: false, mentionsEnabled: true }) ===
+    null,
+  'mentions alone is a real source — not "not configured"',
+);
+assert(
+  of({
+    hasTargets: false,
+    hasSearchQueries: false,
+    homeFeedEnabled: false,
+    mentionsEnabled: true,
+    anyActionEnabled: false,
+  }) === null,
+  'mentions-only never reports feed-off — there is no feed to be off',
+);
 
 // --- the silent killer: topic feeds saved, home feed off --------------------
 // executor.ts derives a search feed's actions from the home-feed toggles
@@ -108,8 +131,13 @@ assert(
   'sub-lapsed beats degraded',
 );
 assert(
-  of({ hasTargets: false, hasSearchQueries: false, homeFeedEnabled: false, scannedButNoMatch: true }) ===
-    'not-configured',
+  of({
+    hasTargets: false,
+    hasSearchQueries: false,
+    homeFeedEnabled: false,
+    mentionsEnabled: false,
+    scannedButNoMatch: true,
+  }) === 'not-configured',
   'not-configured beats nothing-matched — setup first, quiet feed second',
 );
 

@@ -49,6 +49,11 @@ export const STORAGE_KEYS = {
   floatingPanel: 'casper.floatingPanel',
   /** The user's own post results, cached from the growth scan (3.1). */
   postOutcomes: 'casper.postOutcomes',
+  /** Cached follower counts for mention authors (4.1) — avoids a profile visit
+   *  per mention every scan. */
+  mentionAuthorFollowers: 'casper.mentionAuthorFollowers',
+  /** Daily browser-notification budget + per-episode dedupe (4.3). */
+  notifyState: 'casper.notifyState',
 } as const;
 
 /**
@@ -174,6 +179,13 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   // Nothing is trusted on day one. `grantedAt` is only ever written in answer
   // to the graduation offer.
   trust: INITIAL_TRUST,
+  // On by default (updateplan 4.1) — reading notifications and drafting a
+  // reply never posts anything by itself; whether it goes out unread is still
+  // replyApproval/trust, same as every other reply.
+  mentions: { enabled: true },
+  // "Something is broken" alerts on by default (that's the safety class);
+  // everything else opt-in (updateplan 4.3).
+  notifications: { problems: true, bigReplies: false },
 };
 
 const DEFAULT_COUNTERS: CountersState = { twitter: null, linkedin: null };
@@ -221,6 +233,8 @@ export const getSettings = async (): Promise<ExtensionSettings> => {
     // chose, and defaults to off for anyone who has never seen the switch.
     autoPost: { ...DEFAULT_SETTINGS.autoPost, ...stored.autoPost },
     trust: normalizeTrust(stored.trust),
+    mentions: { ...DEFAULT_SETTINGS.mentions, ...stored.mentions },
+    notifications: { ...DEFAULT_SETTINGS.notifications, ...stored.notifications },
     activeHours: { ...DEFAULT_SETTINGS.activeHours, ...stored.activeHours },
     accountAgeMonths: { ...DEFAULT_SETTINGS.accountAgeMonths, ...stored.accountAgeMonths },
     targetCreators: onlyTwitter(stored.targetCreators),
@@ -383,6 +397,46 @@ export const markDrafted = async (platform: string, postId: string): Promise<voi
 export const isAlreadyDrafted = async (platform: string, postId: string): Promise<boolean> => {
   const map = await getDraftedPosts();
   return `${platform}:${postId}` in map;
+};
+
+// -- mention-author follower cache (updateplan 4.1) --------------------------
+/**
+ * Follower counts for mention authors, so ranking a burst of mentions doesn't
+ * mean a burst of profile visits — a real read is cached for a day and reused,
+ * the way `setupRead`'s follower counts already are for target creators.
+ */
+interface FollowerCacheEntry {
+  followers: number;
+  checkedAt: number;
+}
+type FollowerCache = Record<string, FollowerCacheEntry>;
+
+const FOLLOWER_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const FOLLOWER_CACHE_MAX = 500;
+
+export const getCachedFollowerCount = async (handle: string): Promise<number | null> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.mentionAuthorFollowers);
+  const cache = (got[STORAGE_KEYS.mentionAuthorFollowers] as FollowerCache | undefined) ?? {};
+  const entry = cache[handle.replace(/^@/, '').toLowerCase()];
+  if (!entry || Date.now() - entry.checkedAt > FOLLOWER_CACHE_TTL_MS) return null;
+  return entry.followers;
+};
+
+export const setCachedFollowerCount = async (handle: string, followers: number): Promise<void> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.mentionAuthorFollowers);
+  const cache = (got[STORAGE_KEYS.mentionAuthorFollowers] as FollowerCache | undefined) ?? {};
+  const key = handle.replace(/^@/, '').toLowerCase();
+  cache[key] = { followers, checkedAt: Date.now() };
+  // Bounded like the other dedupe maps: drop the oldest reads once it grows
+  // past a sane ceiling rather than keeping every handle ever mentioned.
+  const entries = Object.entries(cache);
+  const next: FollowerCache =
+    entries.length > FOLLOWER_CACHE_MAX
+      ? Object.fromEntries(
+          entries.sort((a, b) => b[1].checkedAt - a[1].checkedAt).slice(0, FOLLOWER_CACHE_MAX),
+        )
+      : cache;
+  await chrome.storage.local.set({ [STORAGE_KEYS.mentionAuthorFollowers]: next });
 };
 
 // -- quoted posts dedupe (quote-tweets can't be detected from the DOM) --------

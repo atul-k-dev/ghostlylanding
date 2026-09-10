@@ -180,6 +180,89 @@ export const Settings = () => {
       </Section>
 
       <Section
+        title="Mentions"
+        subtitle="Answer the people who talk to you — replies to your posts, quotes and cold mentions, read off your notifications tab."
+      >
+        <label className="flex items-center justify-between">
+          <span className="text-xs font-medium text-casper-fg">Read mentions and draft replies</span>
+          <button
+            type="button"
+            onClick={() =>
+              onChange({ ...settings, mentions: { ...settings.mentions, enabled: !settings.mentions.enabled } })
+            }
+            aria-pressed={settings.mentions.enabled}
+            className={[
+              'cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors',
+              settings.mentions.enabled
+                ? 'bg-casper-working/15 text-casper-working'
+                : 'bg-casper-surface-2 text-casper-muted',
+            ].join(' ')}
+          >
+            {settings.mentions.enabled ? 'On' : 'Off'}
+          </button>
+        </label>
+        <p className="mt-1.5 text-xs text-casper-muted">
+          This only drafts — whether a reply goes out unread is still your review setting on the
+          Voice page, the same as every other reply.
+        </p>
+      </Section>
+
+      <Section
+        title="Browser notifications"
+        subtitle="Reserved for moments that can't wait for you to open the panel. Capped at a couple a day, whatever's switched on below."
+      >
+        <label className="flex items-center justify-between">
+          <span className="text-xs font-medium text-casper-fg">Something's broken</span>
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                ...settings,
+                notifications: { ...settings.notifications, problems: !settings.notifications.problems },
+              })
+            }
+            aria-pressed={settings.notifications.problems}
+            className={[
+              'cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors',
+              settings.notifications.problems
+                ? 'bg-casper-working/15 text-casper-working'
+                : 'bg-casper-surface-2 text-casper-muted',
+            ].join(' ')}
+          >
+            {settings.notifications.problems ? 'On' : 'Off'}
+          </button>
+        </label>
+        <p className="mt-1 text-xs text-casper-muted">
+          Signed out for hours, or stopped itself because it can't read the timeline.
+        </p>
+        <label className="mt-3 flex items-center justify-between">
+          <span className="text-xs font-medium text-casper-fg">A big account replied</span>
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                ...settings,
+                notifications: { ...settings.notifications, bigReplies: !settings.notifications.bigReplies },
+              })
+            }
+            aria-pressed={settings.notifications.bigReplies}
+            className={[
+              'cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors',
+              settings.notifications.bigReplies
+                ? 'bg-casper-working/15 text-casper-working'
+                : 'bg-casper-surface-2 text-casper-muted',
+            ].join(' ')}
+          >
+            {settings.notifications.bigReplies ? 'On' : 'Off'}
+          </button>
+        </label>
+        <p className="mt-1 text-xs text-casper-muted">
+          A well-known account mentioned you and I'm holding a draft for your review. Off by
+          default — everything except a real problem is your call.
+        </p>
+      </Section>
+
+      <Section
         title="Auto follow-back"
         subtitle="Follow back the people who follow you — I scroll your Followers list and tap every 'Follow back' for you."
       >

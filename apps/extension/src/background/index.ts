@@ -7,14 +7,12 @@ import type {
   User,
   Platform,
   TonePreset,
-  CommentLength,
   ActionType,
 } from '@casper/shared';
 import {
   PLATFORMS,
   ACTION_TYPES,
   TONE_PRESETS,
-  COMMENT_LENGTHS,
   PAID_PLANS,
   VOICE_LIMITS,
   isPro,
@@ -52,6 +50,7 @@ import { readAccountForSetup, getSetupRead } from './setup-read.js';
 import { runDryRun } from '../scheduler/dry-run.js';
 import { mostDistinctiveTerm } from '../lib/topics.js';
 import { appendRejectedDraft, appendCorrectedDraft } from '../lib/storage.js';
+import { requestCommentDraft } from '../lib/comment-draft.js';
 import { refreshSelectorConfig, SELECTOR_REFRESH_MS } from '../lib/selector-config.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog, appendActionLog } from '../scheduler/action-log.js';
@@ -660,37 +659,23 @@ async function handleEnsureCounters() {
   return { ok: true, data: counters };
 }
 
-interface DraftDoc {
-  id: string;
-  platform: Platform;
-  postUrl: string;
-  draftText: string;
-  tone: TonePreset;
-  status: 'pending' | 'approved' | 'rejected' | 'posted' | 'failed';
-  createdAt: string;
-  postedAt?: string | null;
-  dedupe?: boolean;
-}
-
 async function handleDraftComment(payload: unknown) {
-  const { platform, postText, postUrl } = (payload ?? {}) as {
+  const { platform, postText, postUrl, threadContext } = (payload ?? {}) as {
     platform?: Platform;
     postText?: string;
     postUrl?: string;
+    /** Thread context for a reply-in-a-thread draft (updateplan 4.2). */
+    threadContext?: string;
   };
   if (!platform || !PLATFORMS.includes(platform) || !postText || !postUrl) {
     return { ok: false, error: { code: 'invalid_payload', message: 'platform/postText/postUrl required' } };
   }
-  const settings = await getSettings();
-  const tone: TonePreset = TONE_PRESETS.includes(settings.tone) ? settings.tone : 'friendly';
-  const length: CommentLength = COMMENT_LENGTHS.includes(settings.commentLength)
-    ? settings.commentLength
-    : 1;
-  const resp = await apiFetch<DraftDoc>('/api/comments/generate', {
-    method: 'POST',
-    body: { platform, postText, postUrl, tone, length },
+  return requestCommentDraft({
+    platform,
+    postText,
+    postUrl,
+    ...(threadContext ? { threadContext } : {}),
   });
-  return resp;
 }
 
 /**

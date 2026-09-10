@@ -38,17 +38,36 @@ ${v}
 Match those habits. Do not imitate the topics, only the voice.`;
 };
 
+/**
+ * A reply that is itself part of a thread (updateplan 4.2) — someone replied to
+ * or quoted the user's OWN post, so the model has more to go on than the
+ * mention alone: what the user originally said. Kept short and clearly framed
+ * as context rather than something to quote back, which the base prompt
+ * already forbids doing to the post it IS answering.
+ */
+const threadInstruction = (threadContext?: string | null): string => {
+  const t = threadContext?.trim();
+  if (!t) return '';
+  return `
+
+THREAD CONTEXT — this reply is under a post this person made. Here is what they originally said, for context only (never quote it back):
+"${t.slice(0, 600)}"`;
+};
+
 export const buildCommentPrompt = ({
   platform,
   tone,
   length,
   voice,
+  threadContext,
 }: {
   platform: Platform;
   tone: TonePreset;
   length: CommentLength;
   /** Learned style guide, when the user has trained one. */
   voice?: string | null;
+  /** The user's own post, when this reply is answering a reply to it (4.2). */
+  threadContext?: string | null;
 }): { system: string } => {
   const system = `You're a real person scrolling ${platform}, thumbing out a quick reply to someone's post. It has to read like a human typed it on a phone, not like an assistant wrote it.
 
@@ -71,7 +90,7 @@ Never:
 - Use emojis unless the post itself uses them.
 - Pad with empty words just to hit the length — every sentence must say something real.
 
-Output only the reply text — no quotes, no preamble.${voiceInstruction(voice)}`;
+Output only the reply text — no quotes, no preamble.${voiceInstruction(voice)}${threadInstruction(threadContext)}`;
   return { system };
 };
 

@@ -76,10 +76,10 @@ export const buildManifest = (apiBaseUrl: string) => {
       },
     ],
     // Minimal set: storage (settings/auth), alarms (scheduler tick),
-    // identity (Google sign-in), sidePanel (the workspace mode). No
-    // scripting/activeTab — actions run via the statically-declared x.com
-    // content script.
-    permissions: ['storage', 'alarms', 'identity', 'sidePanel'],
+    // identity (Google sign-in), sidePanel (the workspace mode), notifications
+    // (4.3's capped, decaying-moment alerts). No scripting/activeTab — actions
+    // run via the statically-declared x.com content script.
+    permissions: ['storage', 'alarms', 'identity', 'sidePanel', 'notifications'],
     host_permissions: ['https://x.com/*', 'https://twitter.com/*', `${apiOrigin}/*`],
   });
 };

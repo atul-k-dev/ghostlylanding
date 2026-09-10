@@ -27,6 +27,8 @@ const generateSchema = z.object({
   tone: z.enum(TONE_PRESETS).default('friendly'),
   // Reply length in short lines (1 ≈ 8–10 words). Defaults to 1 for older clients.
   length: z.coerce.number().int().min(1).max(3).default(1),
+  // The user's own post, for a mention that replies to it (updateplan 4.2).
+  threadContext: z.string().max(2_000).optional(),
 });
 
 commentsRouter.post(
@@ -72,7 +74,7 @@ commentsRouter.post(
       return;
     }
 
-    const { platform, postText, postUrl, tone, length } = req.body as z.infer<
+    const { platform, postText, postUrl, tone, length, threadContext } = req.body as z.infer<
       typeof generateSchema
     >;
 
@@ -131,6 +133,7 @@ commentsRouter.post(
         postText,
         // A trained voice overrides the tone preset inside the prompt.
         voice: user.voiceProfile?.summary ?? null,
+        threadContext: threadContext ?? null,
       });
     } catch (e) {
       req.log.error({ err: e }, 'comment generation failed');

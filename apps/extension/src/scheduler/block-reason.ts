@@ -87,6 +87,9 @@ export interface BlockReasonInput {
   homeFeedEnabled: boolean;
   /** At least one of like/comment/follow/bookmark/repost/quote is on. */
   anyActionEnabled: boolean;
+  /** Reading mentions and drafting replies (updateplan 4.1) — a source of
+   *  work in its own right, independent of the feed-engagement toggles. */
+  mentionsEnabled: boolean;
   /** We scanned a feed this tick and matched nothing. */
   scannedButNoMatch: boolean;
 }
@@ -120,9 +123,13 @@ export const resolveBlockReason = (input: BlockReasonInput): BlockReasonCode | n
   // on the home-feed action toggles (executor.ts doLike = hf.like, and
   // scheduler.ts searchCanAct = homeHasBudget), so nothing ever runs and nothing
   // is ever reported.
-  const hasAnySource = input.hasTargets || input.hasSearchQueries || input.homeFeedEnabled;
+  const hasFeedSource = input.hasTargets || input.hasSearchQueries || input.homeFeedEnabled;
+  const hasAnySource = hasFeedSource || input.mentionsEnabled;
   if (!hasAnySource) return 'not-configured';
-  if (!input.homeFeedEnabled || !input.anyActionEnabled) return 'feed-off';
+  // "Feed off" is about the FEED specifically — a user who only wants their
+  // mentions answered and has never configured a feed at all isn't missing a
+  // step, so this only fires when a feed source exists but isn't actually running.
+  if (hasFeedSource && (!input.homeFeedEnabled || !input.anyActionEnabled)) return 'feed-off';
 
   // Healthy, but the feed had nothing worth acting on. Not a fault — and the
   // difference between saying this and saying nothing is the difference between

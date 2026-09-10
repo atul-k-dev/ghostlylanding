@@ -15,6 +15,8 @@ interface GenerateArgs {
   postText: string;
   /** The user's learned style guide, when they've trained one. */
   voice?: string | null;
+  /** The user's own post, for a reply-in-a-thread draft (updateplan 4.2). */
+  threadContext?: string | null;
 }
 
 export const generateCommentDraft = async ({
@@ -23,9 +25,10 @@ export const generateCommentDraft = async ({
   length,
   postText,
   voice,
+  threadContext,
 }: GenerateArgs): Promise<string> => {
   const client = getOpenAI();
-  const { system } = buildCommentPrompt({ platform, tone, length, voice });
+  const { system } = buildCommentPrompt({ platform, tone, length, voice, threadContext });
   const completion = await client.chat.completions.create({
     model: MODEL,
     // High enough that replies don't collapse into the same few constructions

@@ -12,7 +12,9 @@ export type ScanTaskType =
   /** Daily growth scoreboard read: profile counters + how our posts performed. */
   | 'scan-growth'
   /** Work a live-search feed (X's "Latest" tab) for one saved query. */
-  | 'scan-search';
+  | 'scan-search'
+  /** Read the notifications/mentions tab and draft replies (updateplan 4.1). */
+  | 'scan-mentions';
 export type SchedulerTaskType = ActionType | ScanTaskType;
 
 export interface QueuedTask {
@@ -60,6 +62,7 @@ export interface TargetState {
   lastHomeScanAt?: number; // last home-feed scan (keyed `home:${platform}`)
   lastGrowthScanAt?: number; // last growth scoreboard read (keyed `growth:${platform}`)
   lastSearchScanAt?: number; // last live-search sweep (keyed `search:${query}`)
+  lastMentionsScanAt?: number; // last notifications/mentions read (keyed `mentions:${platform}`)
 }
 
 export type TargetStateMap = Record<string, TargetState>; // key = `${platform}:${handle}`

@@ -108,6 +108,44 @@ export interface AutoPostSettings {
 }
 
 /**
+ * Mentions & replies (updateplan 4.1/4.2) — answering the people who talk to
+ * you. Distinct from `homeFeed`: it runs whether or not any feed engagement is
+ * on, because replying to your own mentions carries no ban risk (X weights
+ * conversation threads heavily and this is exactly what the notifications tab
+ * is for), and a user who has switched off feed engagement entirely may still
+ * want their mentions answered.
+ */
+export interface MentionsSettings {
+  /**
+   * Read the notifications tab and draft replies. Defaults ON — unlike feed
+   * engagement this never posts anything unread by itself: whether a drafted
+   * reply goes straight out or waits for a human is still `replyApproval` /
+   * `trust`, exactly as it is for every other reply.
+   */
+  enabled: boolean;
+}
+
+/**
+ * Browser notifications (updateplan 4.3) — a Chrome-level alert, not the panel.
+ * Capped hard at a couple a day regardless of settings, because a product that
+ * pings you is a product you mute; the cap lives in code
+ * (`lib/browser-notify.ts`), not here, so it can never be raised by mistake.
+ */
+export interface BrowserNotificationSettings {
+  /**
+   * The engine is stuck and needs you — signed out for hours, or otherwise
+   * unable to work. Default ON: this is the one class of alert that is safety,
+   * not a nice-to-have.
+   */
+  problems: boolean;
+  /**
+   * "A big account just replied — want me to answer?" Default OFF: everything
+   * except "something is broken" is opt-in, per the plan.
+   */
+  bigReplies: boolean;
+}
+
+/**
  * Graduated trust (updateplan 3.3). The state machine lives in the extension
  * (`src/lib/trust.ts`); the STATE lives here because it is settings, and
  * because both halves of the product — replies and posts — read it.
@@ -241,6 +279,10 @@ export interface ExtensionSettings {
    * ever written in answer to an explicit question.
    */
   trust: TrustSettings;
+  /** Answering mentions (updateplan 4.1/4.2). */
+  mentions: MentionsSettings;
+  /** Chrome-level alerts for decaying moments (updateplan 4.3). */
+  notifications: BrowserNotificationSettings;
 }
 
 /** X account type — drives the scheduled-post character limit. */
