@@ -268,6 +268,10 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
         `executor.ts:284` and `executor.ts:627-628` with that range.
       - Leave `autopilot.ts:612` `pause()` as-is — it already reads
         `opts.minDelayMs`/`opts.maxDelayMs`.
+      - **Remove the ⚠️ annotation from `CONTEXT.md` §10** ("NOT TRUE OF THE CODE
+        YET"). This step is what makes the 8–45s claim true, so the warning must
+        come out here — and not one step earlier. Fixes **D13**.
+      - `docs/Ghostly247-Five-Features.pdf` is now safe to re-publish.
 
 - [ ] **0.2 — Add a per-hour action ceiling.**
       Fixes **D2**.
