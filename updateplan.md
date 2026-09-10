@@ -538,7 +538,8 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
       - Guard against double-mount on SPA navigation.
       - Never mount inside X's own React tree; always a sibling of `body`.
 
-- [ ] **2.2 — The three states.**
+- [x] **2.2 — The three states.** ✅ 2026-09-10 — `floating/state.ts` (pure),
+      `floating/usePanel.ts` (the two memories), `floating/FloatingApp.tsx` (the shell).
       - Bubble (44px, bottom-right), Brief (~360×520), Closed.
       - Draggable by the `⠿` handle; snaps to corners; position persisted per-origin
         in `chrome.storage.local`.
@@ -581,10 +582,12 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 ### Tests
 
-- [ ] **New:** `scripts/floating-smoke.mts` — pure-logic only (no DOM):
+- [x] **New:** `scripts/floating-smoke.mts` — pure-logic only (no DOM):
       state machine transitions (bubble→brief→closed→bubble-next-session),
       corner-snap maths, and the "is this element in the viewport" predicate.
-- [ ] Add to the `test` script. All 10 suites green.
+      ✅ 2026-09-10 — 46 assertions, green.
+- [x] Add to the `test` script. All 10 suites green. ✅ 2026-09-10 — **12 suites**
+      in practice (`block-reason` from 0.6 and `conditions` from 1.7 are extra).
 
 ### Manual QA
 
@@ -977,3 +980,6 @@ Append one line per completed step. Never edit or delete earlier lines.
 | 2026-09-10 | **1.7** Real {n} | `_(this commit)_` | “Skipped {n} posts” needed a real n, and `reportIdleReason` was passing `scannedButNoMatch: true` **hardcoded** — so the engine claimed a quiet feed on a fresh install that had never scanned. The executor now returns `scanned`/`acted`; the scheduler accumulates `skippedSinceAction` in `SchedulerState`, resets it the moment anything is acted on, and reports `nothing-matched` **only when that count is above zero**, passing it as the `BlockReason` detail. Tightens the condition rather than loosening it: fewer false “quiet feed” claims, and the card can no longer say “Skipped 0 posts”. |
 | 2026-09-10 | **1.7** ⚠️ Owner | `_(this commit)_` | Three things the owner should know. (1) **`profile-quiet`'s `{n}`** is profile visits this week; nothing in the codebase measures that, so the sentence is dropped and the card reads “Your profile's gone quiet. Want me to write something?” — the doc's own instruction, not an omission. (2) **`Write two for me`** asks the existing `GENERATE_IDEAS` handler for two suggestions and loads them into Posts; it does not schedule anything, because publishing under someone's name without them reading it is Phase 3's decision to make, not 1.7's. (3) **Version is still `2.1.0`** — rule 8 bumps once a phase is *verified*, and Phase 1's Manual QA is deferred to the owner. |
 | 2026-09-10 | **2.1** Shadow mount | `_(this commit)_` | `src/floating/mount.ts` — a closed shadow root on a `<div>` appended to `document.body`, never inside X's React tree, with `theme.css?inline` compiled into a `<style>` node inside it (the §3 no-CSS-files exception). Verified in `dist`, not assumed: the theme is a string inside the content-script chunk, Tailwind v4 emits its tokens as `:root,:host` so they resolve inside the shadow root, and the manifest's x.com entry has **no `css` array** — nothing at all reaches X's stylesheet. The host layer is `pointer-events:none` with its children `auto`, so a full-viewport overlay can never swallow a click meant for X. Idempotent by id, plus a `MutationObserver` that re-appends the host if anything removes it. |
+| 2026-09-10 | **2.2** Three states | `_(this commit)_` | `floating/state.ts` is PURE — state machine, corner-snap maths and the viewport predicate, no DOM and no chrome — which is what lets `floating-smoke.mts` drive all of it in node. Bubble 44px · brief 360×520 · closed. **Closed is `sessionStorage`, position is `chrome.storage.local` keyed by origin:** different lifetimes on purpose, because closing is a “not now” and a UI you can't get back is a UI people uninstall (x.com and twitter.com are separate origins, and someone who moved it on one has said nothing about the other). A drop snaps to the nearest corner **by the box's centre**, not its top-left — the brief is bigger than a quarter of a laptop screen, so cornering by the top-left sends it to the wrong side. |
+| 2026-09-10 | **2.2** Same pages | `_(this commit)_` | The brief's tabs ARE the side panel's pages: `Now` is `Today`, `Review` is `Review`, `Ask` is `Ask`. Not copies — a second implementation of “what happened today” would drift within a week, and the condition card is the same `ConditionCard` reading the same `casper.blockReason`, which is what §1 asks for. A card button that leads somewhere the 360px brief cannot be (settings, who I watch, the account) opens the **side panel** rather than pretending the page exists here. Toolbar is the plan's `👁 ⏸ ⤢ ✕`; the `⤢` path is 2.5's to verify. |
+| 2026-09-10 | **2.2** ⚠️ Setting | `_(this commit)_` | Added `spotlight: boolean` to `ExtensionSettings` (default **true**) here rather than in 2.3, because the toolbar's `👁` needs something real to toggle and a switch wired to component state would be a lie. 2.3 consumes it and deletes `visibleMode`, as the plan says. |

@@ -174,6 +174,16 @@ export interface ExtensionSettings {
    */
   warmupStartedAt: string | null;
   /**
+   * Spotlight: outline the post the engine is about to act on, on the real page,
+   * and name it in the floating panel (updateplan 2.3).
+   *
+   * Defaults ON. It is the answer to “is this thing actually doing anything?”,
+   * which every user asks in their first ten minutes, and it replaces the old
+   * `visibleMode` (“Watch it work”) switch — that one only chose whether tabs
+   * opened in the foreground, which is not the same question.
+   */
+  spotlight: boolean;
+  /**
    * When the user finished the setup flow, or null if they never has.
    *
    * This is what decides whether the panel opens on Setup or on Today. It is

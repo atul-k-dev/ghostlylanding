@@ -41,6 +41,8 @@ export const STORAGE_KEYS = {
   rejectedDrafts: 'casper.rejectedDrafts',
   /** One-shot instruction from a condition card to the page it opens (1.7). */
   panelIntent: 'casper.panelIntent',
+  /** Where the floating panel sits, per origin (2.2). */
+  floatingPanel: 'casper.floatingPanel',
 } as const;
 
 /**
@@ -90,6 +92,9 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   sessionMinutes: 60,
   // Show the work happening (foreground tabs) by default.
   visibleMode: true,
+  // Outline the post being acted on, on the page. Defaults on: it is the answer
+  // to "is this actually doing anything?", which is the first thing anyone asks.
+  spotlight: true,
   // Browse like a human — open profiles/posts to act, then return to the feed.
   interactiveMode: true,
   activeHours: { startHour: 9, endHour: 22 },

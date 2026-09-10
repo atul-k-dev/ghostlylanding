@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "package": "pnpm build && mkdir -p ../../releases && rm -f \"../../releases/ghostly247-extension-$npm_package_version.zip\" && (cd dist && zip -qr \"../../../releases/ghostly247-extension-$npm_package_version.zip\" .) && echo \"-> releases/ghostly247-extension-$npm_package_version.zip\"",
     "preview": "vite preview",
-    "test": "pnpm smoke && pnpm reply-queue-smoke && pnpm relevance-smoke && pnpm selectors-smoke && pnpm schedule-smoke && pnpm resilience-smoke && pnpm block-reason-smoke && pnpm pacing-smoke && pnpm presets-smoke && pnpm setup-smoke && pnpm conditions-smoke",
+    "test": "pnpm smoke && pnpm reply-queue-smoke && pnpm relevance-smoke && pnpm selectors-smoke && pnpm schedule-smoke && pnpm resilience-smoke && pnpm block-reason-smoke && pnpm pacing-smoke && pnpm presets-smoke && pnpm setup-smoke && pnpm conditions-smoke && pnpm floating-smoke",
     "smoke": "tsx scripts/scheduler-smoke.mts",
     "reply-queue-smoke": "tsx scripts/reply-queue-smoke.mts",
     "relevance-smoke": "tsx scripts/relevance-smoke.mts",
@@ -21,7 +21,8 @@
     "pacing-smoke": "tsx scripts/pacing-smoke.mts",
     "presets-smoke": "tsx scripts/presets-smoke.mts",
     "setup-smoke": "tsx scripts/setup-smoke.mts",
-    "conditions-smoke": "tsx scripts/conditions-smoke.mts"
+    "conditions-smoke": "tsx scripts/conditions-smoke.mts",
+    "floating-smoke": "tsx scripts/floating-smoke.mts"
   },
   "dependencies": {
     "@casper/shared": "workspace:*",
