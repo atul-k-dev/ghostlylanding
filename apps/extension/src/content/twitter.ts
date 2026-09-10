@@ -8,6 +8,7 @@ import { hydrateSelectors } from '../lib/selector-config.js';
 // PHASE 2.5 SPIKE — remove this import and the call below once the side-panel
 // gesture result is recorded in updateplan.md §10.
 import { mountSidePanelSpike } from './side-panel-spike.js';
+import { mountFloatingPanel } from '../floating/mount.js';
 
 // Apply any remotely-served selector overrides BEFORE the handler can act on a
 // message. The handler awaits this same promise, so a message arriving during
@@ -16,6 +17,9 @@ export const selectorsReady = hydrateSelectors();
 
 installTwitterHandler(selectorsReady);
 mountSidePanelSpike();
+// The product, on the page it works on (updateplan 2.1). Idempotent: X is an
+// SPA and this script can run more than once per tab.
+mountFloatingPanel();
 console.log('[casper] twitter content script loaded');
 
 export {};
