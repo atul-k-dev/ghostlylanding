@@ -5,6 +5,9 @@
  */
 import { installTwitterHandler } from '../platforms/twitter/handler.js';
 import { hydrateSelectors } from '../lib/selector-config.js';
+// PHASE 2.5 SPIKE — remove this import and the call below once the side-panel
+// gesture result is recorded in updateplan.md §10.
+import { mountSidePanelSpike } from './side-panel-spike.js';
 
 // Apply any remotely-served selector overrides BEFORE the handler can act on a
 // message. The handler awaits this same promise, so a message arriving during
@@ -12,6 +15,7 @@ import { hydrateSelectors } from '../lib/selector-config.js';
 export const selectorsReady = hydrateSelectors();
 
 installTwitterHandler(selectorsReady);
+mountSidePanelSpike();
 console.log('[casper] twitter content script loaded');
 
 export {};

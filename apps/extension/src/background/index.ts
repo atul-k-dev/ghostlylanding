@@ -202,6 +202,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ ok: true });
     return false;
   }
+  // PHASE 2.5 SPIKE — the one interaction the floating panel's "⤢ expand"
+  // button depends on. Chrome requires a user gesture to open the side panel;
+  // this call is made synchronously in the message listener (NOT after an await)
+  // because any await first would drop the gesture even if it did survive the
+  // message hop. Handled here rather than in asyncHandlers because we need
+  // `sender.tab.id` — a content script can't read its own.
+  if (message.type === 'OPEN_SIDE_PANEL') {
+    const tabId = sender.tab?.id;
+    if (typeof tabId !== 'number') {
+      sendResponse({ ok: false, error: 'no_tab_id' });
+      return false;
+    }
+    try {
+      const opening = chrome.sidePanel.open({ tabId }) as unknown as Promise<void> | undefined;
+      void Promise.resolve(opening)
+        .then(() => {
+          console.log('[casper] spike: sidePanel.open() RESOLVED from a content-script gesture');
+        })
+        .catch((err: unknown) => {
+          console.warn('[casper] spike: sidePanel.open() REJECTED —', err);
+        });
+      sendResponse({ ok: true });
+    } catch (err) {
+      console.warn('[casper] spike: sidePanel.open() THREW —', err);
+      sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+    return false;
+  }
   const handler = asyncHandlers[message.type];
   if (!handler) {
     sendResponse({ ok: false, error: 'unknown_message_type' });
