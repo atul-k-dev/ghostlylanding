@@ -30,6 +30,21 @@ export interface DigestGrowth {
   days: number;
 }
 
+/**
+ * The single best-performing reply, when one can be named honestly.
+ *
+ * Matched by exact text against a scraped `PostOutcome` — never a guess: if
+ * nothing matches (no growth scan has run yet, or the reply is too fresh to
+ * have real numbers), there is no best reply, and the email says nothing
+ * rather than naming one that isn't backed by a real count.
+ */
+export interface DigestBestReply {
+  text: string;
+  postUrl: string;
+  likes: number;
+  replies: number;
+}
+
 export interface DailySummaryData {
   firstName: string;
   dateLabel: string;
@@ -46,8 +61,20 @@ export interface DailySummaryData {
   moreReplies: number;
   follows: DigestFollow[];
   moreFollows: number;
-  /** Follower movement, when we have enough readings to state one honestly. */
+  /**
+   * Follower movement over the last 7 days — kept as trend CONTEXT under the
+   * day's own number, when we have enough readings to state one honestly.
+   */
   growth?: DigestGrowth | null;
+  /**
+   * Followers gained since YESTERDAY's reading specifically — the actual lead
+   * of a DAILY email (updateplan 4.5). Null until there are two consecutive
+   * daily readings; the email leads with the weekly trend alone until then
+   * rather than inventing a one-day number from a gap.
+   */
+  dayChange?: { followers: number; change: number } | null;
+  /** The day's single best-performing reply, when one is honestly known. */
+  bestReply?: DigestBestReply | null;
   unsubscribeUrl: string;
 }
 
@@ -115,7 +142,13 @@ export const renderDailySummary = (
   d: DailySummaryData,
 ): { subject: string; html: string; text: string } => {
   const s = d.totalActions === 1 ? '' : 's';
-  const subject = `👻 Your Ghostly247 recap — ${d.totalActions} action${s} on ${d.dateLabel}`;
+  // Leads with the outcome when there is one (updateplan 4.5) — a real
+  // follower change is a stronger reason to open the email than an action
+  // count, and falls back to the count when there's no day-over-day reading.
+  const subject =
+    d.dayChange && d.dayChange.change !== 0
+      ? `👻 ${d.dayChange.change >= 0 ? '+' : ''}${d.dayChange.change.toLocaleString()} followers yesterday`
+      : `👻 Your Ghostly247 recap — ${d.totalActions} action${s} on ${d.dateLabel}`;
 
   const repliesSection =
     d.replies.length > 0
@@ -136,19 +169,48 @@ export const renderDailySummary = (
       ${d.moreFollows > 0 ? `<p style="font-size:12px;color:${MUTED};margin:8px 0 0">+ ${d.moreFollows} more.</p>` : ''}`
       : '';
 
-  // The one line that answers "is this working?" — shown only when a real
-  // comparison exists, so we never invent a trend from a single reading.
-  const growthSection = d.growth
+  /**
+   * The lead (updateplan 4.5): followers gained, then the single best reply.
+   * Action counts are further down, past this and the reply/follow lists —
+   * "did it work" comes before "what did it do".
+   *
+   * `dayChange` (yesterday vs the day before) is the number a DAILY email
+   * should lead with; the 7-day trend from `growth` is kept as context
+   * underneath, never as the headline, and either can be absent on its own —
+   * two consecutive daily readings is a different bar than two readings a week
+   * apart, and a fresh account may have neither yet.
+   */
+  const heroNumber = d.dayChange ?? (d.growth ? { followers: d.growth.followers, change: null } : null);
+  const heroSection = heroNumber
     ? `
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px">
-            <tr><td style="background:${CORAL_TINT};border:1px solid ${BORDER};border-radius:14px;padding:14px 16px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px">
+            <tr><td style="background:${CORAL_TINT};border:1px solid ${BORDER};border-radius:14px;padding:16px 18px">
               <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${MUTED}">Followers</div>
-              <div style="font-size:24px;font-weight:600;color:${FG};margin-top:4px">${d.growth.followers.toLocaleString()}</div>
-              <div style="font-size:13px;color:${d.growth.change >= 0 ? CORAL_BRIGHT : MUTED};margin-top:2px">
-                ${d.growth.change >= 0 ? '+' : ''}${d.growth.change.toLocaleString()} over the last ${d.growth.days} day${d.growth.days === 1 ? '' : 's'}
-              </div>
+              <div style="font-size:30px;font-weight:700;color:${FG};margin-top:4px">${heroNumber.followers.toLocaleString()}</div>
+              ${
+                d.dayChange
+                  ? `<div style="font-size:14px;color:${d.dayChange.change >= 0 ? CORAL_BRIGHT : MUTED};margin-top:3px">${d.dayChange.change >= 0 ? '+' : ''}${d.dayChange.change.toLocaleString()} yesterday</div>`
+                  : ''
+              }
+              ${
+                d.growth
+                  ? `<div style="font-size:12px;color:${MUTED};margin-top:2px">${d.growth.change >= 0 ? '+' : ''}${d.growth.change.toLocaleString()} over the last ${d.growth.days} day${d.growth.days === 1 ? '' : 's'}</div>`
+                  : ''
+              }
             </td></tr>
           </table>`
+    : '';
+
+  const bestReplySection = d.bestReply
+    ? `
+      <h2 style="font-size:15px;color:${FG};margin:0 0 4px">Yesterday's best reply</h2>
+      <div style="background:${INSET};border:1px solid ${BORDER};border-radius:14px;padding:14px 16px;margin:0 0 22px">
+        <div style="font-size:14px;color:${FG};line-height:1.55">"${esc(d.bestReply.text)}"</div>
+        <div style="margin-top:10px;font-size:12px;color:${MUTED}">
+          ${d.bestReply.likes.toLocaleString()} like${d.bestReply.likes === 1 ? '' : 's'}${d.bestReply.replies > 0 ? ` · ${d.bestReply.replies.toLocaleString()} repl${d.bestReply.replies === 1 ? 'y' : 'ies'}` : ''}
+          <a href="${esc(d.bestReply.postUrl)}" style="color:${CORAL_BRIGHT};text-decoration:none;margin-left:8px">View post &rarr;</a>
+        </div>
+      </div>`
     : '';
 
   const html = `<!doctype html>
@@ -165,9 +227,11 @@ export const renderDailySummary = (
             <div style="font-size:13px;color:${MUTED}">${d.dateLabel}</div>
           </div>
           <p style="font-size:14px;color:${MUTED};line-height:1.6;margin:22px 0 18px">
-            Hi ${esc(d.firstName)} — here's everything I did for you yesterday. Skim it and make sure it still feels like you. 👀
+            Hi ${esc(d.firstName)} — here's how yesterday went. 👀
           </p>
-          ${growthSection}
+          ${heroSection}
+          ${bestReplySection}
+          <h2 style="font-size:15px;color:${FG};margin:0 0 12px">What I did</h2>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>${statTile(d.counts.like, 'Likes')}${statTile(d.counts.comment, 'Replies')}${statTile(d.counts.follow, 'Follows')}</tr>
             <tr>${statTile(d.counts.bookmark, 'Bookmarks')}${statTile(d.counts.repost, 'Reposts')}${statTile(d.counts.quote, 'Quotes')}</tr>
@@ -195,14 +259,31 @@ export const renderDailySummary = (
   const lines: string[] = [
     `Your Ghostly247 daily recap — ${d.dateLabel}`,
     ``,
-    `Hi ${d.firstName}, here's everything I did for you yesterday:`,
+    `Hi ${d.firstName}, here's how yesterday went:`,
     ``,
-    ...(d.growth
+    ...(heroNumber
       ? [
-          `Followers: ${d.growth.followers.toLocaleString()} (${d.growth.change >= 0 ? '+' : ''}${d.growth.change.toLocaleString()} over the last ${d.growth.days} day${d.growth.days === 1 ? '' : 's'})`,
+          `Followers: ${heroNumber.followers.toLocaleString()}` +
+            (d.dayChange
+              ? ` (${d.dayChange.change >= 0 ? '+' : ''}${d.dayChange.change.toLocaleString()} yesterday)`
+              : ''),
+          ...(d.growth
+            ? [
+                `  ${d.growth.change >= 0 ? '+' : ''}${d.growth.change.toLocaleString()} over the last ${d.growth.days} day${d.growth.days === 1 ? '' : 's'}`,
+              ]
+            : []),
           ``,
         ]
       : []),
+    ...(d.bestReply
+      ? [
+          `Yesterday's best reply (${d.bestReply.likes.toLocaleString()} like${d.bestReply.likes === 1 ? '' : 's'}):`,
+          `"${d.bestReply.text}"`,
+          d.bestReply.postUrl,
+          ``,
+        ]
+      : []),
+    `What I did:`,
     `Likes: ${d.counts.like}`,
     `Replies: ${d.counts.comment}`,
     `Follows: ${d.counts.follow}`,

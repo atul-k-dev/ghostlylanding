@@ -17,6 +17,7 @@ import { UserModel } from '../models/user.model.js';
 import { ActionLogModel } from '../models/action-log.model.js';
 import { CommentDraftModel } from '../models/comment-draft.model.js';
 import { GrowthSnapshotModel } from '../models/growth-snapshot.model.js';
+import { PostOutcomeModel } from '../models/post-outcome.model.js';
 import { deltaOver } from '../growth/series.js';
 import { sendEmail } from '../email/resend.js';
 import { renderDailySummary, buildUnsubscribeUrl } from '../email/daily-summary.js';
@@ -157,6 +158,11 @@ export const runDailySummaryJob = async (): Promise<void> => {
       // are at least two readings to compare, so the recap never implies a
       // trend the growth scan hasn't actually measured yet.
       let growth: DigestGrowth | null = null;
+      // The DAY's own change (updateplan 4.5) — what a daily email should
+      // actually lead with. Separate from the 7-day trend above: two
+      // consecutive daily readings is a different, stricter bar than two
+      // readings a week apart, and either can exist without the other.
+      let dayChange: { followers: number; change: number } | null = null;
       const snaps = await GrowthSnapshotModel.find({ userId: user._id })
         .sort({ date: -1 })
         .limit(31)
@@ -169,6 +175,36 @@ export const runDailySummaryJob = async (): Promise<void> => {
         const newest = series[series.length - 1];
         if (newest && week.change !== null) {
           growth = { followers: newest.followers, change: week.change, days: week.days };
+        }
+        const day = deltaOver(series, 1);
+        if (newest && day.change !== null && day.days === 1) {
+          dayChange = { followers: newest.followers, change: day.change };
+        }
+      }
+
+      // The day's single best-performing reply (updateplan 4.5) — matched by
+      // EXACT text against a scraped PostOutcome, never a guess. `postReplyInArticle`
+      // types the draft text verbatim, so a match here is a real one; no match
+      // (too fresh for a growth scan to have found it yet, or none posted) means
+      // no best reply is named, rather than naming one with invented numbers.
+      let bestReply: { text: string; postUrl: string; likes: number; replies: number } | null = null;
+      if (dayDrafts.length > 0) {
+        const outcomes = await PostOutcomeModel.find({ userId: user._id })
+          .sort({ likes: -1 })
+          .limit(200)
+          .lean();
+        const byText = new Map(outcomes.map((o) => [o.text.trim(), o]));
+        for (const draft of dayDrafts) {
+          const match = byText.get(draft.draftText.trim());
+          if (!match) continue;
+          if (!bestReply || match.likes > bestReply.likes) {
+            bestReply = {
+              text: match.text,
+              postUrl: match.url,
+              likes: match.likes,
+              replies: match.replies,
+            };
+          }
         }
       }
 
@@ -193,6 +229,8 @@ export const runDailySummaryJob = async (): Promise<void> => {
         follows: follows.slice(0, 15),
         moreFollows: Math.max(0, follows.length - 15),
         growth,
+        dayChange,
+        bestReply,
         unsubscribeUrl: buildUnsubscribeUrl(userId),
       });
 
