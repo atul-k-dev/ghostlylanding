@@ -74,7 +74,7 @@ const withSpotlight = async <T>(
   }
 };
 
-interface PostMeta {
+export interface PostMeta {
   postId: string;
   postUrl: string;
   /** In-app path of the post (`/handle/status/id`) — the href on the anchor we
@@ -85,7 +85,7 @@ interface PostMeta {
   publishedAt: string | null;
 }
 
-const readArticle = (article: HTMLElement): PostMeta | null => {
+export const readArticle = (article: HTMLElement): PostMeta | null => {
   const time = article.querySelector<HTMLTimeElement>(S.timestamp);
   const link =
     time?.closest<HTMLAnchorElement>(S.permalink) ??
@@ -113,7 +113,7 @@ const readArticle = (article: HTMLElement): PostMeta | null => {
 /** Re-find a post in the CURRENT DOM by id. After an in-app navigation the feed
  *  re-renders, so every element captured before the trip is detached — anything
  *  that wants to keep working on a post has to look it up again. */
-const findArticleById = (postId: string): HTMLElement | null => {
+export const findArticleById = (postId: string): HTMLElement | null => {
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(S.postArticle))) {
     if (readArticle(el)?.postId === postId) return el;
   }
@@ -210,20 +210,20 @@ const dismissComposer = (): void => {
  * Reply to the post inside this article using the inline composer modal.
  * Returns the posted state plus the draft id (so the executor can mark it).
  */
-const commentInArticle = async (
+/**
+ * Type one exact reply into a post's own reply modal and send it.
+ *
+ * Split out of `commentInArticle` in updateplan 2.4 so “Reply for me” can post
+ * the text the USER approved rather than re-drafting one of its own. The DOM
+ * dance is identical either way, and a second copy of it would be a second thing
+ * to fix the next time X moves the Send button.
+ */
+export const postReplyInArticle = async (
   article: HTMLElement,
-  meta: PostMeta,
-  platform: string,
-): Promise<{ posted: boolean; draftId?: string; error?: string }> => {
+  text: string,
+): Promise<{ posted: boolean; error?: string }> => {
   const replyBtn = article.querySelector<HTMLButtonElement>('button[data-testid="reply"]');
   if (!replyBtn) return { posted: false, error: 'reply button not found on post' };
-
-  const draft = await generateDraft(platform, meta.text, meta.postUrl);
-  if (!draft.ok) {
-    console.log('[casper] comment: generation failed —', draft.error);
-    return { posted: false, error: draft.error };
-  }
-  console.log('[casper] comment: drafted, opening reply box…');
 
   replyBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
   await wait(400);
@@ -235,7 +235,7 @@ const commentInArticle = async (
   const dialog = await waitFor<HTMLElement>(S.replyDialog, 8_000);
   if (!dialog) {
     dismissComposer();
-    return { posted: false, draftId: draft.id, error: 'reply dialog never opened' };
+    return { posted: false, error: 'reply dialog never opened' };
   }
 
   let composer: HTMLElement | null = null;
@@ -246,10 +246,10 @@ const commentInArticle = async (
   }
   if (!composer) {
     dismissComposer();
-    return { posted: false, draftId: draft.id, error: 'reply composer never opened' };
+    return { posted: false, error: 'reply composer never opened' };
   }
 
-  await typeIntoComposer(composer, draft.draftText);
+  await typeIntoComposer(composer, text);
 
   let btn: HTMLButtonElement | null = null;
   for (let i = 0; i < 16; i++) {
@@ -260,7 +260,7 @@ const commentInArticle = async (
   if (!btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
     console.log('[casper] comment: Send stayed disabled — text may not have registered');
     dismissComposer();
-    return { posted: false, draftId: draft.id, error: 'reply submit button never enabled' };
+    return { posted: false, error: 'reply submit button never enabled' };
   }
   btn.click();
 
@@ -269,11 +269,27 @@ const commentInArticle = async (
     await wait(350);
     if (!document.querySelector(S.replyDialog)) {
       console.log('[casper] comment: posted ✓');
-      return { posted: true, draftId: draft.id };
+      return { posted: true };
     }
   }
   dismissComposer();
-  return { posted: false, draftId: draft.id, error: 'composer did not clear after submit' };
+  return { posted: false, error: 'composer did not clear after submit' };
+};
+
+/** Draft a reply to this post and send it — the autopilot's own path. */
+const commentInArticle = async (
+  article: HTMLElement,
+  meta: PostMeta,
+  platform: string,
+): Promise<{ posted: boolean; draftId?: string; error?: string }> => {
+  const draft = await generateDraft(platform, meta.text, meta.postUrl);
+  if (!draft.ok) {
+    console.log('[casper] comment: generation failed —', draft.error);
+    return { posted: false, error: draft.error };
+  }
+  console.log('[casper] comment: drafted, opening reply box…');
+  const r = await postReplyInArticle(article, draft.draftText);
+  return { ...r, draftId: draft.id };
 };
 
 /** Close any open dropdown menu (Escape is what X listens for). */

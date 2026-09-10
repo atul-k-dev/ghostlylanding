@@ -9,6 +9,7 @@ import { Ask } from '../sidepanel/pages/Ask.js';
 import { usePanelState, usePlacement } from './usePanel.js';
 import { clampToViewport, nearestCorner, type Size } from './state.js';
 import { SpotlightLine } from './SpotlightLine.js';
+import { ReplyForMeCard, useReplyForMe } from './ReplyForMeCard.js';
 
 /**
  * The floating panel (updateplan 2.2).
@@ -75,6 +76,16 @@ export const FloatingApp = () => {
   const waiting = usePendingCount();
   const [tab, setTab] = useState<FloatingTab>('now');
   const [dragPos, setDragPos] = useState<{ left: number; top: number } | null>(null);
+  const replyForMe = useReplyForMe();
+
+  // Pressing "Reply for me" on a post is a request for the panel: open the
+  // brief on Now, where the draft is about to appear. Without this the button
+  // would look broken to anyone whose panel is a bubble — which is most people.
+  useEffect(() => {
+    if (replyForMe.status === 'idle') return;
+    setTab('now');
+    dispatch('open');
+  }, [replyForMe.status, dispatch]);
 
   /** Set by a drag so the pointerup's click doesn't also open the panel. */
   const suppressClick = useRef(false);
@@ -266,7 +277,10 @@ export const FloatingApp = () => {
           <>
             {/* Above the condition card on purpose: what is happening RIGHT NOW
                 outranks what is standing in the way, for as long as it lasts. */}
-            <div className="px-3 pt-3">
+            <div className="flex flex-col gap-3 px-3 pt-3 empty:hidden">
+              {/* What the user asked for outranks what the engine is doing,
+                  which outranks what is standing in the way. */}
+              <ReplyForMeCard state={replyForMe} />
               <SpotlightLine />
             </div>
             <Today status={status} onNavigate={navigate} />

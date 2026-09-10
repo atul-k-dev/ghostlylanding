@@ -39,6 +39,8 @@ export const STORAGE_KEYS = {
   setupProgress: 'casper.setupProgress',
   /** Drafts the user rejected, kept for Phase 6.3's voice tuning. */
   rejectedDrafts: 'casper.rejectedDrafts',
+  /** (generated, corrected) pairs — the strongest voice signal there is (2.4). */
+  correctedDrafts: 'casper.correctedDrafts',
   /** One-shot instruction from a condition card to the page it opens (1.7). */
   panelIntent: 'casper.panelIntent',
   /** Where the floating panel sits, per origin (2.2). */
@@ -723,4 +725,37 @@ export const appendRejectedDraft = async (entry: RejectedDraft): Promise<void> =
 export const getRejectedDrafts = async (): Promise<RejectedDraft[]> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.rejectedDrafts);
   return (got[STORAGE_KEYS.rejectedDrafts] as RejectedDraft[] | undefined) ?? [];
+};
+
+/** A draft the user edited before sending, and what they changed it to. */
+export interface CorrectedDraft {
+  /** The post being answered. */
+  postText: string;
+  /** What the model wrote. */
+  generated: string;
+  /** What the user actually sent. */
+  corrected: string;
+  at: string;
+}
+
+const CORRECTED_DRAFTS_MAX = 50;
+
+/**
+ * Remember an edit (updateplan 2.4).
+ *
+ * A rejection says "not that"; an edit says "this instead", which is the only
+ * signal that carries the user's own voice. Phase 6.3 feeds these pairs back
+ * into the voice profile, and every one thrown away is a question we have to
+ * ask the user again later.
+ */
+export const appendCorrectedDraft = async (entry: CorrectedDraft): Promise<void> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.correctedDrafts);
+  const existing = (got[STORAGE_KEYS.correctedDrafts] as CorrectedDraft[] | undefined) ?? [];
+  const next = [...existing, entry].slice(-CORRECTED_DRAFTS_MAX);
+  await chrome.storage.local.set({ [STORAGE_KEYS.correctedDrafts]: next });
+};
+
+export const getCorrectedDrafts = async (): Promise<CorrectedDraft[]> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.correctedDrafts);
+  return (got[STORAGE_KEYS.correctedDrafts] as CorrectedDraft[] | undefined) ?? [];
 };

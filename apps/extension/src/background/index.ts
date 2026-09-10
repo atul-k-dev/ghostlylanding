@@ -19,6 +19,8 @@ import {
   VOICE_LIMITS,
   isPro,
   bumpMonthly,
+  monthlyActionsUsed,
+  FREE_TIER,
 } from '@casper/shared';
 import type { PendingReply } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
@@ -49,11 +51,12 @@ import { driveTab } from '../platforms/common/tab-driver.js';
 import { readAccountForSetup, getSetupRead } from './setup-read.js';
 import { runDryRun } from '../scheduler/dry-run.js';
 import { mostDistinctiveTerm } from '../lib/topics.js';
-import { appendRejectedDraft } from '../lib/storage.js';
+import { appendRejectedDraft, appendCorrectedDraft } from '../lib/storage.js';
 import { refreshSelectorConfig, SELECTOR_REFRESH_MS } from '../lib/selector-config.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog, appendActionLog } from '../scheduler/action-log.js';
-import { ensureToday, incrementCounter } from '../scheduler/counters.js';
+import { ensureToday, incrementCounter, isUnderCap } from '../scheduler/counters.js';
+import { canActNow } from '../scheduler/rate-limit.js';
 import {
   getSettings,
   setSettings,
@@ -191,6 +194,8 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   SCAN_SEARCH_NOW: handleScanSearchNow as AsyncHandler<unknown, unknown>,
   FOLLOW_BACK_NOW: handleFollowBackNow as AsyncHandler<unknown, unknown>,
   RECORD_ACTION: handleRecordAction as AsyncHandler<unknown, unknown>,
+  CAN_REPLY: handleCanReply as AsyncHandler<unknown, unknown>,
+  RECORD_CORRECTION: handleRecordCorrection as AsyncHandler<unknown, unknown>,
   UPDATE_PREFERENCES: handleUpdatePreferences as AsyncHandler<unknown, unknown>,
   DRAFT_COMMENT: handleDraftComment as AsyncHandler<unknown, unknown>,
   GENERATE_POST: handleGeneratePost as AsyncHandler<unknown, unknown>,
@@ -544,6 +549,60 @@ async function handleFlush() {
 async function handleQueueStats() {
   const stats = await queueStats();
   return { ok: true, data: stats };
+}
+
+/**
+ * May a reply go out right now? (updateplan 2.4)
+ *
+ * "Reply for me" is a button the user pressed, but it is still a reply posted by
+ * this extension under their name, so it passes the same three gates the
+ * autopilot passes: the daily cap, the free-tier monthly allowance, and the
+ * rolling hourly ceiling. A manual action that skipped them would make every
+ * safety number in the product a lie the moment someone clicked twice.
+ *
+ * Being PAUSED is deliberately not a gate: pause stops the engine acting on its
+ * own, and this is the user acting.
+ */
+async function handleCanReply() {
+  const settings = await getSettings();
+  const counters = await ensureToday(settings);
+  if (!isUnderCap(counters, 'twitter', 'comment')) {
+    return { ok: true, data: { allowed: false, reason: 'caps-spent' as const } };
+  }
+  const auth = await getAuth();
+  const pro = isPro(auth?.user.subscriptionStatus ?? 'free');
+  if (!pro && monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions) {
+    return { ok: true, data: { allowed: false, reason: 'free-cap' as const } };
+  }
+  if (!(await canActNow())) {
+    return { ok: true, data: { allowed: false, reason: 'hourly' as const } };
+  }
+  return { ok: true, data: { allowed: true } };
+}
+
+/**
+ * Keep a (generated, corrected) pair (updateplan 2.4).
+ *
+ * The user edited a draft before sending it. That edit is the strongest
+ * statement about their voice the product ever gets — stronger than a tone
+ * preset, stronger than a rejection — and Phase 6.3 trains on it.
+ */
+async function handleRecordCorrection(payload: unknown) {
+  const { postText, generated, corrected } = (payload ?? {}) as {
+    postText?: string;
+    generated?: string;
+    corrected?: string;
+  };
+  if (!generated || !corrected || generated.trim() === corrected.trim()) {
+    return { ok: true, data: { stored: false } };
+  }
+  await appendCorrectedDraft({
+    postText: postText ?? '',
+    generated,
+    corrected,
+    at: new Date().toISOString(),
+  });
+  return { ok: true, data: { stored: true } };
 }
 
 async function handleEnsureCounters() {
