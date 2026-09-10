@@ -1,6 +1,6 @@
 # Ghostly247 — End-to-End Transformation Plan
 
-> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 code-complete (1.1–1.7) · Phase 2 code-complete (2.1–2.5) · Phase 3 code-complete (3.1–3.6, including the optional 3.6) · Phase 4 code-complete (4.1–4.5) · **Phase 5 code-complete (5.1–5.3)** · **Phase 6 code-complete (6.1–6.9)** — 23 extension suites + 6 server suites green, typecheck and build clean across every workspace; all version bumps held until Manual QA passes
+> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 code-complete (1.1–1.7) · Phase 2 code-complete (2.1–2.5) · Phase 3 code-complete (3.1–3.6, including the optional 3.6) · Phase 4 code-complete (4.1–4.5) · **Phase 5 code-complete (5.1–5.3)** · **Phase 6 code-complete (6.1–6.9)** — 22 extension suites + 6 server suites green, typecheck and build clean across every workspace; all version bumps held until Manual QA passes
 > · **All Manual QA deferred to the end of the rebuild at the owner's request (2026-09-10)** · 2.5 spike still awaiting Chrome verification
 > · **Auto-posting ships OFF and publishes nothing unread** — see the 3.x owner note in §10 before testing it
 > · **4.4's weekly email omits 3 of its 5 planned content bullets** (which target worked best / was dropped / a timing change) — no data source for any of the three exists anywhere in this codebase; see the 4.4 owner note in §10
@@ -856,7 +856,7 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
       a fixture of a followers sample + a followed-handles set produces the
       expected followers-from-follows figure, and returns `null` rather than
       guessing when the sample is empty. ✅ 2026-09-11
-- [x] All suites green — **23 extension suites + 6 server suites** (the plan
+- [x] All suites green — **22 extension suites + 6 server suites** (the plan
       says 15; every phase before this one added suites the plan didn't
       count either). typecheck + build clean across every workspace. ✅
 
@@ -872,7 +872,7 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 - [ ] All 8 phrasings behave correctly. ← **needs a live OpenAI key + Chrome**
 - [ ] Zero fabricated figures across 20 varied questions. ← **needs Chrome**
-- [x] All suites green (23 extension + 6 server). ✅ Version bump and commit
+- [x] All suites green (22 extension + 6 server). ✅ Version bump and commit
       held until the Manual QA above passes, per rule 8 — same deferral every
       phase since Phase 0 has used, at the owner's 2026-09-10 request.
 
@@ -981,7 +981,7 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
       this repo has no harness to unit-test. `relevance.ts`'s own pure
       matching logic is unchanged by 6.4, so `relevance-smoke.mts` had nothing
       new of its own to pin.
-- [x] All suites green — **23 extension suites + 6 server suites** (the plan
+- [x] All suites green — **22 extension suites + 6 server suites** (the plan
       says 17). New this phase: `follow-filter-smoke`, `attribution-smoke`,
       `ask-tools-smoke` (server), `auto-tune-smoke`, `proactive-smoke`,
       `voice-tune-smoke`. typecheck + build clean across every workspace. ✅
@@ -998,7 +998,7 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
       construction — all three follow paths (inline autopilot, the standalone
       follow-list runner, the single-handle task) now check the same
       normalised whitelist. ← **live confirmation still needs Chrome.**
-- [x] All suites green (23 extension + 6 server). ✅ Version bump and commit
+- [x] All suites green (22 extension + 6 server). ✅ Version bump and commit
       held until Manual QA passes, per rule 8 — same deferral every phase
       since Phase 0 has used, at the owner's 2026-09-10 request.
 
@@ -1148,4 +1148,4 @@ Append one line per completed step. Never edit or delete earlier lines.
 | 2026-09-11 | **5.2, 5.3** Ask, the copilot | `f983d28` | New `POST /api/ask`: OpenAI function-calling over read tools (`get_growth`/`get_action_log`/`explain_action`, executed server-side against real data — `get_growth` reuses 5.1's `buildGrowthSummary`) and mutating/client tools (`update_settings`/`add_target`/`remove_target`/`draft_post`/`schedule_post`/`remember_instruction`/`forget_instruction`/`run_dry_run`). **The four rules are enforced structurally**: `ASK_MUTATING_TOOLS`/`ASK_CLIENT_TOOLS` are checked in code (new `openai/ask-tools.ts`, pure and Express-free so it's testable without a server), and the tool loop physically stops and returns a `diff`/`client_action` the instant the model calls one — there is no code path where a mutating tool reaches execution. `draft_post`'s text IS generated server-side (a creative call, not a mutation), so the diff the user sees already has real words. No server-authoritative settings store exists (§1), so every request carries a compact `context` snapshot built from local settings; "Things you've told me" is a new local, editable `standingInstructions` list sent on every turn. Client: `ASK`/`ASK_APPLY_DIFF`/`GET_STANDING_INSTRUCTIONS` handlers — `ASK_APPLY_DIFF` is the ONLY code path that touches settings/targets/posts from Ask, and `update_settings` returns the prior settings so the UI can offer undo. `Ask.tsx` (chat + Do-it/Not-now cards) is shared by both modes; the floating panel passes `compact` + `onOpenSidebar` (reusing 2.5's `sidePanel.open()` plumbing) for 5.3. New `scripts/ask-tools-smoke.mts` (server, 90 assertions). |
 | 2026-09-11 | **6.1** Weekly auto-tune, scoped | `862038e` | Off by default (`settings.autoTune` — it removes user-added targets automatically, so it never defaults on). New pure `scheduler/auto-tune.ts` (`isAutoTuneDue`/`dropHandlesFor`) gates a weekly, local-only check BEFORE any network call, so a disabled install never even fetches growth data. Drops targets `TargetPerformance.stale` already flags (the exact same 21-day threshold 5.1 shows the user), logs the drop as a `growth-milestone` AND keeps a recoverable `autoTuneDropped` list Growth renders with one-click Undo. "Promote"/"shift budget" not built (no safe automatic mechanism exists yet); "move posting times toward peaks" needed no new code (`auto-posting.ts` already recomputes `bestTimes` fresh every run); "named in the weekly email" not built (same server-plumbing gap as 4.4's owner note). New `scripts/auto-tune-smoke.mts` (12 assertions). |
 | 2026-09-11 | **6.2** Proactive questions in Ask | `862038e` | New `lib/proactive.ts` — three DETERMINISTIC detectors (no model call, so nothing can hallucinate a trend): `detectStandoutDay` (a weekday's average post score ≥4× the rest, needs ≥2 posts on each side so one lucky post can't trip it; replies excluded, same reasoning as best-times), `detectTargetsQuiet` (a majority of ≥3 targets flagged `stale`), `detectEditsShorter` (≥5 of the last 6 corrected drafts got meaningfully shorter). `detectProactiveNudge` returns AT MOST ONE, in priority order (quiet targets — most actionable — beats a standout day beats a voice signal) — the same "never two cards" rule 1.7 established for condition cards. Wired into `Ask.tsx`: shown once on open, "Yes" sends the nudge's own follow-up as a normal user turn through Ask's existing diff-confirmation path — never applies anything itself. New `scripts/proactive-smoke.mts` (15 assertions). |
-| 2026-09-11 | **6.3** Voice tuning from edits | `862038e` | New pure `lib/voice-tune.ts` (`decideVoiceTune`): due only when BOTH a week has passed AND ≥5 new `(generated, corrected)` pairs (2.4/3.5's own store) have accumulated since the last tune — cadence alone or volume alone is not enough, so a chatty week can't trigger daily retrains and a quiet week can't retrain on stale data. `runVoiceTuneIfDue()` in the background worker (triggered off the existing 30s alarm, not a new one) scrapes fresh real posts the same way `handleTrainVoice` already does, merges in the corrected texts (de-duped, corrections prioritised since they're the strongest signal per 2.4), and POSTs the SAME `/api/voice/train` — no new server surface. New `scripts/voice-tune-smoke.mts` (7 assertions). All Phase 5+6 work: **23 extension suites + 6 server suites green, typecheck and build clean across every workspace.** Version bump and commit held per rule 8 — Manual QA for Phases 5 and 6 deferred with everything since Phase 0, at the owner's 2026-09-10 request. |
+| 2026-09-11 | **6.3** Voice tuning from edits | `862038e` | New pure `lib/voice-tune.ts` (`decideVoiceTune`): due only when BOTH a week has passed AND ≥5 new `(generated, corrected)` pairs (2.4/3.5's own store) have accumulated since the last tune — cadence alone or volume alone is not enough, so a chatty week can't trigger daily retrains and a quiet week can't retrain on stale data. `runVoiceTuneIfDue()` in the background worker (triggered off the existing 30s alarm, not a new one) scrapes fresh real posts the same way `handleTrainVoice` already does, merges in the corrected texts (de-duped, corrections prioritised since they're the strongest signal per 2.4), and POSTs the SAME `/api/voice/train` — no new server surface. New `scripts/voice-tune-smoke.mts` (7 assertions). All Phase 5+6 work: **22 extension suites + 6 server suites green, typecheck and build clean across every workspace.** Version bump and commit held per rule 8 — Manual QA for Phases 5 and 6 deferred with everything since Phase 0, at the owner's 2026-09-10 request. |
