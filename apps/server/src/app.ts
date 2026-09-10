@@ -14,6 +14,7 @@ import { actionsRouter } from './routes/actions.js';
 import { commentsRouter } from './routes/comments.js';
 import { postsRouter } from './routes/posts.js';
 import { growthRouter } from './routes/growth.js';
+import { askRouter } from './routes/ask.js';
 import { voiceRouter } from './routes/voice.js';
 import { configRouter } from './routes/config.js';
 import { diagnosticsRouter } from './routes/diagnostics.js';
@@ -89,6 +90,7 @@ export const createApp = (): Express => {
   app.use('/api/comments', commentsRouter);
   app.use('/api/posts', postsRouter);
   app.use('/api/growth', growthRouter);
+  app.use('/api/ask', askRouter);
   app.use('/api/voice', voiceRouter);
   app.use('/api/config', configRouter);
   app.use('/api/diagnostics', diagnosticsRouter);

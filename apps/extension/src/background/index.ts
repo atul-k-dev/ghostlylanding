@@ -8,6 +8,8 @@ import type {
   Platform,
   TonePreset,
   ActionType,
+  ExtensionSettings,
+  SafetyPresetName,
 } from '@casper/shared';
 import {
   PLATFORMS,
@@ -70,8 +72,13 @@ import {
   MAX_SCHEDULED_POSTS,
   tweetLimitFor,
   effectivePostLength,
+  appendGrowthMilestone,
+  getStandingInstructions,
+  addStandingInstruction,
+  removeStandingInstruction,
   type ScheduledPost,
 } from '../lib/storage.js';
+import { applyPreset } from '../lib/presets.js';
 import {
   bestTimes,
   describeSlot,
@@ -245,6 +252,10 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   APPROVE_SCHEDULED_POST: handleApproveScheduledPost as AsyncHandler<unknown, unknown>,
   REWRITE_POST: handleRewritePost as AsyncHandler<unknown, unknown>,
   AUTO_DRAFT_NOW: handleAutoDraftNow as AsyncHandler<unknown, unknown>,
+  // Phase 5.2 — Ask, the copilot.
+  ASK: handleAsk as AsyncHandler<unknown, unknown>,
+  ASK_APPLY_DIFF: handleAskApplyDiff as AsyncHandler<unknown, unknown>,
+  GET_STANDING_INSTRUCTIONS: handleGetStandingInstructions as AsyncHandler<unknown, unknown>,
 };
 
 /**
@@ -1594,5 +1605,145 @@ async function handleAutoDraftNow(payload: unknown) {
     return resp.data.ideas;
   });
   return { ok: true, data: result };
+}
+
+/**
+ * Ask (updateplan 5.2). No settings live on the server (updateplan §1), so
+ * every request carries a compact snapshot of what the model needs — targets,
+ * topics, pace, standing instructions. Growth and action-log data are already
+ * server-side, so the server's own tools read those directly.
+ */
+async function handleAsk(payload: unknown) {
+  const { message, history } = (payload ?? {}) as {
+    message?: string;
+    history?: { role: 'user' | 'assistant'; content: string }[];
+  };
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return { ok: false, error: { code: 'invalid_payload', message: 'message required' } };
+  }
+  const settings = await getSettings();
+  const standingInstructions = await getStandingInstructions();
+  return await apiFetch('/api/ask', {
+    method: 'POST',
+    body: {
+      message: message.trim(),
+      history: Array.isArray(history) ? history : [],
+      context: {
+        targets: settings.targetCreators.map((t) => t.handle),
+        topics: settings.homeFeed.keywords,
+        searchQueries: settings.searchQueries.map((q) => q.query),
+        safetyPreset: settings.safetyPreset,
+        activeHours: settings.activeHours,
+        isPaused: settings.isPaused,
+        autoPostEnabled: settings.autoPost.enabled,
+        standingInstructions,
+      },
+    },
+  });
+}
+
+/**
+ * Apply a diff the user said "Do it" to (updateplan 5.2, rule 1 — the server
+ * NEVER applies one of these itself; this is the one place a proposed change
+ * actually touches settings/targets/posts, and only after the user has seen
+ * it and said yes). Settings changes return the prior settings so the UI can
+ * offer undo (rule 2); a post always lands as a local draft/scheduled post,
+ * same as every other path that creates one.
+ */
+async function handleAskApplyDiff(payload: unknown) {
+  const { tool, args } = (payload ?? {}) as { tool?: string; args?: Record<string, unknown> };
+  if (!tool) return { ok: false, error: { code: 'invalid_payload', message: 'tool required' } };
+  const settings = await getSettings();
+
+  switch (tool) {
+    case 'update_settings': {
+      const previous = settings;
+      let next = settings;
+      if (
+        typeof args?.safetyPreset === 'string' &&
+        (['careful', 'balanced', 'growth'] as const).includes(args.safetyPreset as SafetyPresetName)
+      ) {
+        next = applyPreset(next, args.safetyPreset as SafetyPresetName);
+      }
+      if (typeof args?.isPaused === 'boolean') next = { ...next, isPaused: args.isPaused };
+      if (typeof args?.skipReplies === 'boolean') next = { ...next, skipReplies: args.skipReplies };
+      if (typeof args?.autoPostEnabled === 'boolean') {
+        next = { ...next, autoPost: { ...next.autoPost, enabled: args.autoPostEnabled } };
+      }
+      await setSettings(next);
+      return { ok: true, data: { previous } };
+    }
+    case 'undo_settings': {
+      // The UI hands back the exact snapshot `update_settings` returned —
+      // never reconstructed field by field, so undo can't drift from what
+      // was actually there before.
+      const previous = args?.previous as ExtensionSettings | undefined;
+      if (!previous) return { ok: false, error: { code: 'invalid_payload', message: 'no snapshot to restore' } };
+      await setSettings(previous);
+      return { ok: true, data: {} };
+    }
+    case 'add_target': {
+      const handle = typeof args?.handle === 'string' ? args.handle.replace(/^@/, '').trim() : '';
+      if (!handle) return { ok: false, error: { code: 'invalid_payload', message: 'handle required' } };
+      if (settings.targetCreators.some((t) => t.handle.toLowerCase() === handle.toLowerCase())) {
+        return { ok: true, data: { alreadyWatching: true } };
+      }
+      const addedAt = new Date().toISOString();
+      await setSettings({
+        ...settings,
+        targetCreators: [...settings.targetCreators, { platform: 'twitter', handle, addedAt }],
+      });
+      await appendGrowthMilestone({ at: addedAt, kind: 'target-added', detail: `Added @${handle}` });
+      return { ok: true, data: {} };
+    }
+    case 'remove_target': {
+      const handle = typeof args?.handle === 'string' ? args.handle.replace(/^@/, '').trim() : '';
+      if (!handle) return { ok: false, error: { code: 'invalid_payload', message: 'handle required' } };
+      await setSettings({
+        ...settings,
+        targetCreators: settings.targetCreators.filter((t) => t.handle.toLowerCase() !== handle.toLowerCase()),
+      });
+      return { ok: true, data: {} };
+    }
+    case 'draft_post': {
+      const text = typeof args?.text === 'string' ? args.text.trim() : '';
+      if (!text) return { ok: false, error: { code: 'invalid_payload', message: 'no draft text' } };
+      // Parks it at the next occurrence of the user's own active-hours start —
+      // same default the "+" on an empty week-strip day already uses. A draft
+      // has no permission to publish regardless of when it's parked.
+      const at = new Date();
+      at.setHours(settings.activeHours.startHour, 0, 0, 0);
+      if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);
+      return await handleSchedulePost({ text, status: 'draft', scheduledAt: at.getTime(), generated: text });
+    }
+    case 'schedule_post': {
+      const text = typeof args?.text === 'string' ? args.text.trim() : '';
+      const atIso = typeof args?.atIso === 'string' ? args.atIso : '';
+      const scheduledAt = Date.parse(atIso);
+      if (!text) return { ok: false, error: { code: 'invalid_payload', message: 'no post text' } };
+      if (!Number.isFinite(scheduledAt)) {
+        return { ok: false, error: { code: 'invalid_payload', message: 'invalid schedule time' } };
+      }
+      return await handleSchedulePost({ text, status: 'scheduled', scheduledAt, generated: text });
+    }
+    case 'remember_instruction': {
+      const instruction = typeof args?.instruction === 'string' ? args.instruction.trim() : '';
+      if (!instruction) return { ok: false, error: { code: 'invalid_payload', message: 'instruction required' } };
+      const list = await addStandingInstruction(instruction);
+      return { ok: true, data: { standingInstructions: list } };
+    }
+    case 'forget_instruction': {
+      const instruction = typeof args?.instruction === 'string' ? args.instruction.trim() : '';
+      if (!instruction) return { ok: false, error: { code: 'invalid_payload', message: 'instruction required' } };
+      const list = await removeStandingInstruction(instruction);
+      return { ok: true, data: { standingInstructions: list } };
+    }
+    default:
+      return { ok: false, error: { code: 'unknown_tool', message: `unknown tool ${tool}` } };
+  }
+}
+
+async function handleGetStandingInstructions() {
+  return { ok: true, data: { standingInstructions: await getStandingInstructions() } };
 }
 export {};

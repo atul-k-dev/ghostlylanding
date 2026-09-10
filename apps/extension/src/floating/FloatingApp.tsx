@@ -314,7 +314,7 @@ export const FloatingApp = () => {
             <Review />
           </div>
         )}
-        {tab === 'ask' && <Ask />}
+        {tab === 'ask' && <Ask compact onOpenSidebar={openSidePanel} />}
       </Panel>
     </div>
   );

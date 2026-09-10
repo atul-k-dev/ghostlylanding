@@ -6,5 +6,6 @@ export * from './types/settings.js';
 export * from './types/growth.js';
 export * from './types/voice.js';
 export * from './types/reply-queue.js';
+export * from './types/ask.js';
 export * from './messages/envelope.js';
 export * from './api/response.js';

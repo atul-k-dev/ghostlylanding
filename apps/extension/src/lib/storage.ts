@@ -60,6 +60,11 @@ export const STORAGE_KEYS = {
    *  event; conflating the two in one store would be a lie about what each
    *  entry means). */
   growthMilestones: 'casper.growthMilestones',
+  /** "Things you've told me" — Ask's standing instructions (5.2). Local-only,
+   *  same as every other setting (updateplan §1: no server-authoritative
+   *  settings store) — sent to the server on every /api/ask request so the
+   *  model honours them without being asked twice. */
+  standingInstructions: 'casper.standingInstructions',
 } as const;
 
 /**
@@ -946,4 +951,30 @@ export const appendGrowthMilestone = async (entry: GrowthMilestone): Promise<voi
 export const getGrowthMilestones = async (): Promise<GrowthMilestone[]> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.growthMilestones);
   return (got[STORAGE_KEYS.growthMilestones] as GrowthMilestone[] | undefined) ?? [];
+};
+
+/** "Things you've told me" (updateplan 5.2, rule 4). Capped the same as the
+ *  server's own validation (ASK_LIMITS-equivalent), so a full list never gets
+ *  silently truncated server-side after the user thought they'd added one. */
+const STANDING_INSTRUCTIONS_MAX = 50;
+
+export const getStandingInstructions = async (): Promise<string[]> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.standingInstructions);
+  return (got[STORAGE_KEYS.standingInstructions] as string[] | undefined) ?? [];
+};
+
+export const addStandingInstruction = async (instruction: string): Promise<string[]> => {
+  const existing = await getStandingInstructions();
+  const trimmed = instruction.trim();
+  if (!trimmed || existing.some((i) => i.toLowerCase() === trimmed.toLowerCase())) return existing;
+  const next = [...existing, trimmed].slice(-STANDING_INSTRUCTIONS_MAX);
+  await chrome.storage.local.set({ [STORAGE_KEYS.standingInstructions]: next });
+  return next;
+};
+
+export const removeStandingInstruction = async (instruction: string): Promise<string[]> => {
+  const existing = await getStandingInstructions();
+  const next = existing.filter((i) => i.toLowerCase() !== instruction.trim().toLowerCase());
+  await chrome.storage.local.set({ [STORAGE_KEYS.standingInstructions]: next });
+  return next;
 };

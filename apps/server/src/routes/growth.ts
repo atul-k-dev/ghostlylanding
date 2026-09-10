@@ -156,30 +156,21 @@ const summarySchema = z.object({
   days: z.coerce.number().int().positive().max(GROWTH_LIMITS.maxSeriesDays).default(30),
 });
 
-growthRouter.get(
-  '/summary',
-  requireAuth,
-  rateLimit({
-    windowMs: 60 * 1000,
-    max: 30,
-    key: (req) => `growthsum:${req.auth?.sub ?? req.ip}`,
-  }),
-  validate(summarySchema, 'query'),
-  asyncHandler(async (req, res) => {
-    if (!req.auth) {
-      res.status(401).json(err('unauthorized', 'No auth context'));
-      return;
-    }
-    const { days } = req.query as unknown as z.infer<typeof summarySchema>;
-    const userObjectId = new Types.ObjectId(req.auth.sub);
+/**
+ * Everything the Growth tab renders. Exported so Ask's `get_growth` tool
+ * (updateplan 5.2) reads exactly the same real numbers this route serves —
+ * one aggregation, two callers, never a second copy that could drift.
+ */
+export const buildGrowthSummary = async (userId: string, days: number): Promise<GrowthSummary> => {
+    const userObjectId = new Types.ObjectId(userId);
 
     const [snapshots, top, totals, sourcesAgg, targetEngagementAgg, targetRepliesAgg, topicsAgg] =
       await Promise.all([
-        GrowthSnapshotModel.find({ userId: req.auth.sub })
+        GrowthSnapshotModel.find({ userId })
           .sort({ date: -1 })
           .limit(days)
           .lean(),
-        PostOutcomeModel.find({ userId: req.auth.sub })
+        PostOutcomeModel.find({ userId })
           .sort({ likes: -1, replies: -1 })
           .limit(GROWTH_LIMITS.topPosts)
           .lean(),
@@ -350,6 +341,25 @@ growthRouter.get(
       topics,
     };
 
+    return summary;
+};
+
+growthRouter.get(
+  '/summary',
+  requireAuth,
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    key: (req) => `growthsum:${req.auth?.sub ?? req.ip}`,
+  }),
+  validate(summarySchema, 'query'),
+  asyncHandler(async (req, res) => {
+    if (!req.auth) {
+      res.status(401).json(err('unauthorized', 'No auth context'));
+      return;
+    }
+    const { days } = req.query as unknown as z.infer<typeof summarySchema>;
+    const summary = await buildGrowthSummary(req.auth.sub, days);
     res.json(ok(summary));
   }),
 );
