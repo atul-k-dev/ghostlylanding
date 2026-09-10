@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AskResult, AskDiff, ExtensionSettings } from '@casper/shared';
+import type { AskResult, AskDiff, ExtensionSettings, GrowthSummary } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
+import { getCorrectedDrafts, getPostOutcomes } from '../../lib/storage.js';
+import { detectProactiveNudge, type ProactiveNudge } from '../../lib/proactive.js';
 import { Button } from '../../ui/index.js';
 
 /**
@@ -168,6 +170,7 @@ export const Ask = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [instructions, setInstructions] = useState<string[]>([]);
+  const [nudge, setNudge] = useState<ProactiveNudge | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -179,14 +182,42 @@ export const Ask = ({
     });
   }, []);
 
+  // Proactive questions (updateplan 6.2) — a deterministic pattern over data
+  // already on screen elsewhere (Growth, the corrected-draft pairs), never a
+  // model call, so it can never invent a trend. At most one, and only on the
+  // first open of a session (re-detecting on every render would nag).
+  useEffect(() => {
+    void (async () => {
+      // The standout-day detector needs the FULL outcome history, not just
+      // the top performers `GET_GROWTH` returns — a biased top-5 sample could
+      // make any one day look special by chance. `getPostOutcomes()` is the
+      // same local cache `bestTimes`/`scoreGrid` already read from.
+      const [growthResp, outcomes, corrected] = await Promise.all([
+        sendToBackground<{ ok: true; data: GrowthSummary } | { ok: false }>({
+          type: 'GET_GROWTH',
+          payload: { days: 30 },
+        }),
+        getPostOutcomes(),
+        getCorrectedDrafts(),
+      ]);
+      if (!growthResp.ok) return;
+      const found = detectProactiveNudge({
+        outcomes,
+        targets: growthResp.data.targets,
+        corrected,
+      });
+      setNudge(found);
+    })();
+  }, []);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [turns.length]);
 
-  const send = async () => {
-    const message = input.trim();
+  const send = async (override?: string) => {
+    const message = (override ?? input).trim();
     if (!message || busy) return;
-    setInput('');
+    if (!override) setInput('');
     setError(null);
     const history = turns.map((t) => ({ role: t.role, content: t.content }));
     setTurns((t) => [...t, { role: 'user', content: message }]);
@@ -287,6 +318,27 @@ export const Ask = ({
       <StandingInstructions instructions={instructions} onRemove={(i) => void removeInstruction(i)} />
 
       <div className={`flex-1 overflow-y-auto ${compact ? 'space-y-2 px-2.5 py-2' : 'space-y-3 p-3'}`}>
+        {nudge && (
+          <div className="rounded-xl border border-casper-attention/30 bg-casper-attention/[0.06] px-2.5 py-2">
+            <p className="text-xs leading-relaxed text-casper-ink">{nudge.message}</p>
+            <div className="mt-1.5 flex gap-2">
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => {
+                  const msg = nudge.onYesMessage;
+                  setNudge(null);
+                  void send(msg);
+                }}
+              >
+                Yes
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setNudge(null)}>
+                Not now
+              </Button>
+            </div>
+          </div>
+        )}
         {turns.length === 0 && (
           <p className="py-6 text-center text-xs text-casper-ink/40">
             Ask me anything — "post more", "why did I lose followers?", "stop following people".

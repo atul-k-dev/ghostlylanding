@@ -11,6 +11,11 @@
  *   2. Inside active hours (user tz)?        → skip, record 'outside-hours'
  *   2a. Session length exceeded?             → auto-pause + diagnostic, exit
  *   2b. Auto-drafting due (3.2)?             → write + slot tomorrow's posts
+ *   2c. Weekly auto-tune due (6.1)?          → drop stale targets, log it —
+ *                                              OFF by default; the due-check
+ *                                              is local-only, so a disabled
+ *                                              install never makes the
+ *                                              network call that would follow
  *   3. Has a task already 'running'?         → skip (single in-flight at a time)
  *   4. Tick cooldown elapsed?                → skip (see gate 8)
  *   5. Any pending task?                     → maybe refill scans, record WHY
@@ -70,6 +75,10 @@ import { getTargetState, setTargetState } from '../lib/storage.js';
 import { maybePublishDuePost, isPublishing, reviveScheduledPosts } from './scheduled-posts.js';
 import { maybeAutoDraft } from './auto-posting.js';
 import { requestPostIdeas } from '../lib/ideas.js';
+import { isAutoTuneDue, dropHandlesFor } from './auto-tune.js';
+import { appendGrowthMilestone, appendAutoTuneDrops } from '../lib/storage.js';
+import { apiFetch } from '../lib/api.js';
+import type { GrowthSummary } from '@casper/shared';
 
 export const SCHEDULER_ALARM = 'casper.scheduler.tick';
 const TICK_PERIOD_MINUTES = 0.5; // 30 seconds
@@ -184,6 +193,54 @@ const runAutoDraft = async (): Promise<void> => {
   }
 };
 
+/**
+ * Weekly auto-tune (updateplan 6.1) — gate 2c. Off by default. Drops target
+ * creators flagged `stale` by the exact same 21-day threshold the Growth tab
+ * already shows the user, and nothing else: no per-target follower guess, no
+ * "promote" action, no cap shifting — none of those have a safe automatic
+ * mechanism in this codebase (see the Phase 6 progress log). Every drop is
+ * logged as a change marker AND kept in a recoverable list, so "reversible"
+ * is a real property of what this does, not a promise.
+ */
+const runAutoTune = async (): Promise<void> => {
+  try {
+    const settings = await getSettings();
+    if (!isAutoTuneDue(settings.autoTune.enabled, settings.autoTune.lastRunAt, Date.now())) return;
+
+    const resp = await apiFetch<GrowthSummary>('/api/growth/summary?days=1');
+    // Stamp lastRunAt regardless of the fetch's outcome — a server hiccup
+    // costs this install the interval, not a request every 30 seconds until
+    // one succeeds (same reasoning as auto-posting's own lastRunAt stamp).
+    const current = await getSettings();
+    await setSettings({
+      ...current,
+      autoTune: { ...current.autoTune, lastRunAt: new Date().toISOString() },
+    });
+    if (!resp.ok) return;
+
+    const dropHandles = dropHandlesFor(resp.data.targets);
+    if (dropHandles.length === 0) return;
+
+    const now = new Date().toISOString();
+    const dropSet = new Set(dropHandles.map((h) => h.toLowerCase()));
+    const afterDrop = await getSettings();
+    await setSettings({
+      ...afterDrop,
+      targetCreators: afterDrop.targetCreators.filter((t) => !dropSet.has(t.handle.toLowerCase())),
+    });
+    await appendAutoTuneDrops(dropHandles.map((handle) => ({ handle, at: now, reason: 'stale' as const })));
+    await appendGrowthMilestone({
+      at: now,
+      kind: 'auto-tune-dropped-targets',
+      detail: `Dropped ${dropHandles.length} quiet target${dropHandles.length === 1 ? '' : 's'}: ${dropHandles
+        .map((h) => `@${h}`)
+        .join(', ')}`,
+    });
+  } catch (err) {
+    console.warn('[casper] auto-tune: pass failed —', err);
+  }
+};
+
 export const handleTick = async (): Promise<void> => {
   try {
     // Scheduled posts publish at their scheduled time regardless of the Active
@@ -262,6 +319,7 @@ export const handleTick = async (): Promise<void> => {
     // has to mean nothing is running. Awaited, not fired off, so two ticks
     // 30 seconds apart can't both get past the interval check.
     await runAutoDraft();
+    await runAutoTune();
 
     if (await hasRunningTask()) {
       // Don't dispatch a second task while one is in flight.

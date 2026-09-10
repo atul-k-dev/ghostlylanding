@@ -308,6 +308,25 @@ export interface ExtensionSettings {
   mentions: MentionsSettings;
   /** Chrome-level alerts for decaying moments (updateplan 4.3). */
   notifications: BrowserNotificationSettings;
+  /** The weekly learning loop (updateplan 6.1). Off by default — this REMOVES
+   *  target creators the user added, automatically, and that is exactly the
+   *  kind of action this product never defaults on. */
+  autoTune: AutoTuneSettings;
+}
+
+/**
+ * Weekly auto-tune (updateplan 6.1). Scoped to what's honestly automatable:
+ * dropping targets with 21+ days of no reply activity (`TargetPerformance.
+ * stale` — the real, action-log-backed threshold 5.1's Growth tab already
+ * uses, not a guessed "not working" judgement). "Promote ones that work" and
+ * "shift budget between replying and posting" have no safe automatic
+ * mechanism in this codebase yet — see the Phase 6 progress log. "Move
+ * posting times toward measured peaks" needed no new code: `auto-posting.ts`
+ * already recomputes `bestTimes` fresh on every run (updateplan 3.1/3.2).
+ */
+export interface AutoTuneSettings {
+  enabled: boolean;
+  lastRunAt: string | null;
 }
 
 /** X account type — drives the scheduled-post character limit. */

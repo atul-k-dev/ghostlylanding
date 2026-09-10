@@ -144,6 +144,32 @@ export const Settings = () => {
         </Section>
       )}
 
+      {/* Weekly auto-tune (updateplan 6.1). Off by default — it removes
+          target creators automatically, so it stays opt-in like everything
+          else that changes what the engine does on its own. */}
+      <Section
+        title="Weekly clean-up"
+        subtitle="Once a week, drop target creators that have sat quiet for 3+ weeks — reversible from the Growth tab."
+      >
+        <label className="flex items-center justify-between">
+          <span className="text-xs font-medium text-casper-ink">Drop quiet targets automatically</span>
+          <button
+            type="button"
+            onClick={() =>
+              onChange({ ...settings, autoTune: { ...settings.autoTune, enabled: !settings.autoTune.enabled } })
+            }
+            aria-pressed={settings.autoTune.enabled}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+              settings.autoTune.enabled
+                ? 'bg-emerald-500/15 text-emerald-300'
+                : 'bg-casper-ink/10 text-casper-ink/60'
+            }`}
+          >
+            {settings.autoTune.enabled ? 'On' : 'Off'}
+          </button>
+        </label>
+      </Section>
+
       <Section title="My hours" subtitle="I only work inside this window, in your own timezone.">
         <div className="flex items-end gap-2">
           <label className="min-w-0 flex-1 text-xs text-casper-muted">

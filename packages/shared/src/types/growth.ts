@@ -76,7 +76,11 @@ export interface GrowthDelta {
  * never guessed from the follower curve itself (a bend in the line is not
  * evidence of a cause; the log entry is).
  */
-export type GrowthMilestoneKind = 'preset-changed' | 'target-added' | 'auto-posting-started';
+export type GrowthMilestoneKind =
+  | 'preset-changed'
+  | 'target-added'
+  | 'auto-posting-started'
+  | 'auto-tune-dropped-targets';
 
 export interface GrowthMilestone {
   at: string;

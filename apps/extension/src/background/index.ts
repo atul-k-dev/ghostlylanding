@@ -76,9 +76,13 @@ import {
   getStandingInstructions,
   addStandingInstruction,
   removeStandingInstruction,
+  getVoiceTuneState,
+  setVoiceTuneState,
+  getCorrectedDrafts,
   type ScheduledPost,
 } from '../lib/storage.js';
 import { applyPreset } from '../lib/presets.js';
+import { decideVoiceTune } from '../lib/voice-tune.js';
 import {
   bestTimes,
   describeSlot,
@@ -135,6 +139,8 @@ const SELECTOR_ALARM = 'casper.selectors.refresh';
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === SCHEDULER_ALARM) {
     void handleTick();
+    // Weekly, gated internally — cheap to check every 30s (updateplan 6.3).
+    void runVoiceTuneIfDue();
   }
   if (alarm.name === SELECTOR_ALARM) {
     void refreshSelectorConfig().catch(() => {
@@ -1058,6 +1064,50 @@ async function handleClearVoice() {
   const resp = await apiFetch<User>('/api/voice', { method: 'DELETE' });
   if (resp.ok) await syncUser(resp.data);
   return resp;
+}
+
+/**
+ * Voice tuning from edits (updateplan 6.3). Weekly, and only once at least
+ * `MIN_NEW_CORRECTIONS` new (generated, corrected) pairs have accumulated —
+ * a retrain on one or two edits would be reacting to noise. Feeds the
+ * CORRECTED text alongside real scraped posts into the SAME `/api/voice/train`
+ * call `handleTrainVoice` uses: a correction is real text in the user's own
+ * voice (they wrote it), so it belongs in the same sample pool, not a second
+ * training path.
+ */
+async function runVoiceTuneIfDue(): Promise<void> {
+  try {
+    const state = await getVoiceTuneState();
+    const corrected = await getCorrectedDrafts();
+    if (!decideVoiceTune(state, Date.now(), corrected.length)) return;
+
+    const own = await ensureOwnHandleForVoice();
+    if (!own) return; // try again on the next alarm — not signed in / no tab open
+
+    const resp = await driveTab(
+      `https://x.com/${encodeURIComponent(own)}`,
+      { type: 'COLLECT_OWN_POSTS', payload: { handle: own, max: VOICE_LIMITS.maxSamples } },
+      { settleMs: 3_500, forceBackground: true },
+    );
+    if (resp.type !== 'OWN_POSTS_RESULT') return;
+
+    const realPosts = resp.payload.outcomes.map((o) => o.text.trim()).filter((t) => t.length >= 15);
+    const correctionTexts = corrected.map((c) => c.corrected.trim()).filter((t) => t.length >= 15);
+    // Corrections first: they are the strongest signal (2.4), and slicing to
+    // maxSamples after de-duping means they're never crowded out by ordinary
+    // posts when both are plentiful.
+    const merged = [...new Set([...correctionTexts, ...realPosts])].slice(0, VOICE_LIMITS.maxSamples);
+    if (merged.length < VOICE_LIMITS.minSamples) return;
+
+    const trained = await apiFetch<User>('/api/voice/train', { method: 'POST', body: { posts: merged } });
+    // Stamp the gate regardless of outcome — a failed call costs this
+    // install the week, not a retry every 30 seconds (same reasoning as
+    // auto-posting's lastRunAt stamp).
+    await setVoiceTuneState({ lastTunedAt: new Date().toISOString(), lastCorrectionCount: corrected.length });
+    if (trained.ok) await syncUser(trained.data);
+  } catch (err) {
+    console.warn('[casper] voice-tune: pass failed —', err);
+  }
 }
 
 /** Cached @handle, else detect it from x.com once (mirrors the executor's). */

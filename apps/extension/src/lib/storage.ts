@@ -11,6 +11,7 @@ import { REPLY_QUEUE_MAX } from '@casper/shared';
 import type { PostOutcome, GrowthMilestone } from '@casper/shared';
 import type { QueuedTask, SchedulerState, TargetStateMap } from '../scheduler/types.js';
 import { INITIAL_TRUST, normalizeTrust } from './trust.js';
+import type { VoiceTuneState } from './voice-tune.js';
 
 export const STORAGE_KEYS = {
   auth: 'casper.auth',
@@ -60,6 +61,13 @@ export const STORAGE_KEYS = {
    *  event; conflating the two in one store would be a lie about what each
    *  entry means). */
   growthMilestones: 'casper.growthMilestones',
+  /** Targets the weekly auto-tune dropped (6.1), kept so Growth can offer
+   *  "Undo" — re-adding is a settings write, but the record of WHAT was
+   *  dropped and WHEN has to survive that round-trip. */
+  autoTuneDropped: 'casper.autoTuneDropped',
+  /** Weekly voice-tune gate state (6.3) — when it last ran and how many
+   *  corrected drafts existed then, so "5+ new corrections" is a real count. */
+  voiceTuneState: 'casper.voiceTuneState',
   /** "Things you've told me" — Ask's standing instructions (5.2). Local-only,
    *  same as every other setting (updateplan §1: no server-authoritative
    *  settings store) — sent to the server on every /api/ask request so the
@@ -213,6 +221,10 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   // "Something is broken" alerts on by default (that's the safety class);
   // everything else opt-in (updateplan 4.3).
   notifications: { problems: true, bigReplies: false },
+  // Off until the user asks (updateplan 6.1) — it removes target creators
+  // automatically, which is exactly the kind of action this product never
+  // defaults on.
+  autoTune: { enabled: false, lastRunAt: null },
 };
 
 const DEFAULT_COUNTERS: CountersState = { twitter: null, linkedin: null };
@@ -262,6 +274,7 @@ export const getSettings = async (): Promise<ExtensionSettings> => {
     trust: normalizeTrust(stored.trust),
     mentions: { ...DEFAULT_SETTINGS.mentions, ...stored.mentions },
     notifications: { ...DEFAULT_SETTINGS.notifications, ...stored.notifications },
+    autoTune: { ...DEFAULT_SETTINGS.autoTune, ...stored.autoTune },
     activeHours: { ...DEFAULT_SETTINGS.activeHours, ...stored.activeHours },
     accountAgeMonths: { ...DEFAULT_SETTINGS.accountAgeMonths, ...stored.accountAgeMonths },
     targetCreators: onlyTwitter(stored.targetCreators),
@@ -951,6 +964,51 @@ export const appendGrowthMilestone = async (entry: GrowthMilestone): Promise<voi
 export const getGrowthMilestones = async (): Promise<GrowthMilestone[]> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.growthMilestones);
   return (got[STORAGE_KEYS.growthMilestones] as GrowthMilestone[] | undefined) ?? [];
+};
+
+/** One target the weekly auto-tune dropped (updateplan 6.1). */
+export interface AutoTuneDrop {
+  handle: string;
+  at: string;
+  /** Why — always the same reason today (stale), named explicitly rather
+   *  than left implicit so a future second reason doesn't have to guess
+   *  what old entries meant. */
+  reason: 'stale';
+}
+
+const AUTO_TUNE_DROPPED_MAX = 100;
+
+export const appendAutoTuneDrops = async (drops: AutoTuneDrop[]): Promise<void> => {
+  if (drops.length === 0) return;
+  const got = await chrome.storage.local.get(STORAGE_KEYS.autoTuneDropped);
+  const existing = (got[STORAGE_KEYS.autoTuneDropped] as AutoTuneDrop[] | undefined) ?? [];
+  const next = [...existing, ...drops].slice(-AUTO_TUNE_DROPPED_MAX);
+  await chrome.storage.local.set({ [STORAGE_KEYS.autoTuneDropped]: next });
+};
+
+export const getAutoTuneDrops = async (): Promise<AutoTuneDrop[]> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.autoTuneDropped);
+  return (got[STORAGE_KEYS.autoTuneDropped] as AutoTuneDrop[] | undefined) ?? [];
+};
+
+/** Undo removes just this one drop record — the handle itself is re-added to
+ *  targetCreators by the caller; this only clears it from the "recently
+ *  dropped" list so it doesn't stay listed as droppable-again. */
+export const clearAutoTuneDrop = async (handle: string): Promise<void> => {
+  const existing = await getAutoTuneDrops();
+  const next = existing.filter((d) => d.handle.toLowerCase() !== handle.toLowerCase());
+  await chrome.storage.local.set({ [STORAGE_KEYS.autoTuneDropped]: next });
+};
+
+const DEFAULT_VOICE_TUNE_STATE: VoiceTuneState = { lastTunedAt: null, lastCorrectionCount: 0 };
+
+export const getVoiceTuneState = async (): Promise<VoiceTuneState> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.voiceTuneState);
+  return (got[STORAGE_KEYS.voiceTuneState] as VoiceTuneState | undefined) ?? DEFAULT_VOICE_TUNE_STATE;
+};
+
+export const setVoiceTuneState = async (state: VoiceTuneState): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEYS.voiceTuneState]: state });
 };
 
 /** "Things you've told me" (updateplan 5.2, rule 4). Capped the same as the

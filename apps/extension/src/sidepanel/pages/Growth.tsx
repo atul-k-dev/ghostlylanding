@@ -9,7 +9,15 @@ import type {
 } from '@casper/shared';
 import type { HeatmapCell } from '../../lib/best-times.js';
 import { sendToBackground } from '../../lib/messages.js';
-import { getSettings, setSettings, getGrowthMilestones, setPanelIntent } from '../../lib/storage.js';
+import {
+  getSettings,
+  setSettings,
+  getGrowthMilestones,
+  setPanelIntent,
+  getAutoTuneDrops,
+  clearAutoTuneDrop,
+  type AutoTuneDrop,
+} from '../../lib/storage.js';
 import type { PanelTarget } from '../navigation.js';
 import { fmtNum } from './_shared.js';
 
@@ -348,9 +356,48 @@ const Heatmap = ({ cells, personalised }: { cells: HeatmapCell[]; personalised: 
   );
 };
 
+/** Recently auto-tune-dropped targets (updateplan 6.1), each reversible with
+ *  one click — "reversible" has to be something the user can actually see
+ *  and act on, not just true in principle. */
+const AutoTuneDropsCard = ({
+  drops,
+  onUndo,
+}: {
+  drops: AutoTuneDrop[];
+  onUndo: (d: AutoTuneDrop) => void;
+}) => {
+  if (drops.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-casper-attention/30 bg-casper-attention/[0.05] p-3">
+      <p className="mb-2 text-xs font-semibold">
+        Auto-tune dropped {drops.length} quiet target{drops.length === 1 ? '' : 's'}
+      </p>
+      <div className="space-y-1.5">
+        {drops.map((d) => (
+          <div
+            key={d.handle}
+            className="flex items-center gap-2 rounded-lg bg-casper-cloud px-2 py-1.5 text-xs"
+          >
+            <span className="flex-1 truncate">@{d.handle}</span>
+            <span className="text-casper-ink/40">no replies in 3+ weeks</span>
+            <button
+              type="button"
+              onClick={() => onUndo(d)}
+              className="text-casper-violet transition hover:opacity-80"
+            >
+              Undo
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export const Growth = ({ onNavigate }: { onNavigate?: (t: PanelTarget) => void }) => {
   const [summary, setSummary] = useState<GrowthSummary | null>(null);
   const [milestones, setMilestones] = useState<GrowthMilestone[]>([]);
+  const [autoTuneDrops, setAutoTuneDrops] = useState<AutoTuneDrop[]>([]);
   const [heatmap, setHeatmap] = useState<{ cells: HeatmapCell[]; personalised: boolean } | null>(
     null,
   );
@@ -380,6 +427,7 @@ export const Growth = ({ onNavigate }: { onNavigate?: (t: PanelTarget) => void }
         setHeatmap({ cells: timesResp.data.heatmap, personalised: timesResp.data.personalised });
       }
       setMilestones(ms);
+      setAutoTuneDrops(await getAutoTuneDrops());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'failed');
     } finally {
@@ -422,6 +470,21 @@ export const Growth = ({ onNavigate }: { onNavigate?: (t: PanelTarget) => void }
     if (summary) {
       setSummary({ ...summary, targets: summary.targets.filter((t) => t.handle !== handle) });
     }
+  };
+
+  const undoAutoTuneDrop = async (drop: AutoTuneDrop) => {
+    const settings = await getSettings();
+    if (!settings.targetCreators.some((t) => t.handle.toLowerCase() === drop.handle.toLowerCase())) {
+      await setSettings({
+        ...settings,
+        targetCreators: [
+          ...settings.targetCreators,
+          { platform: 'twitter', handle: drop.handle, addedAt: new Date().toISOString() },
+        ],
+      });
+    }
+    await clearAutoTuneDrop(drop.handle);
+    setAutoTuneDrops((d) => d.filter((x) => x.handle !== drop.handle));
   };
 
   const writeLike = async (text: string) => {
@@ -499,6 +562,8 @@ export const Growth = ({ onNavigate }: { onNavigate?: (t: PanelTarget) => void }
           )}
 
           {summary && <SourcesCard summary={summary} />}
+
+          <AutoTuneDropsCard drops={autoTuneDrops} onUndo={(d) => void undoAutoTuneDrop(d)} />
 
           {/* Which targets are working */}
           <div className="rounded-2xl border border-casper-border bg-casper-surface p-3">
