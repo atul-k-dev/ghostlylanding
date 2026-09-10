@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { UserModel } from '../models/user.model.js';
-import { verifyUnsubToken } from '../email/daily-summary.js';
+import { verifyUnsubToken } from '../email/unsubscribe.js';
 
 /**
  * Tiny HTML pages served by the server itself, used as Stripe Checkout
@@ -63,11 +63,15 @@ returnPagesRouter.get('/cancel', (_req, res) => {
   );
 });
 
-// One-click unsubscribe from the end-of-day recap email. The link carries a
-// signed token (HMAC of the user id) so only the real recipient can flip it.
+// One-click unsubscribe from a digest email (daily or weekly, updateplan 4.4).
+// The link carries a signed token (HMAC of the user id) so only the real
+// recipient can flip it, plus which digest to turn off — the same route for
+// both rather than a second one, per the plan.
 returnPagesRouter.get('/email/unsubscribe', (req, res) => {
   const u = typeof req.query.u === 'string' ? req.query.u : '';
   const t = typeof req.query.t === 'string' ? req.query.t : '';
+  // Absent `k` means a link sent before 4.4 — those were always daily.
+  const kind = req.query.k === 'weekly' ? 'weekly' : 'daily';
   if (!u || !t || !verifyUnsubToken(u, t)) {
     res
       .status(400)
@@ -75,13 +79,15 @@ returnPagesRouter.get('/email/unsubscribe', (req, res) => {
       .send(page('⚠️', 'Invalid link', 'This unsubscribe link is invalid or has expired.'));
     return;
   }
-  void UserModel.updateOne({ _id: u }, { $set: { 'preferences.dailyDigest': false } })
+  const field = kind === 'weekly' ? 'preferences.weeklyDigest' : 'preferences.dailyDigest';
+  const noun = kind === 'weekly' ? 'weekly recap' : 'daily recap';
+  void UserModel.updateOne({ _id: u }, { $set: { [field]: false } })
     .then(() => {
       res.type('html').send(
         page(
           '✅',
           'Unsubscribed',
-          "You won't get daily recap emails anymore. You can turn them back on anytime from the extension settings.",
+          `You won't get ${noun} emails anymore. You can turn them back on anytime from the extension settings.`,
         ),
       );
     })

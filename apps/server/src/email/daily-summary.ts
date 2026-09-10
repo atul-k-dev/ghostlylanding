@@ -7,8 +7,8 @@
  * secret) so a one-click link in the footer can turn the digest off, verified
  * by the /r/email/unsubscribe page.
  */
-import crypto from 'node:crypto';
 import { config } from '../config.js';
+export { buildUnsubscribeUrl, verifyUnsubToken } from './unsubscribe.js';
 
 export interface DigestReply {
   text: string;
@@ -84,26 +84,6 @@ const esc = (s: string): string =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-
-// -- Unsubscribe token -------------------------------------------------------
-const unsubToken = (userId: string): string =>
-  crypto
-    .createHmac('sha256', config.jwtSecret ?? '')
-    .update(`digest:${userId}`)
-    .digest('hex');
-
-export const buildUnsubscribeUrl = (userId: string): string =>
-  `${config.serverBaseUrl}/r/email/unsubscribe?u=${encodeURIComponent(userId)}&t=${unsubToken(userId)}`;
-
-export const verifyUnsubToken = (userId: string, token: string): boolean => {
-  const expected = unsubToken(userId);
-  if (token.length !== expected.length) return false;
-  try {
-    return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
-  } catch {
-    return false;
-  }
-};
 
 // -- Template (dark brand theme — matches the popup + landing) ----------------
 const PAGE = '#0e0e0e'; // page canvas

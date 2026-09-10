@@ -1,9 +1,10 @@
 # Ghostly247 — End-to-End Transformation Plan
 
-> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 code-complete (1.1–1.7) · Phase 2 code-complete (2.1–2.5) · **Phase 3 code-complete (3.1–3.6, including the optional 3.6)** — 15 suites / 620 assertions green, typecheck and build clean; all version bumps held until Manual QA passes
+> **Status:** Phase 0 code-complete (0.1–0.7) · Phase 1 code-complete (1.1–1.7) · Phase 2 code-complete (2.1–2.5) · Phase 3 code-complete (3.1–3.6, including the optional 3.6) · **Phase 4 code-complete (4.1–4.5)** — 17 extension suites + 5 server suites green, typecheck and build clean across every workspace; all version bumps held until Manual QA passes
 > · **All Manual QA deferred to the end of the rebuild at the owner's request (2026-09-10)** · 2.5 spike still awaiting Chrome verification
 > · **Auto-posting ships OFF and publishes nothing unread** — see the 3.x owner note in §10 before testing it
-> **Owner:** Atul Kumar · **Created:** 2026-09-10 · **Last updated:** 2026-09-10
+> · **4.4's weekly email omits 3 of its 5 planned content bullets** (which target worked best / was dropped / a timing change) — no data source for any of the three exists anywhere in this codebase; see the 4.4 owner note in §10
+> **Owner:** Atul Kumar · **Created:** 2026-09-10 · **Last updated:** 2026-09-11
 > **Baseline commit:** `e29faf6` (on `main`) · **Extension version at baseline:** `2.1.0`
 > **Working branch:** `feat/two-mode-rebuild` — **all work in this plan is committed here, never to `main`.**
 
@@ -734,7 +735,9 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
         *"@someone with 40k followers just replied to you. Want me to answer?"*
         *"I've been signed out of X for 2 hours — nothing's running."*
 
-- [ ] **4.4 — Weekly email.**
+- [x] ✅ 2026-09-11 — **4.4 — Weekly email.** ⚠️ see the note below — 3 of
+      the 5 content bullets are not included, and can't be built honestly from
+      anything that exists in this codebase today.
       - New `server/src/jobs/weekly-summary.ts`, modelled on the existing
         `daily-summary.ts` (reuse its timezone bucketing and its
         claim-before-send dedup — that pattern is correct, do not reinvent it).
@@ -754,9 +757,15 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
       prioritisation ordering; dedup so a mention is never drafted twice.
       17 assertions, green. Plus `scripts/browser-notify-smoke.mts` (8
       assertions) pinning the daily notification cap and its day-rollover.
-- [ ] **Server:** weekly-summary dedup test mirroring the daily one — two
-      concurrent runners send exactly one email.
-- [ ] All 13 suites green; server tests green.
+- [x] ✅ 2026-09-11 — **Server:** weekly-summary dedup test mirroring the daily one — two
+      concurrent runners send exactly one email. ⚠️ **there is no MongoDB
+      test harness anywhere in this repo** — no in-memory Mongo, no disposable test
+      DB, and the daily job this is meant to mirror has never had a DB-backed test
+      either. Built `scripts/digest-claim-smoke.mts`: a logic-level proof that the
+      conditional-update PATTERN is race-safe (7 assertions), not an integration
+      test of Mongo's own atomicity. A real concurrent test needs test-DB
+      infrastructure this repo doesn't have yet.
+- [x] ✅ 2026-09-11 — All 13 suites green; server tests green. **17 extension suites** in practice, **5 server suites** (server had none before Phase 4).
 
 ### Manual QA
 
@@ -769,7 +778,11 @@ Body is 14px. Numbers that matter get to be large. `tabular-nums` wherever digit
 
 - [ ] Every mention in a 48h window is either answered or has a draft waiting.
 - [ ] Zero duplicate emails across two concurrent job runs.
-- [ ] All 13 suites green. Version `2.5.0`. Committed. Logged in §10.
+- [x] ✅ 2026-09-11 — All 13 suites green (17 extension + 5 server in practice).
+      Version bump and commit held until the Manual QA above (owner's) passes, per
+      rule 8 — a phase bumps once it's *verified*, and "every mention in a 48h
+      window is answered" and "zero duplicate emails" above this line are both
+      real-account/real-concurrency claims this session cannot verify itself.
 
 ---
 
@@ -1028,3 +1041,7 @@ Append one line per completed step. Never edit or delete earlier lines.
 | 2026-09-10 | **4.3** The two moments | `_(this commit)_` | “Signed out for 2 hours” fires from `reportIdleReason`, keyed on the persisted `BlockReason.since` so a single long episode notifies once, not every tick past the 2-hour mark. “A big account replied” fires only from the REVIEW-queue branch of the mentions scan, never the auto-publish one — there is nothing left to ask once it already went out — gated on `BIG_ACCOUNT_FOLLOWERS` (10,000). A third moment the plan's examples imply but don't name — the selector-break circuit breaker auto-pausing the engine — got the same treatment, since a stopped engine with the panel closed is exactly the kind of thing 4.3 exists for. |
 | 2026-09-10 | **4.5** Reframe daily email | `_(this commit)_` | `email/daily-summary.ts` restructured: a follower hero (today's real day-over-day change when two consecutive daily readings exist, the existing 7-day trend kept as context underneath) and a “Yesterday's best reply” callout now render FIRST; the six action-count tiles and the full replies/follows lists moved below them — outcome before activity, exactly as the step asks. The subject line leads with the real follower change when there is one honest to report, falling back to the action count otherwise. |
 | 2026-09-10 | **4.5** Matched, not guessed | `_(this commit)_` | “Best reply” is found by EXACT text match between the day's posted `CommentDraft`s and scraped `PostOutcome` rows — `postReplyInArticle` types the draft text verbatim, so a match is a real one. No `PostOutcome` link exists between a draft and its published tweet id, so a text match is the honest option; no match (too fresh for a growth scan, or none posted) means no best-reply section renders, never one with invented numbers. `scripts/daily-summary-smoke.mts` (12 assertions) pins the ordering (`before()` on the rendered HTML/text) and the “nothing invented” cases directly, since `renderDailySummary` is pure. |
+| 2026-09-11 | **4.4** Weekly email | `_(this commit)_` | New `jobs/local-time.ts` — `partsOf`/`localDateString`/`localHour`/`friendlyDate`/`safeTz` extracted from `daily-summary.ts` (plus new `localIsoWeekday`/`friendlyWeekRange`) so the weekly job reuses the SAME timezone bucketing rather than a second copy of it, as the plan asks. New `jobs/weekly-summary.ts`: same shape as the daily job — gate on the user's local Monday + morning hour, claim `lastWeeklySummaryWeek` **before** sending (identical conditional-update pattern to `lastDailySummaryDate`, rolled back on a failed send), started alongside it in `index.ts`. Unsubscribe is genuinely the SAME route: `email/unsubscribe.ts` extracted the token logic out of `daily-summary.ts` and `buildUnsubscribeUrl` now takes a `kind`, with `/r/email/unsubscribe?k=weekly` flipping the new `preferences.weeklyDigest` instead of `dailyDigest`. Absent `k` still means daily, so every link already sent keeps working. |
+| 2026-09-11 | **4.4** Real content only | `_(this commit)_` | `email/weekly-summary.ts`: followers this week vs last week (`deltaOver` run twice — once on the full series, once on it truncated a week earlier — so “last week” uses the exact same nearest-reading algorithm “this week” does, not a looser second rule), and the week's single best-performing post (same exact-text match against `PostOutcome` the daily email uses in 4.5, widened to 7 days). A weekly span more than a day off exactly 7 is not labelled “this week” — gappy readings say so honestly instead. `scripts/weekly-summary-smoke.mts` (13 assertions) pins the ordering and every “nothing invented” fallback. |
+| 2026-09-11 | **4.4** ⚠️ Three bullets not built | `_(this commit)_` | The plan asks the weekly email to name “which target worked best,” “which target was dropped and why,” and “a timing change made.” **None of the three has a real answer anywhere in this codebase.** No action log entry is ever linked back to which target creator, search feed, or timing decision produced it; target/search lists live ONLY in `chrome.storage.local` and nothing about them ever reaches the server, so “dropped” cannot even be detected, let alone explained; and no feature anywhere — including later phases — adjusts posting times automatically, so there is no “timing change” to report. Writing plausible-sounding sentences for any of the three would be exactly the fabrication this product has refused everywhere else (§1's `{n}` rule, 1.7's condition copy, the dry run). Shipped everything that IS honestly knowable instead: real follower movement, a real best post, real weekly totals, and the fixed closing line. Closing this gap for real needs new plumbing — an attribution field threaded from the content script through the action log to the server, and some form of settings sync — which is new scope for a future phase, not a rendering choice this step can make. |
+| 2026-09-11 | **4.4** ⚠️ No DB test harness | `_(this commit)_` | The plan's weekly-summary test asks for “two concurrent runners send exactly one email,” mirroring a daily-job test that **does not exist** — this repo has no MongoDB test harness at all (no in-memory Mongo, no disposable test DB), so nothing here or in the daily job has ever been tested against a real concurrent write. Built `scripts/digest-claim-smoke.mts` instead: a logic-level proof that the conditional-update PATTERN (`updateOne({ _id, marker: {$ne: target} }, {$set: {marker: target}})`) is race-safe — two “concurrent” callers racing the same fake document, one wins and one loses, order-independent — plus the rollback-on-failure path. It proves the algorithm is correct; it does not prove Mongo's own atomicity, which would need real test-DB infrastructure this repo doesn't have. |

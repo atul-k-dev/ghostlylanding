@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { connectDb, disconnectDb, watchIndexBuilds } from './db.js';
 import { logger } from './logger.js';
 import { startDailySummaryScheduler } from './jobs/daily-summary.js';
+import { startWeeklySummaryScheduler } from './jobs/weekly-summary.js';
 
 const main = async (): Promise<void> => {
   if (!config.jwtSecret) {
@@ -22,6 +23,8 @@ const main = async (): Promise<void> => {
 
   // End-of-day activity recap emails (hourly check, once per user-local day).
   startDailySummaryScheduler();
+  // Weekly recap emails (hourly check, Mondays only, once per user-local week).
+  startWeeklySummaryScheduler();
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'shutting down');

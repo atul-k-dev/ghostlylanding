@@ -27,6 +27,8 @@ const preferencesSchema = new Schema(
     keywords: { type: [String], default: [] },
     /** Opt-out for the end-of-day activity recap email. Defaults on. */
     dailyDigest: { type: Boolean, default: true },
+    /** Opt-out for the weekly recap email (updateplan 4.4). Defaults on. */
+    weeklyDigest: { type: Boolean, default: true },
   },
   { _id: false },
 );
@@ -85,6 +87,9 @@ const userSchema = new Schema(
     /** "YYYY-MM-DD" (user-local) of the last day we sent an activity recap for —
      *  dedupe so the end-of-day email goes out at most once per day. */
     lastDailySummaryDate: { type: String, default: null },
+    /** "YYYY-MM-DD" (user-local Monday) of the last week we sent a weekly recap
+     *  for (updateplan 4.4) — same claim-before-send dedupe as the daily one. */
+    lastWeeklySummaryWeek: { type: String, default: null },
     preferences: { type: preferencesSchema, default: () => ({}) },
   },
   { timestamps: true },

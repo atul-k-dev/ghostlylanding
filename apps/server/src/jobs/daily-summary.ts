@@ -20,8 +20,10 @@ import { GrowthSnapshotModel } from '../models/growth-snapshot.model.js';
 import { PostOutcomeModel } from '../models/post-outcome.model.js';
 import { deltaOver } from '../growth/series.js';
 import { sendEmail } from '../email/resend.js';
-import { renderDailySummary, buildUnsubscribeUrl } from '../email/daily-summary.js';
+import { renderDailySummary } from '../email/daily-summary.js';
+import { buildUnsubscribeUrl } from '../email/unsubscribe.js';
 import type { DigestGrowth } from '../email/daily-summary.js';
+import { localDateString, localHour, friendlyDate, safeTz } from './local-time.js';
 import { logger } from '../logger.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -30,52 +32,6 @@ const LOOKBACK_MS = 48 * HOUR_MS;
 const SEND_AFTER_LOCAL_HOUR = 6;
 
 type CountKey = 'like' | 'comment' | 'follow' | 'bookmark' | 'repost' | 'quote';
-
-const partsOf = (date: Date, tz: string): Record<string, string> => {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-  }).formatToParts(date);
-  const map: Record<string, string> = {};
-  for (const p of parts) map[p.type] = p.value;
-  return map;
-};
-
-/** YYYY-MM-DD for `date` as seen in `tz`. */
-const localDateString = (date: Date, tz: string): string => {
-  const p = partsOf(date, tz);
-  return `${p.year}-${p.month}-${p.day}`;
-};
-
-/** 0–23 local hour for `date` in `tz`. */
-const localHour = (date: Date, tz: string): number => Number(partsOf(date, tz).hour);
-
-/** "Tuesday, 8 July 2025" for a YYYY-MM-DD day string. */
-const friendlyDate = (day: string): string => {
-  const d = new Date(`${day}T12:00:00Z`);
-  if (Number.isNaN(d.getTime())) return day;
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'UTC',
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(d);
-};
-
-const safeTz = (tz: string | undefined): string => {
-  if (!tz) return 'UTC';
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
-    return tz;
-  } catch {
-    return 'UTC';
-  }
-};
 
 const emptyCounts = (): Record<CountKey, number> => ({
   like: 0,
