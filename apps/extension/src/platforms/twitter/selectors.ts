@@ -74,6 +74,11 @@ export const TWITTER_SELECTOR_DEFAULTS = {
   followersLink: 'a[href$="/followers"]',
   /** "N Following" link on a profile header. */
   followingLink: 'a[href$="/following"]',
+
+  /* -- Setup: reading the signed-in account -------------------------------- */
+  /** The bio block. Appears both on a profile header and inside a UserCell,
+   *  which is why scanning the Following list scopes this to the cell. */
+  userDescription: '[data-testid="UserDescription"]',
 } as const;
 
 export type SelectorKey = keyof typeof TWITTER_SELECTOR_DEFAULTS;

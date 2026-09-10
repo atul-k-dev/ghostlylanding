@@ -173,6 +173,15 @@ export interface ExtensionSettings {
    * is about the ACCOUNT's age rather than the automation's.
    */
   warmupStartedAt: string | null;
+  /**
+   * When the user finished the setup flow, or null if they never has.
+   *
+   * This is what decides whether the panel opens on Setup or on Today. It is
+   * NOT inferred from "has targets and keywords": someone can deliberately run
+   * with neither, and starting them at step one every time they open the panel
+   * would be the same silent dead end (D14) in a new outfit.
+   */
+  setupCompletedAt: string | null;
 }
 
 /** X account type — drives the scheduled-post character limit. */

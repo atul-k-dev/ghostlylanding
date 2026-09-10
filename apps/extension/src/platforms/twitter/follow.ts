@@ -1,6 +1,6 @@
 import { TWITTER_SELECTORS as S } from './selectors.js';
 import { waitFor } from './dom.js';
-import type { ScannedFollower } from '../common/content-messages.js';
+import type { ScannedFollower, ScannedProfile } from '../common/content-messages.js';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 const randomInt = (min: number, max: number): number =>
@@ -129,6 +129,47 @@ export const scanFollowers = async (max = 20): Promise<ScannedFollower[]> => {
       handle,
       profileUrl: new URL(href, location.origin).toString(),
     });
+  }
+  return out;
+};
+
+/**
+ * Read the accounts this user already follows, off their own /following page.
+ *
+ * Setup proposes targets from here rather than from a niche template, because
+ * who someone already chose to follow is the only honest signal available on
+ * day one — and it is theirs, not ours. Unlike `scanFollowers` this keeps the
+ * name and bio: setup has to say WHY it is proposing each account, and "they
+ * post about design" is only possible with the bio in hand.
+ */
+export const scanFollowing = async (max = 60): Promise<ScannedProfile[]> => {
+  await waitFor(S.userCell, 15_000);
+
+  const out: ScannedProfile[] = [];
+  const seen = new Set<string>();
+  // The list virtualises, so collect as we scroll rather than at the end — by
+  // the time we reach the bottom the top cells have been recycled away.
+  for (let pass = 0; pass < 8 && out.length < max; pass++) {
+    for (const cell of Array.from(document.querySelectorAll<HTMLElement>(S.userCell))) {
+      if (out.length >= max) break;
+      const link = cell.querySelector<HTMLAnchorElement>('a[role="link"][href^="/"]');
+      const href = link?.getAttribute('href') ?? '';
+      const handle = cleanHandleFromHref(href);
+      if (!handle || seen.has(handle.toLowerCase())) continue;
+      seen.add(handle.toLowerCase());
+      // The display name is the first span in the profile link; reading the
+      // link's whole text would drag the @handle and verification badge in too.
+      const name = link?.querySelector('span')?.textContent?.trim() ?? handle;
+      const bio = cell.querySelector<HTMLElement>(S.userDescription)?.innerText.trim() ?? '';
+      out.push({
+        handle,
+        name: name || handle,
+        bio,
+        profileUrl: new URL(href, location.origin).toString(),
+      });
+    }
+    window.scrollBy({ top: 1400, behavior: 'instant' as ScrollBehavior });
+    await sleep(900);
   }
   return out;
 };

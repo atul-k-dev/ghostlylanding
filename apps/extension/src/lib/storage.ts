@@ -33,6 +33,10 @@ export const STORAGE_KEYS = {
   blockReason: 'casper.blockReason',
   /** Rolling 60-minute action window — see scheduler/rate-limit.ts. */
   rateWindow: 'casper.rateWindow',
+  /** What setup read off the X account, so re-opening the panel doesn't re-scan. */
+  setupRead: 'casper.setupRead',
+  /** Live progress of that read — the panel watches this via onChanged. */
+  setupProgress: 'casper.setupProgress',
 } as const;
 
 export interface StoredAuth {
@@ -121,6 +125,8 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   // No ramp until setup starts one. An install that predates the warm-up keeps
   // the caps it has rather than being throttled for work it already does safely.
   warmupStartedAt: null,
+  // Nobody has been through setup on a fresh install, by definition.
+  setupCompletedAt: null,
 };
 
 const DEFAULT_COUNTERS: CountersState = { twitter: null, linkedin: null };

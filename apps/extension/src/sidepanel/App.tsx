@@ -10,6 +10,7 @@ import { Posts } from './pages/Posts.js';
 import { Growth } from './pages/Growth.js';
 import { Ask } from './pages/Ask.js';
 import { Account } from './pages/Account.js';
+import { Setup } from './pages/Setup.js';
 import { Settings } from './pages/Settings.js';
 import { LoggedOut } from '../popup/views/LoggedOut.js';
 
@@ -78,6 +79,20 @@ export const App = () => {
       <div className="casper-app h-full w-full overflow-y-auto bg-casper-bg">
         <LoggedOut />
       </div>
+    );
+  }
+
+  // Setup owns the whole panel until it is done: no tabs, no status bar, one
+  // thing to do. Deciding on `setupCompletedAt` rather than on "has targets"
+  // means someone who deliberately runs with none isn't dragged back to step 1
+  // every time they open the panel.
+  if (status.settings && !status.settings.setupCompletedAt) {
+    return (
+      <Panel
+        top={<TopBar title="Let's get you started" actions={[]} />}
+      >
+        <Setup onDone={() => void status.refresh()} />
+      </Panel>
     );
   }
 

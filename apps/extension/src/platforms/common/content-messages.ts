@@ -25,6 +25,20 @@ export interface ScannedFollower {
   profileUrl: string;
 }
 
+/**
+ * A person read off a list page (the Following list, in setup). Richer than
+ * `ScannedFollower` because setup has to EXPLAIN each proposal — "they post
+ * about design" is only possible if the bio came back with the handle.
+ */
+export interface ScannedProfile {
+  handle: string;
+  /** Display name as X renders it, not the @handle. */
+  name: string;
+  /** Empty string when the account has no bio, never null — keeps ranking simple. */
+  bio: string;
+  profileUrl: string;
+}
+
 export type ContentRequest =
   | {
       type: 'SCAN_PROFILE';
@@ -41,6 +55,11 @@ export type ContentRequest =
   | {
       type: 'SCAN_FOLLOWERS';
       payload: { handle: string; max: number };
+    }
+  | {
+      /** The accounts this user already follows — setup's source of proposals. */
+      type: 'SCAN_FOLLOWING';
+      payload: { max: number };
     }
   | {
       type: 'FOLLOW_HANDLE';
@@ -191,6 +210,10 @@ export type ContentResponse =
   | {
       type: 'FOLLOWERS_RESULT';
       payload: { followers: ScannedFollower[] };
+    }
+  | {
+      type: 'FOLLOWING_RESULT';
+      payload: { profiles: ScannedProfile[] };
     }
   | {
       type: 'FOLLOW_RESULT';

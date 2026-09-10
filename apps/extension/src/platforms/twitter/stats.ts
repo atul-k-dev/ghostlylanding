@@ -15,6 +15,13 @@ export interface ProfileStats {
   followers: number;
   following: number;
   posts: number | null;
+  /**
+   * The profile's bio, when it has one. Added for setup (1.4), which reads the
+   * signed-in account to propose topics, and reads candidate targets to explain
+   * why each one is worth watching. Optional so the growth scrape, which has
+   * never needed it, is unaffected.
+   */
+  bio?: string | null;
 }
 
 export interface ScrapedOutcome {
@@ -94,7 +101,11 @@ export const readProfileStats = async (): Promise<ProfileStats | null> => {
   const postsMatch = (header?.textContent ?? '').match(/([\d][\d.,\s]*[KMB]?)\s*posts?\b/i);
   const posts = postsMatch ? parseCount(postsMatch[1]) : null;
 
-  return { followers, following, posts };
+  const bio =
+    document.querySelector<HTMLElement>(`${S.primaryColumn} ${S.userDescription}`)?.innerText.trim() ??
+    null;
+
+  return { followers, following, posts, bio: bio || null };
 };
 
 /** The status id + author handle encoded in a permalink href. */

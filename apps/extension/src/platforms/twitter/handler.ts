@@ -9,7 +9,13 @@ import type {
 } from '../common/content-messages.js';
 import { scanProfile, scanHomeFeed, likeCurrentPost } from './dom.js';
 import { submitComment } from './comment.js';
-import { scanFollowers, followCurrentProfile, getOwnHandle, followBackInList } from './follow.js';
+import {
+  scanFollowers,
+  scanFollowing,
+  followCurrentProfile,
+  getOwnHandle,
+  followBackInList,
+} from './follow.js';
 import { runHomeAutopilot } from './autopilot.js';
 import { publishPost } from './compose.js';
 import { readProfileStats, collectOwnPostOutcomes } from './stats.js';
@@ -92,6 +98,12 @@ export const installTwitterHandler = (ready: Promise<void> = Promise.resolve()):
         if (req.type === 'COLLECT_OWN_POSTS') {
           const outcomes = await collectOwnPostOutcomes(req.payload.handle, req.payload.max ?? 40);
           const resp: ContentResponse = { type: 'OWN_POSTS_RESULT', payload: { outcomes } };
+          sendResponse(resp);
+          return;
+        }
+        if (req.type === 'SCAN_FOLLOWING') {
+          const profiles = await scanFollowing(req.payload.max);
+          const resp: ContentResponse = { type: 'FOLLOWING_RESULT', payload: { profiles } };
           sendResponse(resp);
           return;
         }

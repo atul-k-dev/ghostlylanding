@@ -46,6 +46,7 @@ import {
 } from '../scheduler/scheduler.js';
 import { fetchGoogleIdToken } from './google-signin.js';
 import { driveTab } from '../platforms/common/tab-driver.js';
+import { readAccountForSetup, getSetupRead } from './setup-read.js';
 import { refreshSelectorConfig, SELECTOR_REFRESH_MS } from '../lib/selector-config.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog, appendActionLog } from '../scheduler/action-log.js';
@@ -205,6 +206,8 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   REFRESH_GROWTH: handleRefreshGrowth as AsyncHandler<unknown, unknown>,
   DELETE_ACCOUNT: handleDeleteAccount as AsyncHandler<unknown, unknown>,
   REFRESH_ME: handleRefreshMe as AsyncHandler<unknown, unknown>,
+  SETUP_READ_ACCOUNT: handleSetupReadAccount as AsyncHandler<unknown, unknown>,
+  GET_SETUP_READ: handleGetSetupRead as AsyncHandler<unknown, unknown>,
   START_CHECKOUT: handleStartCheckout as AsyncHandler<unknown, unknown>,
   OPEN_BILLING_PORTAL: handleOpenBillingPortal as AsyncHandler<unknown, unknown>,
 };
@@ -940,6 +943,20 @@ async function handleRefreshMe() {
     }
   }
   return resp;
+}
+
+/**
+ * Setup step 1. Slow on purpose — a dozen real tab visits — so the panel drives
+ * it once and then reads the stored result; `casper.setupProgress` is the live
+ * feed while it runs.
+ */
+async function handleSetupReadAccount() {
+  return await readAccountForSetup();
+}
+
+/** The last read, so re-opening the panel mid-setup doesn't start over. */
+async function handleGetSetupRead() {
+  return { ok: true, data: await getSetupRead() };
 }
 
 async function handleStartCheckout(payload: unknown) {
