@@ -31,7 +31,7 @@ Most automation tools in this space are built for sales teams and look like ente
 ## 4. The moat (long-term)
 
 - **Personal Voice Training** — paste 10 of your past comments, Casper learns your tone. Compounds the longer the user uses it.
-- **Niche templates** — Designer, Founder, Coach, Writer presets so setup takes 7 minutes, not 70.
+- **Niche templates** — Designer, Founder, Coach, Writer presets so setup takes 7 minutes, not 70. **Never built.** Superseded by the setup flow in `updateplan.md` Phase 1.4, which reads the user's own X profile instead of asking them to pick a preset.
 - **Trust** — zero bans, transparent action logs. Solo creators are paranoid about losing accounts they spent years building. We win by being the safest option, not the most aggressive.
 
 ---
@@ -40,20 +40,41 @@ Most automation tools in this space are built for sales teams and look like ente
 
 1. **Smart Auto-Liking** — like by hashtag/keyword, like all posts from chosen creators, fresh-posts-only filter, daily caps with random variance, junk-post skip.
 2. **AI-Powered Comments** — tone presets + custom voice training, context-aware generation (reads the full post first), length control, approval queue OR auto-post mode, dedupe per account, profanity/risk filter.
-3. **Smart Follow & Connect** — follow engagers of target creators, follow by bio keyword, LinkedIn personalized connection notes, auto-unfollow non-followers, whitelist, daily caps.
-4. **Smart Scheduling** — active hours, time zone aware, burst mode (extra activity right after the user posts), one-tap pause.
+3. **Smart Follow & Connect** — follow engagers of target creators, whitelist, daily caps. *(Never built: follow-by-bio-keyword and auto-unfollow — both land in `updateplan.md` Phase 6.5. LinkedIn connection notes are moot; LinkedIn automation was removed.)*
+4. **Smart Scheduling** — active hours, time zone aware, one-tap pause. *(Active hours existed as dead code until `updateplan.md` Phase 0.4 wired them into the tick. Burst mode was never built and is currently unscheduled.)*
 5. **Safety Engine** — random delays per action, age-aware quotas, browser-session execution (no headless servers), auto-pause on platform anomalies, per-platform rule sets.
 
 ---
 
 ## 6. AI model choices
 
-- **Comment generation (live, per-post):** `gpt-4o-mini`. Cheap, fast, good enough for short conversational comments.
-- **Voice training (one-time, batch):** `gpt-4o-mini` is fine here too — pattern extraction from 10 comments doesn't need a frontier model.
-- **Risk/profanity filtering:** OpenAI moderation endpoint (free) before any auto-post.
-- **Post-relevance scoring (deciding whether a post is worth commenting on):** `gpt-4o-mini`.
+> Updated 2026-09-10 to match the code. This section previously specified
+> `gpt-4o-mini` everywhere; the implementation moved to the 5.x models some time
+> ago and the doc had not caught up. What follows is what the code actually does.
 
-If unsure which model to use for a new feature, ask. Default = `gpt-4o-mini`. Don't reach for a frontier model unless quality fails.
+- **Reply generation (live, per-post):** `gpt-5.4-mini` at `temperature: 0.9`.
+  Fast and cheap, and a real step up from `gpt-4o-mini` on short replies. The
+  high temperature is deliberate: repetition across a feed of replies is what
+  reads as a bot. See `server/src/openai/generate-comment.ts`.
+- **Post drafting + batch ideas:** `gpt-5.5`, `reasoning_effort: 'low'`. This is
+  writing the user publishes under their own name, so it gets the strongest
+  model. See `generate-post.ts`, `generate-ideas.ts`.
+- **Voice training (one-time, batch):** `gpt-5.5`, JSON mode. Runs once per
+  training request, and its quality compounds across every future reply — the one
+  place clearly worth a frontier model. See `train-voice.ts`.
+- **Risk/profanity filtering:** OpenAI moderation endpoint (free) before any auto-post.
+- **Post-relevance scoring:** not a model call. Relevance is whole-word keyword
+  matching in `platforms/common/relevance.ts` — no tokens spent per post.
+
+**5.x API notes** (these have bitten us before, they're not optional):
+- `max_tokens` is rejected — use `max_completion_tokens`.
+- `gpt-5.5` allows only the default temperature; don't send one.
+- 5.x spends part of the completion budget on internal reasoning, so token
+  ceilings must comfortably exceed visible output or a reasoning spike returns
+  empty content.
+
+If unsure which model to use for a new feature, ask. Default = `gpt-5.4-mini`;
+reach for `gpt-5.5` when the output is published under the user's name.
 
 ---
 
@@ -120,6 +141,12 @@ These are product principles. Bake them into the code, not just the marketing.
 
 - **Browser-session only:** Casper acts as the user, in the user's browser, using the user's real session. No credential collection, no headless automation, no cloud-side LinkedIn/Twitter logins. This is the single most important safety choice.
 - **Random delays on every action:** 8–45 seconds, randomized. Never two actions in the same second.
+  > ⚠️ **NOT TRUE OF THE CODE YET (as of 2026-09-10).** The engine currently
+  > paces in-session actions at 3–7s (`executor.ts` hands
+  > `minDelayMs: 3_000, maxDelayMs: 7_000` to the content script). The correct
+  > 8–45s value exists in `timegate.ts` but only gates scheduler *ticks*.
+  > `updateplan.md` **Phase 0.1** makes this claim true. Until it ships, do not
+  > re-publish `docs/Ghostly247-Five-Features.pdf`, which repeats it.
 - **Daily caps that scale with account age:** new accounts get conservative caps (e.g. 30 likes/day), older accounts ramp up. Never exceed safe thresholds.
 - **Auto-pause on anomaly:** if the platform returns rate-limit errors, soft-blocks, or any unexpected response, halt for 3 hours and notify the user.
 - **One-tap kill switch:** user can stop all activity instantly from the extension popup.
@@ -132,6 +159,11 @@ If a feature plan conflicts with these, flag it and stop.
 ---
 
 ## 11. Build phasing — MVP FIRST, then layer
+
+> **SUPERSEDED as of 2026-09-10.** The MVP below shipped. Current work follows
+> **`updateplan.md`** at the repo root, which holds the phase order, the step
+> checklists, the tests, and the progress log. Read that file for what to build
+> next; the phases below are kept only as a record of how the product got here.
 
 Do not build everything at once. Phase order is locked.
 
@@ -205,13 +237,24 @@ When I say _"go through the md file"_ (or you're starting fresh):
 
 ## 14. Quick reference
 
-- **Product name:** Casper AI
-- **Tagline:** The friendly little ghost that grows your Twitter & LinkedIn while you sleep.
-- **Wedge:** Browser extension, both platforms day one, built for solo creators (not sales teams).
-- **Moat:** Personal Voice Training + cute brand + transparent safety (compounds over time, hard for B2B-feeling competitors to copy).
-- **Timing:** LinkedIn's 360Brew algorithm now penalizes generic comments — context-aware AI is the only path forward, and `gpt-4o-mini` finally makes it cheap enough.
-- **Pricing:** Free + Pro at $14.99/mo, $37.99/quarter, $149.99/year.
-- **AI:** `gpt-4o-mini` for comment generation, post relevance scoring, voice training. OpenAI moderation for safety.
-- **MVP scope:** Twitter + LinkedIn, auto-like + AI comments (approval mode) + auto-follow, scheduling, safety engine, basic backend, landing page. Nothing else until that ships.
+> Corrected 2026-09-10. This section still described the pre-launch plan
+> ("Casper AI", LinkedIn day one, `gpt-4o-mini`), none of which matches the
+> shipped product.
+
+- **Product name:** Ghostly247 *(the npm workspace is still `casper-*` and the
+  storage keys are still `casper.*` — internal names, deliberately left alone).*
+- **Tagline:** The friendly little ghost that grows your Twitter/X while you sleep.
+- **Wedge:** Browser extension, runs in the user's own signed-in session, built
+  for solo creators (not sales teams).
+- **Platforms:** Twitter/X only. **LinkedIn automation was removed** — the types
+  remain in `packages/shared` so the platform maps stay total, but nothing drives it.
+- **Moat:** Personal Voice Training + cute brand + transparent safety (compounds
+  over time, hard for B2B-feeling competitors to copy).
+- **Pricing:** Free + Pro, weekly and monthly via Stripe.
+- **AI:** `gpt-5.4-mini` for replies, `gpt-5.5` for posts, ideas and voice
+  training. OpenAI moderation for safety. See §6.
+- **Current state:** MVP shipped. The engagement half is fully autonomous; the
+  publishing half is still manual. Closing that gap is `updateplan.md` Phase 3.
+- **Next work:** always `updateplan.md`, in phase order.
 
 ---
