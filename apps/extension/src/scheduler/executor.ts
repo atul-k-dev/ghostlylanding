@@ -41,7 +41,8 @@ import {
 } from '../platforms/twitter/selectors.js';
 import { apiFetch } from '../lib/api.js';
 import { ensureToday } from './counters.js';
-import { ACTION_DELAY_MS, localDate } from './timegate.js';
+import { localDate } from './timegate.js';
+import { actionDelayFor } from '../lib/presets.js';
 import { GROWTH_LIMITS } from '@casper/shared';
 import type { ScrapedOutcome } from '../platforms/common/content-messages.js';
 
@@ -285,8 +286,8 @@ const runInlineFollowList = async (
         type: 'FOLLOW_BACK',
         payload: {
           max,
-          minDelayMs: ACTION_DELAY_MS.min,
-          maxDelayMs: ACTION_DELAY_MS.max,
+          minDelayMs: actionDelayFor(settings).min,
+          maxDelayMs: actionDelayFor(settings).max,
           skipHandles,
         },
       },
@@ -632,8 +633,8 @@ const runInlineAutopilot = async (
           stopAfterStaleRun,
           skipCommentIds,
           skipQuoteIds,
-          minDelayMs: ACTION_DELAY_MS.min,
-          maxDelayMs: ACTION_DELAY_MS.max,
+          minDelayMs: actionDelayFor(settings).min,
+          maxDelayMs: actionDelayFor(settings).max,
         },
       },
       { settleMs: 3_500 },

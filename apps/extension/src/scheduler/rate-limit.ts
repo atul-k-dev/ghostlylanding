@@ -17,21 +17,25 @@
  *     (via `incrementCounter`), the content script reads before each action.
  *     `chrome.storage.local` is what makes that work across the boundary.
  */
+import type { SafetyPresetName } from '@casper/shared';
 import { STORAGE_KEYS } from '../lib/storage.js';
+import { SAFETY_PRESETS, DEFAULT_PRESET } from '../lib/presets.js';
 
 /** The window is a true rolling hour, not a clock hour — no reset at :00. */
 export const RATE_WINDOW_MS = 60 * 60 * 1_000;
 
 /**
- * Ceilings per safety preset. Phase 1.3 introduces the presets themselves and
- * `settings.safetyPreset`; this map is already keyed for them, so that step
- * only has to start writing the field. Until then every account is Balanced.
+ * Ceilings per safety preset, derived from the preset table itself (1.3) so
+ * there is exactly one place a ceiling is written down. 0.2 shipped this map as
+ * a literal, keyed for presets that did not exist yet; now they do.
  */
-export const HOURLY_CEILINGS = { careful: 12, balanced: 30, growth: 60 } as const;
+export const HOURLY_CEILINGS: Record<SafetyPresetName, number> = {
+  careful: SAFETY_PRESETS.careful.hourlyCeiling,
+  balanced: SAFETY_PRESETS.balanced.hourlyCeiling,
+  growth: SAFETY_PRESETS.growth.hourlyCeiling,
+};
 
-export type SafetyPresetName = keyof typeof HOURLY_CEILINGS;
-
-export const DEFAULT_HOURLY_CEILING = HOURLY_CEILINGS.balanced;
+export const DEFAULT_HOURLY_CEILING = HOURLY_CEILINGS[DEFAULT_PRESET];
 
 /** ms-epoch of every action inside the window, oldest first. */
 export interface RateWindowState {

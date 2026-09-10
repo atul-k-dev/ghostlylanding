@@ -115,6 +115,12 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   xAccountPlan: 'free',
   // Pro-only length target; harmless default for free accounts.
   postLength: 'short',
+  // Balanced is what every install already runs — choosing it as the default
+  // changes nothing for an existing user (see src/lib/presets.ts).
+  safetyPreset: 'balanced',
+  // No ramp until setup starts one. An install that predates the warm-up keeps
+  // the caps it has rather than being throttled for work it already does safely.
+  warmupStartedAt: null,
 };
 
 const DEFAULT_COUNTERS: CountersState = { twitter: null, linkedin: null };

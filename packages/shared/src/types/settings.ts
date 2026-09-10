@@ -72,6 +72,14 @@ export interface SearchQuery {
 /** Most search feeds one account can sensibly work in a session. */
 export const MAX_SEARCH_QUERIES = 5;
 
+/**
+ * How hard the engine is allowed to work. One choice that moves caps, delays,
+ * the hourly ceiling, session length and which action types are on — instead of
+ * six sliders a user has no way to reason about. The table lives in the
+ * extension (`src/lib/presets.ts`); the NAME lives here because it is settings.
+ */
+export type SafetyPresetName = 'careful' | 'balanced' | 'growth';
+
 export interface ExtensionSettings {
   isPaused: boolean;
   timezone: string;
@@ -149,6 +157,22 @@ export interface ExtensionSettings {
    * short ≈ 280, mid ≈ 1,000, long ≈ 4,000 characters.
    */
   postLength: PostLength;
+  /**
+   * The safety preset in force. Chosen once during setup and changeable later;
+   * `applyPreset` is what writes the values it implies.
+   */
+  safetyPreset: SafetyPresetName;
+  /**
+   * ISO timestamp of when this account started its 14-day warm-up ramp, or null
+   * for an install that never went through setup (which keeps its caps as-is
+   * rather than being throttled retroactively).
+   *
+   * A brand-new automation on a real account going straight to full caps is the
+   * single most reliable way to get limited, so setup starts everyone at ~10%
+   * and walks it up over two weeks — independently of `accountAgeMonths`, which
+   * is about the ACCOUNT's age rather than the automation's.
+   */
+  warmupStartedAt: string | null;
 }
 
 /** X account type — drives the scheduled-post character limit. */

@@ -1,4 +1,5 @@
 import type { Platform, PlatformCaps, ExtensionSettings } from '@casper/shared';
+import { warmupFactor } from '../lib/presets.js';
 
 /**
  * Age-aware multiplier — new accounts get tighter caps so they don't trip
@@ -31,8 +32,16 @@ export const computeDailyCaps = (
   base: PlatformCaps,
   months: number | null,
   variance: number = dailyVarianceFactor(),
+  /**
+   * Warm-up ramp (updateplan 1.3). MULTIPLIES with the age multiplier rather
+   * than replacing it: they answer different questions — how old the ACCOUNT is,
+   * and how long the AUTOMATION has been running on it. A three-month-old
+   * account on day two of its ramp is the riskiest combination there is, and
+   * multiplying is the only composition that reflects that.
+   */
+  warmup: number = 1,
 ): PlatformCaps => {
-  const m = ageMultiplier(months);
+  const m = ageMultiplier(months) * Math.max(0, Math.min(1, warmup));
   return {
     likesPerDay: cap(base.likesPerDay * m * variance),
     commentsPerDay: cap(base.commentsPerDay * m * variance),
@@ -47,5 +56,10 @@ export const platformCapsForToday = (
   settings: ExtensionSettings,
   platform: Platform,
 ): PlatformCaps => {
-  return computeDailyCaps(settings.caps[platform], settings.accountAgeMonths[platform]);
+  return computeDailyCaps(
+    settings.caps[platform],
+    settings.accountAgeMonths[platform],
+    dailyVarianceFactor(),
+    warmupFactor(settings.warmupStartedAt),
+  );
 };
