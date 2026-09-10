@@ -166,6 +166,25 @@ export const handleTick = async (): Promise<void> => {
       await maybeFlush();
       return;
     }
+    // Gate 2 — active hours, in the user's own timezone. This gate has been
+    // documented in the header since the scheduler was written and was never
+    // actually called (D6): `isActiveNow` had no callers, not even a test, so
+    // the engine ran at 4am the same as at 4pm. Scans stop here too, per the
+    // gate contract above (scans pass 2–4, not 6) — there is no point warming
+    // a queue for a window that is closed.
+    if (!isWithinActiveHours(new Date(), settings.timezone, settings.activeHours)) {
+      const { startHour, endHour } = settings.activeHours;
+      const window = `${String(startHour).padStart(2, '0')}:00–${String(endHour).padStart(2, '0')}:00`;
+      console.log(`[casper] tick: outside active hours (${window} ${settings.timezone})`);
+      // The block reason, not appendDiagnostic: this tick fires every 30s, and a
+      // diagnostic per tick would push everything else out of the buffer for the
+      // whole night. The reason carries `since`, so the UI can say how long.
+      await setBlockReason('outside-hours', `${window} ${settings.timezone}`);
+      stopKeepAlive();
+      await maybeFlush();
+      return;
+    }
+
     console.log('[casper] tick: active');
     startKeepAlive();
 

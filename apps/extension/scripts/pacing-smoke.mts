@@ -10,6 +10,8 @@
  */
 import { ACTION_DELAY_MS, nextActionDelayMs } from '../src/scheduler/timegate.js';
 import { ageMultiplier } from '../src/scheduler/quotas.js';
+import { isActiveNow, isWithinActiveHours } from '../src/scheduler/timegate.js';
+import type { ExtensionSettings } from '@casper/shared';
 import {
   RATE_WINDOW_MS,
   HOURLY_CEILINGS,
@@ -111,6 +113,46 @@ assert(ageMultiplier(8) === 0.75, 'an 8-month account is on three-quarter caps')
 assert(ageMultiplier(18) === 1.0, 'an 18-month account gets the configured caps');
 assert(ageMultiplier(-4) === 0.5, 'a nonsense negative age is treated as new, not full');
 assert(ageMultiplier(null) === ageMultiplier(0), 'unknown and brand-new are paced the same');
+
+// --- 0.4 active hours -------------------------------------------------------
+// The gate the scheduler header has documented since day one and never called.
+// Only the four fields the gate reads are needed, so the fixture is cast rather
+// than filling in thirty unrelated settings.
+const settingsAt = (
+  startHour: number,
+  endHour: number,
+  isPaused = false,
+): ExtensionSettings =>
+  ({ isPaused, timezone: 'UTC', activeHours: { startHour, endHour } } as ExtensionSettings);
+
+const utc = (hour: number): Date => new Date(Date.UTC(2026, 8, 10, hour, 30, 0));
+
+const day = settingsAt(9, 22);
+assert(isActiveNow(day, utc(9)), 'active at the opening hour');
+assert(isActiveNow(day, utc(14)), 'active in the middle of the window');
+assert(isActiveNow(day, utc(21)), 'active in the last hour of the window');
+assert(!isActiveNow(day, utc(22)), 'asleep at the closing hour — the window is half-open');
+assert(!isActiveNow(day, utc(3)), 'asleep at 3am');
+assert(!isActiveNow(day, utc(8)), 'asleep an hour before opening');
+
+// Paused beats the clock: a paused engine is never "active", even at noon.
+assert(!isActiveNow(settingsAt(9, 22, true), utc(14)), 'paused → not active inside the window');
+assert(!isActiveNow(settingsAt(9, 22, true), utc(3)), 'paused → not active outside it either');
+
+// The overnight case is the one an accidental `start <= h < end` gets wrong.
+const night = settingsAt(22, 6);
+assert(isActiveNow(night, utc(23)), 'overnight: active before midnight');
+assert(isActiveNow(night, utc(0)), 'overnight: active at midnight');
+assert(isActiveNow(night, utc(5)), 'overnight: active in the last hour');
+assert(!isActiveNow(night, utc(6)), 'overnight: asleep at the closing hour');
+assert(!isActiveNow(night, utc(12)), 'overnight: asleep at noon');
+assert(!isActiveNow(night, utc(21)), 'overnight: asleep an hour before opening');
+
+// A bad timezone must not throw the gate open (or throw at all).
+assert(
+  isWithinActiveHours(utc(14), 'Not/AZone', { startHour: 9, endHour: 22 }),
+  'an unparseable timezone falls back to UTC rather than failing',
+);
 
 // ---------------------------------------------------------------------------
 if (fails.length) {
