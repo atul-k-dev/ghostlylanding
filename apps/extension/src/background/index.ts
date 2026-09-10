@@ -47,6 +47,9 @@ import {
 import { fetchGoogleIdToken } from './google-signin.js';
 import { driveTab } from '../platforms/common/tab-driver.js';
 import { readAccountForSetup, getSetupRead } from './setup-read.js';
+import { runDryRun } from '../scheduler/dry-run.js';
+import { mostDistinctiveTerm } from '../lib/topics.js';
+import { appendRejectedDraft } from '../lib/storage.js';
 import { refreshSelectorConfig, SELECTOR_REFRESH_MS } from '../lib/selector-config.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
 import { flushActionLog, appendActionLog } from '../scheduler/action-log.js';
@@ -207,6 +210,8 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   DELETE_ACCOUNT: handleDeleteAccount as AsyncHandler<unknown, unknown>,
   REFRESH_ME: handleRefreshMe as AsyncHandler<unknown, unknown>,
   SETUP_READ_ACCOUNT: handleSetupReadAccount as AsyncHandler<unknown, unknown>,
+  DRY_RUN: handleDryRun as AsyncHandler<unknown, unknown>,
+  DRY_RUN_REJECT: handleDryRunReject as AsyncHandler<unknown, unknown>,
   GET_SETUP_READ: handleGetSetupRead as AsyncHandler<unknown, unknown>,
   START_CHECKOUT: handleStartCheckout as AsyncHandler<unknown, unknown>,
   OPEN_BILLING_PORTAL: handleOpenBillingPortal as AsyncHandler<unknown, unknown>,
@@ -952,6 +957,50 @@ async function handleRefreshMe() {
  */
 async function handleSetupReadAccount() {
   return await readAccountForSetup();
+}
+
+/**
+ * Setup step 3 — show what it WOULD do, having done none of it. Runs the real
+ * feed loop with every action disabled (scheduler/dry-run.ts).
+ */
+async function handleDryRun(payload: unknown) {
+  const { max } = (payload ?? {}) as { max?: number };
+  const outcome = await runDryRun(max);
+  return outcome.ok
+    ? { ok: true, data: { candidates: outcome.candidates, scanned: outcome.scanned } }
+    : { ok: false, error: { code: 'dry_run_failed', message: outcome.error } };
+}
+
+/**
+ * "Not this one" on a dry-run card.
+ *
+ * Two effects, deliberately different in weight. The exclusion is narrow: the
+ * ONE most distinctive word from the post the user rejected, and only when it
+ * is not already a topic they chose — a rejection means "not this", not "never
+ * anything like this", and an over-eager blocklist is how an engine quietly
+ * stops finding anything. The pair is kept whole for Phase 6.3's voice tuning,
+ * which is where a rejected draft is actually worth something.
+ */
+async function handleDryRunReject(payload: unknown) {
+  const { text, draft } = (payload ?? {}) as { text?: string; draft?: string };
+  if (!text) return { ok: false, error: { code: 'invalid_payload', message: 'text required' } };
+
+  const settings = await getSettings();
+  const term = mostDistinctiveTerm(text, [
+    ...settings.homeFeed.keywords,
+    ...settings.homeFeed.excludeKeywords,
+  ]);
+  if (term) {
+    await setSettings({
+      ...settings,
+      homeFeed: {
+        ...settings.homeFeed,
+        excludeKeywords: [...settings.homeFeed.excludeKeywords, term],
+      },
+    });
+  }
+  await appendRejectedDraft({ text, draft: draft ?? null, at: new Date().toISOString() });
+  return { ok: true, data: { excluded: term } };
 }
 
 /** The last read, so re-opening the panel mid-setup doesn't start over. */

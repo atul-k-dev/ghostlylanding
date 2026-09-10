@@ -12,7 +12,7 @@
  * Run with: pnpm --filter @casper/extension setup-smoke
  */
 import type { ScannedProfile } from '../src/platforms/common/content-messages.js';
-import { extractTopics, rankTargets } from '../src/lib/topics.js';
+import { extractTopics, rankTargets, mostDistinctiveTerm } from '../src/lib/topics.js';
 
 const fails: string[] = [];
 const assert = (cond: boolean, label: string) => {
@@ -131,6 +131,37 @@ const twice = rankTargets(following, ['typography', 'design system'], 10);
 assert(
   twice.map((t) => t.handle).join() === targets.map((t) => t.handle).join(),
   'the same input ranks the same way every time',
+);
+
+// --- "Not this one" on a dry-run card (1.5) --------------------------------
+// One word, and only when it is specific enough to be worth blocking. An
+// over-eager blocklist is how an engine quietly stops finding anything.
+assert(
+  mostDistinctiveTerm('another thread about #crypto pumping') === 'crypto',
+  'a hashtag is the post’s own label, so it wins',
+);
+assert(
+  mostDistinctiveTerm('quarterly cryptocurrency speculation nonsense') === 'cryptocurrency',
+  'otherwise the longest distinctive word is chosen',
+);
+assert(
+  mostDistinctiveTerm('a post about design systems', ['design', 'systems']) !== 'design',
+  'a topic the user CHOSE is never turned into an exclusion',
+);
+assert(mostDistinctiveTerm('ok sure yes') === null, 'nothing specific enough → nothing excluded');
+assert(mostDistinctiveTerm('') === null, 'an empty post excludes nothing');
+assert(
+  mostDistinctiveTerm('see https://example.com/bitcoin now') === null,
+  'a url is not mined for something to block',
+);
+assert(
+  mostDistinctiveTerm('thanks @someverylonghandle') === null,
+  'a handle is not turned into a blocked keyword',
+);
+assert(
+  mostDistinctiveTerm('speculation about speculation') ===
+    mostDistinctiveTerm('speculation about speculation'),
+  'the same post always yields the same term — rejecting twice blocks one word, not two',
 );
 
 // ---------------------------------------------------------------------------

@@ -166,6 +166,35 @@ export interface HomeAutopilotOptions {
   skipQuoteIds: string[];
   minDelayMs: number;
   maxDelayMs: number;
+  /**
+   * Dry run (updateplan 1.5): walk the feed and decide exactly as usual, but
+   * take NO action — no like, no follow, no reply typed, nothing queued, no
+   * counter touched. Replies are still really generated, because a preview of
+   * a reply the model did not write would be a lie about the product.
+   *
+   * It is a flag on the real options rather than a second code path on purpose:
+   * a forked "preview" loop would drift from the real one, and then the preview
+   * would stop predicting what actually happens — which is the only thing it is
+   * for.
+   */
+  dryRun?: boolean;
+  /** How many posts a dry run collects before stopping. */
+  dryRunMax?: number;
+}
+
+/** One post a dry run would have engaged, and what it would have done. */
+export interface DryRunCandidate {
+  postUrl: string;
+  postId: string;
+  authorHandle: string | null;
+  /** The post's own text, trimmed for display. */
+  text: string;
+  /** like / reply / follow — in the order they would have happened. */
+  wouldDo: string[];
+  /** The reply it actually generated, when replying is on. */
+  draft?: string;
+  /** Why no draft, when replying is on but generating failed. */
+  draftError?: string;
 }
 
 export interface HomeAutopilotResult {
@@ -178,6 +207,8 @@ export interface HomeAutopilotResult {
   reposted: { postUrl: string; postId: string }[];
   quoted: { postUrl: string; postId: string; draftId?: string }[];
   scanned: number;
+  /** Populated only by a dry run — what it WOULD have done, having done none of it. */
+  wouldEngage?: DryRunCandidate[];
   /** Why replying didn't happen (server down, not Pro, DOM flow failed). */
   commentError?: string;
   /** Diagnostic: candidate-selector match counts, reported to the (clean)

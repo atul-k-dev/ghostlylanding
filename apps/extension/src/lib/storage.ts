@@ -37,6 +37,8 @@ export const STORAGE_KEYS = {
   setupRead: 'casper.setupRead',
   /** Live progress of that read — the panel watches this via onChanged. */
   setupProgress: 'casper.setupProgress',
+  /** Drafts the user rejected, kept for Phase 6.3's voice tuning. */
+  rejectedDrafts: 'casper.rejectedDrafts',
 } as const;
 
 export interface StoredAuth {
@@ -632,4 +634,36 @@ export const getOwnHandle = async (): Promise<string | null> => {
 
 export const setOwnHandle = async (handle: string): Promise<void> => {
   await chrome.storage.local.set({ [STORAGE_KEYS.ownHandle]: handle });
+};
+
+/** A draft the user turned down, and the post that prompted it. */
+export interface RejectedDraft {
+  /** The post's text — the input the model was answering. */
+  text: string;
+  /** What it wrote, when it got that far. */
+  draft: string | null;
+  at: string;
+}
+
+/** Most rejections worth keeping. Old ones stop being about the current voice. */
+const REJECTED_DRAFTS_MAX = 50;
+
+/**
+ * Remember a rejected draft.
+ *
+ * Phase 6.3 feeds `(generated, corrected)` pairs back into the voice profile;
+ * a flat rejection is the weakest form of that signal, but it is the only one
+ * available during setup, and throwing it away would mean asking the user the
+ * same question again in six weeks.
+ */
+export const appendRejectedDraft = async (entry: RejectedDraft): Promise<void> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.rejectedDrafts);
+  const existing = (got[STORAGE_KEYS.rejectedDrafts] as RejectedDraft[] | undefined) ?? [];
+  const next = [...existing, entry].slice(-REJECTED_DRAFTS_MAX);
+  await chrome.storage.local.set({ [STORAGE_KEYS.rejectedDrafts]: next });
+};
+
+export const getRejectedDrafts = async (): Promise<RejectedDraft[]> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.rejectedDrafts);
+  return (got[STORAGE_KEYS.rejectedDrafts] as RejectedDraft[] | undefined) ?? [];
 };

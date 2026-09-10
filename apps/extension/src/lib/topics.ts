@@ -36,6 +36,12 @@ const STOPWORDS = new Set([
   'people','things','thing','way','time','today','day','week','year','lot','bit','much','many',
   'going','still','even','back','right','left','see','saw','say','says','said','look','looks',
   'why','yes','okay','ok','hey','oh','ah','lol','haha','rt','via','amp','http','https','www','com',
+  // Social filler. These carry no subject in either direction: never a topic
+  // worth watching, and never a word worth blocking a post over — which is the
+  // more dangerous half, since "thanks" appears under every good post there is.
+  'sure','thanks','thank','please','hello','welcome','congrats','congratulations','sorry',
+  'love','loved','nice','cool','wow','amazing','awesome','agree','agreed','exactly','definitely',
+  'absolutely','yeah','yep','nope','maybe','literally','actually','basically','honestly','anyway',
 ]);
 
 const MIN_WORD = 3;
@@ -134,6 +140,38 @@ export const extractTopics = (posts: readonly string[], max = 6): string[] => {
     if (!covered) kept.push(term);
   }
   return kept;
+};
+
+/**
+ * The single word that best characterises a post the user just rejected.
+ *
+ * Used by "Not this one" on a dry-run card. One word, not a phrase and not a
+ * handful: a rejection means "not this post", and turning it into three new
+ * blocklist entries is how an engine quietly stops finding anything at all.
+ * A hashtag wins if there is one — it is the post's own label for itself —
+ * otherwise the longest word that is not already a keyword the user chose.
+ *
+ * Returns null when the post offers nothing specific enough to exclude on,
+ * which is the right answer far more often than a shrug-word like "update".
+ */
+export const mostDistinctiveTerm = (text: string, alreadyKnown: readonly string[] = []): string | null => {
+  const known = new Set(alreadyKnown.map((k) => k.toLowerCase()));
+  const words = normalise(text).split(' ').filter(isCandidate);
+
+  const hashtags = words.filter((w) => w.startsWith('#')).map((w) => w.slice(1));
+  const plain = words.filter((w) => !w.startsWith('#'));
+
+  const usable = (w: string): boolean => w.length >= 4 && !known.has(w);
+
+  const tag = hashtags.find(usable);
+  if (tag) return tag;
+
+  // Longest wins, ties broken alphabetically so the same post always yields the
+  // same term — rejecting twice must not blocklist two different words.
+  const best = plain
+    .filter(usable)
+    .sort((a, b) => b.length - a.length || a.localeCompare(b))[0];
+  return best ?? null;
 };
 
 export interface ProposedTarget {

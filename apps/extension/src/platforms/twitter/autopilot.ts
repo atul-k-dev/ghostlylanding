@@ -16,7 +16,11 @@ import { typeIntoComposer, submitComment } from './comment.js';
 import { followCurrentProfile, getOwnHandle } from './follow.js';
 import { looksLikeReply } from './stats.js';
 import { isRelevant, isExcluded, MIN_REPLY_POST_CHARS } from '../common/relevance.js';
-import type { HomeAutopilotOptions, HomeAutopilotResult } from '../common/content-messages.js';
+import type {
+  DryRunCandidate,
+  HomeAutopilotOptions,
+  HomeAutopilotResult,
+} from '../common/content-messages.js';
 import { canActNow, msUntilSlotNow, slotsLeftNow } from '../../scheduler/rate-limit.js';
 import {
   randomInt,
@@ -675,8 +679,12 @@ export const runHomeAutopilot = async (
   let staleStreak = 0;
   let staleStop = false;
 
+  // A dry run ignores the action budgets entirely (it spends none of them), so
+  // it needs its own reason to stop.
+  let dryRunFull = false;
+
   let emptyPasses = 0;
-  while (timeLeft() && budgetLeft() && !staleStop) {
+  while (timeLeft() && budgetLeft() && !staleStop && !dryRunFull) {
     if (await stopRequested()) break;
 
     let seenNew = 0;
@@ -720,6 +728,38 @@ export const runHomeAutopilot = async (
 
       if (!isRelevant(meta.text, opts.keywords)) continue;
       if (isExcluded(meta.text, opts.excludeKeywords)) continue;
+
+      // DRY RUN — everything above this line is the real selection logic, and
+      // everything below it is the part that touches X. A dry run stops here:
+      // it records what it WOULD have done and moves on, so the preview is
+      // produced by the same code that does the work rather than by a second
+      // implementation that would quietly drift out of agreement with it.
+      if (opts.dryRun) {
+        const wouldDo: string[] = [];
+        if (opts.like) wouldDo.push('like');
+        if (opts.follow && meta.authorHandle) wouldDo.push('follow');
+        const candidate: DryRunCandidate = {
+          postUrl: meta.postUrl,
+          postId: meta.postId,
+          authorHandle: meta.authorHandle,
+          text: meta.text.slice(0, 400),
+          wouldDo,
+        };
+        // The reply is really generated. A previewed reply the model did not
+        // write would misrepresent the one thing the user is here to judge.
+        if (opts.comment && meta.text.length >= MIN_REPLY_POST_CHARS) {
+          wouldDo.unshift('reply');
+          const draft = await generateDraft(opts.platform, meta.text, meta.postUrl);
+          if (draft.ok) candidate.draft = draft.draftText;
+          else candidate.draftError = draft.error;
+        }
+        (result.wouldEngage ??= []).push(candidate);
+        if ((result.wouldEngage?.length ?? 0) >= (opts.dryRunMax ?? 10)) {
+          dryRunFull = true;
+          break;
+        }
+        continue;
+      }
 
       // Only check the kill switch for posts we're about to act on (these are
       // what incur the real delays); skipped posts fly by in microseconds.
@@ -978,7 +1018,7 @@ export const runHomeAutopilot = async (
       if (didNavigate) break;
     }
 
-    if (!budgetLeft()) break;
+    if (!budgetLeft() || dryRunFull) break;
 
     // Keep scrolling so a long session keeps pulling in fresh posts. Twitter
     // virtualizes the timeline, so the DOM stays bounded as we go. Distance and

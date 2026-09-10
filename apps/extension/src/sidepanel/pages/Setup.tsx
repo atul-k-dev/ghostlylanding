@@ -4,7 +4,8 @@ import { sendToBackground } from '../../lib/messages.js';
 import { getSettings, setSettings, STORAGE_KEYS } from '../../lib/storage.js';
 import { SAFETY_PRESETS, applyPreset } from '../../lib/presets.js';
 import type { SetupProgress, SetupRead } from '../../background/setup-read.js';
-import { Button, Card, EmptyState } from '../../ui/index.js';
+import { Button, Card } from '../../ui/index.js';
+import { DryRun } from './DryRun.js';
 
 /**
  * Setup — the fix for D14.
@@ -333,23 +334,13 @@ export const Setup = ({ onDone }: { onDone: () => void }) => {
 
       {step === 3 && (
         <>
-          {/*
-            1.5 replaces this with the dry run: ten real posts it would engage,
-            with the reply it would have drafted for each, and nothing posted.
-            Until then this step is honest about being a summary, not a preview.
-          */}
-          <EmptyState
-            icon="👀"
-            title="Ready when you are"
-            body={
-              <>
-                I&rsquo;ll watch {keepTargets.size} {keepTargets.size === 1 ? 'account' : 'accounts'}
-                {keepTopics.size > 0 && <> and posts about {[...keepTopics].slice(0, 3).join(', ')}</>},
-                on the {SAFETY_PRESETS[preset].label} setting. Everything I write comes to you for
-                approval first.
-              </>
-            }
-          />
+          <DryRun onReady={() => undefined} />
+          <p className="px-1 text-xs leading-relaxed text-casper-muted">
+            I&rsquo;ll watch {keepTargets.size} {keepTargets.size === 1 ? 'account' : 'accounts'}
+            {keepTopics.size > 0 && <> and posts about {[...keepTopics].slice(0, 3).join(', ')}</>}, on
+            the {SAFETY_PRESETS[preset].label} setting. Everything I write comes to you for approval
+            first.
+          </p>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => setStep(2)}>
               ← Back
