@@ -1,0 +1,310 @@
+/*
+ * The shadcn theme, shared by both surfaces:
+ *   · the side panel   — tokens on :root, via sidepanel/globals.css
+ *   · the floating panel on x.com — tokens on .ghostly-layer inside its closed
+ *     shadow root, via floating/floating.css (where :root doesn't exist)
+ * Appearance (appearance.ts) sets the same data-* attributes and .dark class on
+ * whichever of the two it is given, so both follow the user's choices.
+ */
+@import "./appearance-palettes.css";
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * The legacy casper-* colours, remapped onto the shadcn tokens so the pages not
+ * yet rebuilt follow the chosen theme, light or dark. 
+ */
+@theme inline {
+    --color-canvas: var(--canvas);
+    --color-casper-bg: var(--canvas);
+    --color-casper-cloud: var(--background);
+    --color-casper-surface: var(--card);
+    --color-casper-surface-2: var(--muted);
+    --color-casper-border: var(--border);
+    --color-casper-fg: var(--foreground);
+    --color-casper-ink: var(--foreground);
+    --color-casper-muted: var(--muted-foreground);
+    --color-casper-coral: var(--primary);
+    --color-casper-coral-bright: var(--primary);
+    --color-casper-violet: var(--primary);
+    --color-casper-on-coral: var(--primary-foreground);
+    --color-casper-working: #3fbf87;
+    --color-casper-attention: #e6a53a;
+}
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-display: 'Plus Jakarta Sans Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root,
+.ghostly-layer {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+}
+
+/*
+ * The page canvas sits a shade off the card colour so cards read as raised.
+ * Light mode: shadcn's light palettes are pure white for every base colour,
+ * so the canvas is rebuilt from the base's own hue (taken from its
+ * muted-foreground, the most saturated neutral it has) — that is what makes
+ * switching Stone / Mauve / Olive… visible. Dark mode: the plain background,
+ * where cards are already lighter.
+ */
+:root,
+.ghostly-layer {
+  --canvas: oklch(from var(--muted-foreground) 0.955 calc(c * 0.75) h);
+  --card-ring: color-mix(in oklch, var(--foreground) 7%, transparent);
+  /* Row separators, resolved here from the palette so the Borders setting on
+     <body> can't reach them — they have their own setting below. */
+  --divider: var(--border);
+  /* Text in the theme colour. Pastel accents set a deeper ink for light mode;
+     everything else just uses the primary. */
+  --primary-ink: var(--primary);
+}
+.dark {
+  --canvas: var(--background);
+  --card-ring: color-mix(in oklch, var(--foreground) 10%, transparent);
+}
+
+/*
+ * Appearance → borders and corner radius. Set one level BELOW the token root
+ * (<body> in the side panel, the layer's child in the floating panel) so they
+ * beat every palette block — custom properties inherit from the nearest
+ * ancestor, whatever that block's specificity.
+ */
+:root[data-border="none"] body,
+.ghostly-layer[data-border="none"] > * {
+  --border: transparent;
+  --card-ring: transparent;
+}
+:root[data-border="subtle"] body,
+.ghostly-layer[data-border="subtle"] > * {
+  --border: color-mix(in oklch, var(--foreground) 6%, transparent);
+  --card-ring: var(--border);
+}
+:root[data-border="strong"] body,
+.ghostly-layer[data-border="strong"] > * {
+  --border: color-mix(in oklch, var(--foreground) 22%, transparent);
+  --card-ring: var(--border);
+}
+:root[data-border="accent"] body,
+.ghostly-layer[data-border="accent"] > * {
+  --border: color-mix(in oklch, var(--primary) 40%, transparent);
+  --card-ring: var(--border);
+}
+:root[data-border="custom"] body,
+.ghostly-layer[data-border="custom"] > * {
+  --border: var(--border-custom);
+  --card-ring: var(--border);
+}
+:root[data-divider="none"] body,
+.ghostly-layer[data-divider="none"] > * {
+  --divider: transparent;
+}
+:root[data-divider="subtle"] body,
+.ghostly-layer[data-divider="subtle"] > * {
+  --divider: color-mix(in oklch, var(--foreground) 6%, transparent);
+}
+:root[data-divider="strong"] body,
+.ghostly-layer[data-divider="strong"] > * {
+  --divider: color-mix(in oklch, var(--foreground) 22%, transparent);
+}
+:root[data-divider="accent"] body,
+.ghostly-layer[data-divider="accent"] > * {
+  --divider: color-mix(in oklch, var(--primary) 40%, transparent);
+}
+:root[data-divider="custom"] body,
+.ghostly-layer[data-divider="custom"] > * {
+  --divider: var(--divider-custom);
+}
+/* Shadows off: zero every shadow utility, leaving ring-based outlines alone. */
+:root[data-shadow="none"] body *,
+.ghostly-layer[data-shadow="none"] * {
+  --tw-shadow: 0 0 #0000 !important;
+}
+:root[data-radius="none"] body,
+.ghostly-layer[data-radius="none"] > * {
+  --radius: 0rem;
+}
+:root[data-radius="small"] body,
+.ghostly-layer[data-radius="small"] > * {
+  --radius: 0.375rem;
+}
+:root[data-radius="medium"] body,
+.ghostly-layer[data-radius="medium"] > * {
+  --radius: 0.75rem;
+}
+:root[data-radius="large"] body,
+.ghostly-layer[data-radius="large"] > * {
+  --radius: 1rem;
+}
+:root[data-radius="custom"] body,
+.ghostly-layer[data-radius="custom"] > * {
+  --radius: var(--radius-custom);
+}
+
+/* The panel's scroll areas hide their scrollbar: its 8px track made the right
+   gutter wider than the left. Wheel, trackpad and keyboard scrolling still work. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Status card motion — one per activity (scrolling, searching, liking…). */
+@keyframes ghost-scroll {
+  0%, 100% { transform: translateY(-4px); }
+  50% { transform: translateY(4px); }
+}
+@keyframes ghost-search {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(3px, -3px); }
+  50% { transform: translate(0, -5px); }
+  75% { transform: translate(-3px, -3px); }
+}
+@keyframes ghost-beat {
+  0%, 100% { transform: scale(1); }
+  20% { transform: scale(1.18); }
+  40% { transform: scale(0.95); }
+  60% { transform: scale(1.1); }
+}
+@keyframes ghost-flip {
+  0%, 40% { transform: rotate(0deg); }
+  50%, 90% { transform: rotate(180deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes ghost-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.9); opacity: 0.8; }
+}
+@keyframes ghost-dot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ghost-motion,
+  .ghost-motion * {
+    animation: none !important;
+  }
+}
+
+/* Unlayered on purpose, so it wins over the generated utility: text in the
+   theme colour uses the readable ink shade, fills and rings keep the pastel. */
+.text-primary {
+  color: var(--primary-ink);
+}

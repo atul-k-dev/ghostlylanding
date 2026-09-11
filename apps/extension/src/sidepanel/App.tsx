@@ -98,7 +98,7 @@ export const App = () => {
   // Signed out: no header, no nav, nothing to pause.
   if (auth.kind === 'logged-out') {
     return (
-      <div className="casper-app h-full w-full overflow-y-auto bg-casper-bg">
+      <div className="no-scrollbar h-full w-full overflow-y-auto bg-canvas">
         <LoggedOut />
       </div>
     );

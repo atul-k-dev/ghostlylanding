@@ -104,7 +104,7 @@ eq(
 );
 
 const br = cornerPosition('bottom-right', BRIEF_SIZE, viewport);
-eq(br.left, 1440 - 360 - PANEL_MARGIN, 'bottom-right leaves the margin on the right');
+eq(br.left, 1440 - 400 - PANEL_MARGIN, 'bottom-right leaves the margin on the right');
 eq(br.top, 900 - 520 - PANEL_MARGIN, 'bottom-right leaves the margin at the bottom');
 const tl = cornerPosition('top-left', BRIEF_SIZE, viewport);
 eq(tl.left, PANEL_MARGIN, 'top-left sits at the margin');

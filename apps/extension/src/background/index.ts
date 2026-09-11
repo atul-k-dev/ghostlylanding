@@ -51,7 +51,7 @@ import { driveTab } from '../platforms/common/tab-driver.js';
 import { readAccountForSetup, getSetupRead } from './setup-read.js';
 import { runDryRun } from '../scheduler/dry-run.js';
 import { mostDistinctiveTerm } from '../lib/topics.js';
-import { appendRejectedDraft, appendCorrectedDraft } from '../lib/storage.js';
+import { appendRejectedDraft, appendCorrectedDraft, STORAGE_KEYS } from '../lib/storage.js';
 import { requestCommentDraft } from '../lib/comment-draft.js';
 import { refreshSelectorConfig, SELECTOR_REFRESH_MS } from '../lib/selector-config.js';
 import { enqueue, stats as queueStats } from '../scheduler/queue.js';
@@ -302,6 +302,25 @@ chrome.commands?.onCommand.addListener((command) => {
       console.warn('[casper] Alt+G could not open the side panel —', err);
     }
   })();
+});
+
+/**
+ * Is a side panel open? The panel holds a port named 'sidepanel' for as long
+ * as it's showing, and a port's disconnect is the one close signal that fires
+ * however the panel goes away. The floating panel on x.com watches the flag
+ * and shrinks to its bubble — two copies of the same brief side by side is
+ * one too many.
+ */
+let openSidePanels = 0;
+void chrome.storage.local.set({ [STORAGE_KEYS.sidePanelOpen]: 0 });
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'sidepanel') return;
+  openSidePanels += 1;
+  void chrome.storage.local.set({ [STORAGE_KEYS.sidePanelOpen]: Date.now() });
+  port.onDisconnect.addListener(() => {
+    openSidePanels = Math.max(0, openSidePanels - 1);
+    if (openSidePanels === 0) void chrome.storage.local.set({ [STORAGE_KEYS.sidePanelOpen]: 0 });
+  });
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

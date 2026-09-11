@@ -53,7 +53,7 @@ const clock = (ms: number | string) => {
 };
 
 /** 42s → "0:42", 12m5s → "12:05", 3h12m → "3h 12m". */
-const span = (ms: number) => {
+export const span = (ms: number) => {
   const s = Math.max(0, Math.round(ms / 1000));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
@@ -78,7 +78,7 @@ const DOT: Record<EngineStatus['state'], string> = {
 
 /* -- what a task looks like -------------------------------------------------- */
 
-interface Look {
+export interface Look {
   icon: IconSvgElement;
   verb: string;
   detail: string;
@@ -89,7 +89,7 @@ interface Look {
 
 const at = (h?: string) => (h ? `@${h.replace(/^@/, '')}` : null);
 
-const lookOf = (t: QueuedTask): Look => {
+export const lookOf = (t: QueuedTask): Look => {
   const p = t.payload as { handle?: string; authorHandle?: string; targetHandle?: string; query?: string };
   const who = at(p.handle ?? p.authorHandle ?? p.targetHandle);
   const post = who ? `a post by ${who}` : 'a post';

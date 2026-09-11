@@ -3,7 +3,7 @@
  *
  * The autopilot decides what to reply to. This is the other half: the user is
  * reading a post, wants to say something, and would rather not write it. Hover
- * a post, press 👻 Reply for me, and the draft arrives in the panel with three
+ * a post, press Reply for me, and the draft arrives in the panel with three
  * ways out — post it, change it, never mind.
  *
  * Two things it is emphatically NOT:
@@ -209,29 +209,70 @@ export const postReplyForMe = async (
 
 /* -- the button ------------------------------------------------------------- */
 
+/**
+ * One stylesheet rule set, scoped to our own class — it can't reach anything
+ * else on X, and unlike inline styles it can do :hover and :focus-visible. The
+ * colours come from the user's Appearance via --ghostly-accent (set by
+ * mount.ts), falling back to Twitter blue.
+ */
+const STYLE_ID = 'ghostly247-reply-for-me-style';
+const ensureStyle = (): void => {
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+.${BUTTON_CLASS} {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-left: 8px;
+  padding: 0 12px 0 8px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--ghostly-accent, #1d9bf0) 45%, transparent);
+  background: color-mix(in oklch, var(--ghostly-accent, #1d9bf0) 14%, transparent);
+  color: rgb(113, 118, 123);
+  font: 600 13px/1 TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.1s;
+}
+.${BUTTON_CLASS}:hover {
+  background: color-mix(in oklch, var(--ghostly-accent, #1d9bf0) 26%, transparent);
+  border-color: var(--ghostly-accent, #1d9bf0);
+  color: var(--ghostly-accent-ink, #1d9bf0);
+}
+.${BUTTON_CLASS}:active { transform: scale(0.97); }
+.${BUTTON_CLASS}:focus-visible { outline: 2px solid var(--ghostly-accent, #1d9bf0); outline-offset: 2px; }
+.${BUTTON_CLASS} .ghostly247-icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--ghostly-accent, #1d9bf0);
+  color: #0f1419;
+}
+.${BUTTON_CLASS} svg { width: 13px; height: 13px; display: block; }
+`;
+  (document.head ?? document.documentElement).appendChild(style);
+};
+
+/** A small ghost, drawn rather than an emoji so it renders the same everywhere. */
+const GHOST_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 21V10a7 7 0 0 1 14 0v11l-2.33-1.75L14.33 21 12 19.25 9.67 21l-2.34-1.75L5 21Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="9.5" cy="10.5" r="1.25" fill="currentColor"/><circle cx="14.5" cy="10.5" r="1.25" fill="currentColor"/></svg>';
+
 const makeButton = (post: ReplyPost): HTMLButtonElement => {
+  ensureStyle();
   const button = document.createElement('button');
   button.type = 'button';
   button.className = BUTTON_CLASS;
-  button.textContent = '👻 Reply for me';
-  button.setAttribute('aria-label', 'Ask Ghostly247 to write a reply to this post');
-  // Inline styles rather than a stylesheet: this button lives inside X's own
-  // action bar, so it has to look deliberate there without adding a single rule
-  // that could reach anything else on the page.
-  button.style.cssText = [
-    'display:inline-flex',
-    'align-items:center',
-    'gap:4px',
-    'margin-left:8px',
-    'padding:2px 8px',
-    'border:1px solid rgba(244,77,96,0.45)',
-    'border-radius:9999px',
-    'background:rgba(244,77,96,0.10)',
-    'color:#f44d60',
-    'font:500 12px/1.6 inherit',
-    'cursor:pointer',
-    'white-space:nowrap',
-  ].join(';');
+  button.innerHTML = `<span class="ghostly247-icon">${GHOST_SVG}</span><span>Reply for me</span>`;
+  button.setAttribute('aria-label', 'Ask Ghostly to write a reply to this post');
+  button.title = 'Ghostly writes a reply — you read it before it posts';
 
   button.addEventListener('click', (e) => {
     // X's action bar is inside the post's own click target: without this, asking

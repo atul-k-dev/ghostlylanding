@@ -22,7 +22,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 // Vite compiles this to a plain string (Tailwind and all) instead of a <link>,
 // which is exactly what a shadow root needs.
-import theme from '../ui/theme.css?inline';
+import theme from './floating.css?inline';
+import { watchAppearance } from '../sidepanel/appearance.js';
 import { FloatingApp } from './FloatingApp.js';
 
 const HOST_ID = 'ghostly247-panel';
@@ -45,26 +46,11 @@ const HOST_STYLE = [
 ].join(';');
 
 /**
- * Styles for the shadow root itself. `:host` cannot be styled from inside the
- * imported sheet in a way that survives Tailwind's preflight, and the shadow
- * content needs the layer to be click-through except where the panel is.
+ * `:host` can't be styled from inside the compiled sheet in a way that survives
+ * Tailwind's preflight. Everything else — the click-through layer, the theme
+ * tokens — lives in floating.css.
  */
-const SHADOW_RESET = `
-:host { all: initial; }
-.ghostly-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  color-scheme: dark;
-  /* theme.css puts these on html/body, which do not exist inside a shadow
-     root — without them the panel would inherit the browser's serif default. */
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    'Segoe UI', Roboto, sans-serif;
-  color: var(--color-casper-fg);
-  -webkit-font-smoothing: antialiased;
-}
-.ghostly-layer > * { pointer-events: auto; }
-`;
+const SHADOW_RESET = ':host { all: initial; }';
 
 let root: Root | null = null;
 let observer: MutationObserver | null = null;
@@ -99,6 +85,15 @@ export const mountFloatingPanel = (): void => {
   const layer = document.createElement('div');
   layer.className = 'ghostly-layer';
   shadow.appendChild(layer);
+  // Same Appearance as the side panel — mode, colours, borders, radius — live.
+  // The theme colour is also handed to the page as two namespaced custom
+  // properties, for the Reply-for-me buttons that live in X's own DOM.
+  watchAppearance(layer, () => {
+    const cs = getComputedStyle(layer);
+    const root = document.documentElement.style;
+    root.setProperty('--ghostly-accent', cs.getPropertyValue('--primary').trim() || '#1d9bf0');
+    root.setProperty('--ghostly-accent-ink', cs.getPropertyValue('--primary-ink').trim() || '#1d9bf0');
+  });
 
   root = createRoot(layer);
   root.render(createElement(FloatingApp));

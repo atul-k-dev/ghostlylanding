@@ -76,6 +76,9 @@ export const STORAGE_KEYS = {
   /** The side panel's notification page: when it was last opened, and feed
    *  items the user cleared — so the bell only lights up for what's new. */
   notificationsSeen: 'casper.notificationsSeen',
+  /** Non-zero while a side panel is open (kept by the background from the
+   *  panel's port) — the floating panel shrinks to its bubble when it opens. */
+  sidePanelOpen: 'casper.sidePanelOpen',
 } as const;
 
 /**

@@ -18,12 +18,12 @@ import { pickHeadline } from './headline';
  * The three hero cards at the top of Home: today's wins (orange), the
  * autopilot switch (blue) and today's safe limit (white).
  *
- * The first card and the limit accents take the theme colour; the blue and
- * white cards are fixed. Corners follow Appearance → corner radius.
+ * The first card and the limit accents take the theme colour, the limit card
+ * is a normal card; only the blue card is fixed. Corners follow Appearance → corner radius.
  */
 const THEMED = 'bg-primary text-primary-foreground';
 const BLUE = 'bg-[#9DB5F5] text-black';
-const WHITE = 'bg-white text-black';
+const PLAIN = 'bg-card text-card-foreground ring-1 ring-[color:var(--card-ring)]';
 const CARD = 'rounded-4xl p-4 shadow-sm';
 
 const ordinal = (n: number) => {
@@ -130,7 +130,7 @@ const Ring = ({ fraction }: { fraction: number }) => {
   return (
     <div className="relative grid size-[72px] shrink-0 place-items-center">
       <svg viewBox="0 0 64 64" className="absolute inset-0 -rotate-90" aria-hidden>
-        <circle cx="32" cy="32" r={r} fill="none" stroke="#D9D9D9" strokeWidth="6" />
+        <circle cx="32" cy="32" r={r} fill="none" strokeWidth="6" className="stroke-foreground/10" />
         <circle
           cx="32"
           cy="32"
@@ -151,13 +151,13 @@ const LimitCard = ({ today }: { today: TodayNumbers }) => {
   const { used, allowance } = today;
   const left = Math.max(0, allowance - used);
   return (
-    <section className={cn(CARD, WHITE, 'flex items-center gap-4')}>
+    <section className={cn(CARD, PLAIN, 'flex items-center gap-4')}>
       <span className="grid size-16 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
         <HugeiconsIcon icon={DashboardSpeed02Icon} strokeWidth={2} className="size-8" />
       </span>
       <div className="min-w-0 flex-1">
         <h2 className="truncate font-display text-[22px] leading-tight font-semibold tracking-tight">Daily Limit</h2>
-        <p className="mt-0.5 truncate text-sm text-black/50 tabular-nums">
+        <p className="mt-0.5 truncate text-sm text-muted-foreground tabular-nums">
           {allowance > 0 ? `${used} of ${allowance} used · ${left} left` : 'Starts with the first action'}
         </p>
       </div>

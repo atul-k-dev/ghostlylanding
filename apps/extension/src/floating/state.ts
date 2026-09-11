@@ -71,11 +71,11 @@ export interface Box extends Size {
  *  enough that the panel reads as part of the page rather than stuck on it. */
 export const PANEL_MARGIN = 16;
 
-/** The brief. 360 is wide enough for a reply draft; 520 fits a laptop. */
-export const BRIEF_SIZE: Size = { width: 360, height: 520 };
+/** The brief: wide enough for Home's hero cards side by side; 520 fits a laptop. */
+export const BRIEF_SIZE: Size = { width: 400, height: 520 };
 
-/** The bubble. 44px is the smallest comfortable touch target. */
-export const BUBBLE_SIZE: Size = { width: 44, height: 44 };
+/** The bubble: a 42px activity core inside a status ring. */
+export const BUBBLE_SIZE: Size = { width: 60, height: 60 };
 
 /**
  * Which corner a dragged box belongs to — decided by its CENTRE, not its

@@ -113,6 +113,8 @@ const useViewport = (): Size => {
 
 export const usePlacement = (
   state: PanelState,
+  /** The brief's real size once rendered — it's content-height, not fixed. */
+  measured: Size | null = null,
 ): {
   corner: Corner;
   setCorner: (c: Corner) => void;
@@ -122,7 +124,7 @@ export const usePlacement = (
 } => {
   const [corner, setLocal] = useState<Corner>('bottom-right');
   const viewport = useViewport();
-  const size = state === 'brief' ? BRIEF_SIZE : BUBBLE_SIZE;
+  const size = state === 'brief' ? (measured ?? BRIEF_SIZE) : BUBBLE_SIZE;
 
   useEffect(() => {
     void readCorner().then(setLocal);

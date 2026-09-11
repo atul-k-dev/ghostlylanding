@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Appearance — light/dark/system, a base colour and a theme colour, all from
- * the shadcn registry (appearance-palettes.css). It is a per-device display
- * preference, so it lives in localStorage: synchronous, which means it can be
- * applied before the first paint and the panel never flashes the wrong theme.
+ * Appearance — light/dark/system, base and theme colour (shadcn registry
+ * palettes in ui/appearance-palettes.css), borders, separators, shadows and
+ * corner radius. Stored in chrome.storage.local so the floating panel on x.com
+ * follows it too; the side panel keeps a localStorage copy to apply before
+ * its first paint.
  */
 export type ThemeMode = 'light' | 'dark' | 'system';
-export const BASE_COLORS = ['neutral', 'stone', 'zinc', 'mauve', 'olive', 'mist', 'taupe'] as const;
+export const BASE_COLORS = ['neutral', 'stone', 'zinc', 'mauve', 'olive', 'mist', 'taupe', 'twitter'] as const;
 export type BaseColor = (typeof BASE_COLORS)[number];
 export const ACCENT_COLORS = [
+  'twitter',
   'amber',
   'blue',
   'cyan',
@@ -58,9 +60,9 @@ export interface Appearance {
 
 const KEY = 'casper.appearance';
 const DEFAULT: Appearance = {
-  mode: 'dark',
-  base: 'neutral',
-  accent: 'base',
+  mode: 'light',
+  base: 'mist',
+  accent: 'twitter',
   borders: true,
   borderColor: 'default',
   customBorder: '#8b5cf6',
@@ -72,54 +74,120 @@ const DEFAULT: Appearance = {
   customRadius: 18,
 };
 const EVENT = 'casper:appearance';
+/** Shared with the floating panel on x.com, which can't see this page's localStorage. */
+const STORE_KEY = 'casper.appearance';
 
 export const label = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
 
+const merge = (raw: unknown): Appearance =>
+  raw && typeof raw === 'object' ? { ...DEFAULT, ...(raw as Partial<Appearance>) } : DEFAULT;
+
+/**
+ * The side panel's synchronous copy — read before the first paint so the panel
+ * never flashes the wrong theme. chrome.storage.local is the source of truth.
+ */
 export const readAppearance = (): Appearance => {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...DEFAULT, ...(JSON.parse(raw) as Partial<Appearance>) } : DEFAULT;
+    return raw ? merge(JSON.parse(raw)) : DEFAULT;
   } catch {
     return DEFAULT;
   }
 };
 
-const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-export const applyAppearance = (a: Appearance = readAppearance()) => {
-  const root = document.documentElement;
-  const dark = a.mode === 'dark' || (a.mode === 'system' && systemDark());
-  root.classList.toggle('dark', dark);
-  root.style.colorScheme = dark ? 'dark' : 'light';
-  root.dataset.base = a.base;
-  if (a.accent === 'base') delete root.dataset.accent;
-  else root.dataset.accent = a.accent;
-  root.dataset.border = a.borders ? a.borderColor : 'none';
-  root.dataset.radius = a.radius;
-  root.dataset.shadow = a.shadows ? 'on' : 'none';
-  root.dataset.divider = a.dividers ? a.dividerColor : 'none';
-  root.style.setProperty('--border-custom', a.customBorder);
-  root.style.setProperty('--divider-custom', a.customDivider);
-  // Cards are rounded-2xl = --radius × 1.8, so this makes a card corner exactly customRadius px.
-  root.style.setProperty('--radius-custom', `${a.customRadius / 1.8}px`);
-};
-
-export const saveAppearance = (a: Appearance) => {
+const cache = (a: Appearance) => {
   try {
     localStorage.setItem(KEY, JSON.stringify(a));
   } catch {
-    // Storage blocked — still apply for this session.
+    // Storage blocked — it still applies for this session.
   }
-  applyAppearance(a);
-  window.dispatchEvent(new Event(EVENT));
 };
 
-/** Apply now, and keep following the OS while the mode is 'system'. */
+const loadStored = async (): Promise<Appearance | null> => {
+  try {
+    const got = await chrome.storage.local.get(STORE_KEY);
+    return got[STORE_KEY] ? merge(got[STORE_KEY]) : null;
+  } catch {
+    return null;
+  }
+};
+
+const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+/** Apply to the side panel's <html>, or to the floating panel's layer element. */
+export const applyAppearance = (a: Appearance = readAppearance(), el: HTMLElement = document.documentElement) => {
+  const dark = a.mode === 'dark' || (a.mode === 'system' && systemDark());
+  el.classList.toggle('dark', dark);
+  el.style.colorScheme = dark ? 'dark' : 'light';
+  el.dataset.base = a.base;
+  if (a.accent === 'base') delete el.dataset.accent;
+  else el.dataset.accent = a.accent;
+  el.dataset.border = a.borders ? a.borderColor : 'none';
+  el.dataset.radius = a.radius;
+  el.dataset.shadow = a.shadows ? 'on' : 'none';
+  el.dataset.divider = a.dividers ? a.dividerColor : 'none';
+  el.style.setProperty('--border-custom', a.customBorder);
+  el.style.setProperty('--divider-custom', a.customDivider);
+  // Cards are rounded-2xl = --radius × 1.8, so this makes a card corner exactly customRadius px.
+  el.style.setProperty('--radius-custom', `${a.customRadius / 1.8}px`);
+};
+
+export const saveAppearance = (a: Appearance) => {
+  cache(a);
+  applyAppearance(a);
+  window.dispatchEvent(new Event(EVENT));
+  void chrome.storage.local.set({ [STORE_KEY]: a }).catch(() => {});
+};
+
+/**
+ * Side panel: apply the cached copy now, then reconcile with the shared store
+ * (and migrate a cache-only value into it), and follow changes made elsewhere
+ * and the OS theme while the mode is 'system'.
+ */
 export const initAppearance = () => {
   applyAppearance();
+  void loadStored().then((stored) => {
+    if (!stored) {
+      void chrome.storage.local.set({ [STORE_KEY]: readAppearance() }).catch(() => {});
+      return;
+    }
+    if (JSON.stringify(stored) !== JSON.stringify(readAppearance())) {
+      cache(stored);
+      applyAppearance(stored);
+      window.dispatchEvent(new Event(EVENT));
+    }
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !(STORE_KEY in changes)) return;
+    const next = merge(changes[STORE_KEY]!.newValue);
+    if (JSON.stringify(next) === JSON.stringify(readAppearance())) return;
+    cache(next);
+    applyAppearance(next);
+    window.dispatchEvent(new Event(EVENT));
+  });
   window
     .matchMedia('(prefers-color-scheme: dark)')
     .addEventListener('change', () => readAppearance().mode === 'system' && applyAppearance());
+};
+
+/** Floating panel: keep `el` in step with the side panel's Appearance, live. */
+export const watchAppearance = (el: HTMLElement, onApply?: () => void) => {
+  let current = DEFAULT;
+  const apply = () => {
+    applyAppearance(current, el);
+    onApply?.();
+  };
+  apply();
+  void loadStored().then((stored) => {
+    current = stored ?? DEFAULT;
+    apply();
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !(STORE_KEY in changes)) return;
+    current = merge(changes[STORE_KEY]!.newValue);
+    apply();
+  });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => current.mode === 'system' && apply());
 };
 
 export const useAppearance = (): [Appearance, (patch: Partial<Appearance>) => void] => {

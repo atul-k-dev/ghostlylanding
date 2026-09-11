@@ -1,0 +1,25 @@
+/*
+ * The floating panel's stylesheet, compiled to a string and injected into its
+ * closed shadow root (see mount.ts). Same shadcn theme as the side panel; the
+ * tokens live on .ghostly-layer because a shadow root has no :root.
+ *
+ * No web fonts here: @font-face inside a shadow root is ignored by Chrome, and
+ * font files would load from x.com's origin. The system sans stands in.
+ */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "../ui/shadcn-theme.css";
+
+.ghostly-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.ghostly-layer > * {
+  pointer-events: auto;
+}

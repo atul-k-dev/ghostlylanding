@@ -28,6 +28,7 @@ import {
   UserAdd01Icon,
   UserBlock01Icon,
   UserIcon,
+  ViewIcon,
 } from '@hugeicons/core-free-icons';
 import { sendToBackground } from '../../lib/messages.js';
 import { SAFETY_PRESETS } from '../../lib/presets.js';
@@ -129,6 +130,12 @@ export const SettingsScreen = ({
           label="Active hours"
           value={`${hh(s.activeHours.startHour)} – ${hh(s.activeHours.endHour)}`}
           onClick={go('hours')}
+        />
+        <Row
+          icon={ViewIcon}
+          label="Spotlight"
+          hint="Outline what I'm working on, on x.com"
+          toggle={toggle(s.spotlight, (v) => update({ ...s, spotlight: v }))}
         />
         {isTrusted(s.trust) && (
           <Row icon={ShieldKeyIcon} label="Posting on my own" value="On" onClick={go('trust')} />

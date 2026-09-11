@@ -48,7 +48,7 @@ const CAP_KEY: Record<ActionType, keyof PlatformCaps> = {
 };
 const EMPTY: ActionTypeCounts = { like: 0, comment: 0, follow: 0, bookmark: 0, repost: 0, quote: 0 };
 
-export const useTodayNumbers = (status: EngineStatus, growth: Growth): TodayNumbers => {
+export const useTodayNumbers = (status: EngineStatus, growth: Pick<Growth, 'summary' | 'loading' | 'reload'>): TodayNumbers => {
   const settings = status.settings;
   const counter = status.counters?.twitter ?? null;
   const today = settings ? localDate(new Date(), settings.timezone) : null;

@@ -28,25 +28,8 @@ import {
 } from '../appearance';
 import { Group, Pad, Row } from './kit';
 
-/** Swatch colours for the pickers — from the generated palettes (light primary / base mid-tone). */
-export const SWATCH: Record<BaseColor | (typeof ACCENT_COLORS)[number], string> = {
-  amber: 'oklch(0.555 0.163 48.998)',
-  blue: 'oklch(0.488 0.243 264.376)',
-  cyan: 'oklch(0.52 0.105 223.128)',
-  emerald: 'oklch(0.508 0.118 165.612)',
-  fuchsia: 'oklch(0.518 0.253 323.949)',
-  green: 'oklch(0.527 0.154 150.069)',
-  indigo: 'oklch(0.457 0.24 277.023)',
-  lime: 'oklch(0.841 0.238 128.85)',
-  orange: 'oklch(0.553 0.195 38.402)',
-  pink: 'oklch(0.525 0.223 3.958)',
-  purple: 'oklch(0.496 0.265 301.924)',
-  red: 'oklch(0.505 0.213 27.518)',
-  rose: 'oklch(0.514 0.222 16.935)',
-  sky: 'oklch(0.5 0.134 242.749)',
-  teal: 'oklch(0.511 0.096 186.391)',
-  violet: 'oklch(0.491 0.27 292.581)',
-  yellow: 'oklch(0.852 0.199 91.936)',
+/** Swatch dots for the pickers — each palette's primary (theme colours are pastel). */
+const BASE_SWATCH: Record<BaseColor, string> = {
   neutral: 'oklch(0.556 0 0)',
   stone: 'oklch(0.553 0.013 58.071)',
   zinc: 'oklch(0.552 0.016 285.938)',
@@ -54,6 +37,27 @@ export const SWATCH: Record<BaseColor | (typeof ACCENT_COLORS)[number], string> 
   olive: 'oklch(0.58 0.031 107.3)',
   mist: 'oklch(0.56 0.021 213.5)',
   taupe: 'oklch(0.547 0.021 43.1)',
+  twitter: '#536471',
+};
+const ACCENT_SWATCH: Record<(typeof ACCENT_COLORS)[number], string> = {
+  twitter: '#1d9bf0',
+  amber: 'oklch(0.89 0.07 48.998)',
+  blue: 'oklch(0.84 0.07 264.376)',
+  cyan: 'oklch(0.84 0.07 223.128)',
+  emerald: 'oklch(0.84 0.07 165.612)',
+  fuchsia: 'oklch(0.84 0.07 323.949)',
+  green: 'oklch(0.84 0.07 150.069)',
+  indigo: 'oklch(0.84 0.07 277.023)',
+  lime: 'oklch(0.89 0.07 128.85)',
+  orange: 'oklch(0.89 0.07 38.402)',
+  pink: 'oklch(0.84 0.07 3.958)',
+  purple: 'oklch(0.84 0.07 301.924)',
+  red: 'oklch(0.84 0.07 27.518)',
+  rose: 'oklch(0.84 0.07 16.935)',
+  sky: 'oklch(0.84 0.07 242.749)',
+  teal: 'oklch(0.84 0.07 186.391)',
+  violet: 'oklch(0.84 0.07 292.581)',
+  yellow: 'oklch(0.89 0.07 91.936)',
 };
 
 const Dot = ({ color }: { color: string }) => (
@@ -103,14 +107,14 @@ export const AppearanceDetail = () => {
           trailing={
             <Select items={baseItems} value={a.base} onValueChange={(v) => v && set({ base: v as BaseColor })}>
               <SelectTrigger className={trigger} aria-label="Base colour">
-                <Dot color={SWATCH[a.base]} />
+                <Dot color={BASE_SWATCH[a.base]} />
                 <SelectValue className="flex-1 text-left" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
                   {BASE_COLORS.map((b) => (
                     <SelectItem key={b} value={b}>
-                      <Dot color={SWATCH[b]} />
+                      <Dot color={BASE_SWATCH[b]} />
                       {label(b)}
                     </SelectItem>
                   ))}
@@ -124,13 +128,13 @@ export const AppearanceDetail = () => {
           trailing={
             <Select items={accentItems} value={a.accent} onValueChange={(v) => v && set({ accent: v as AccentColor })}>
               <SelectTrigger className={trigger} aria-label="Theme colour">
-                <Dot color={SWATCH[a.accent === 'base' ? a.base : a.accent]} />
+                <Dot color={a.accent === 'base' ? BASE_SWATCH[a.base] : ACCENT_SWATCH[a.accent]} />
                 <SelectValue className="flex-1 text-left" />
               </SelectTrigger>
               <SelectContent className="max-h-80">
                 <SelectGroup>
                   <SelectItem value="base">
-                    <Dot color={SWATCH[a.base]} />
+                    <Dot color={BASE_SWATCH[a.base]} />
                     {label(a.base)}
                   </SelectItem>
                 </SelectGroup>
@@ -138,7 +142,7 @@ export const AppearanceDetail = () => {
                 <SelectGroup>
                   {ACCENT_COLORS.map((c) => (
                     <SelectItem key={c} value={c}>
-                      <Dot color={SWATCH[c]} />
+                      <Dot color={ACCENT_SWATCH[c]} />
                       {label(c)}
                     </SelectItem>
                   ))}

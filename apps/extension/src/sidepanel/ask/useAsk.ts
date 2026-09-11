@@ -5,8 +5,7 @@ import { getCorrectedDrafts, getPostOutcomes } from '../../lib/storage.js';
 import { detectProactiveNudge, type ProactiveNudge } from '../../lib/proactive.js';
 
 /**
- * The copilot's state and actions, shared by the side-panel Ask page and the
- * floating panel's compact Ask (updateplan 5.2/5.3).
+ * The copilot's state and actions for the Ask page (updateplan 5.2).
  *
  * A chat over the extension's own message bus, not a direct model call: the
  * server does the reasoning and never applies anything itself — every
