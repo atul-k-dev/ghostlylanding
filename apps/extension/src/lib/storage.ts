@@ -79,6 +79,9 @@ export const STORAGE_KEYS = {
   /** Non-zero while a side panel is open (kept by the background from the
    *  panel's port) — the floating panel shrinks to its bubble when it opens. */
   sidePanelOpen: 'casper.sidePanelOpen',
+  /** Onboarding progress — the step reached, the goal picked, and whether the
+   *  user chose "later" — so it resumes, and Settings can offer to finish it. */
+  onboarding: 'casper.onboarding',
 } as const;
 
 /**

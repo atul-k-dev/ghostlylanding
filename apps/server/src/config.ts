@@ -54,6 +54,9 @@ export const config = {
     weekly: optional('STRIPE_PRICE_WEEKLY'),
     monthly: optional('STRIPE_PRICE_MONTHLY'),
   },
+  // The Stripe account is shared with another product, so the admin revenue
+  // view only counts subscriptions and charges for the product with this name.
+  stripeProductName: required('STRIPE_PRODUCT_NAME', 'Ghostly247 Pro'),
 } as const;
 
 export const isProd = config.env === 'production';

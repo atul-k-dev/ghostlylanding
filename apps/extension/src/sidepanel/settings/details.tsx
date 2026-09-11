@@ -15,10 +15,12 @@ import { COMMENT_LENGTH_LABELS } from '../pages/_shared.js';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { HomeFeedDetail, TargetsDetail, TopicFeedsDetail, WhitelistDetail } from './sources';
 import { AppearanceDetail } from './AppearanceDetail';
+import { LimitsDetail } from './LimitsDetail';
 import { AccentButton, Group, Row, ProBadge } from './kit';
 
 export type DetailKey =
   | 'appearance'
+  | 'limits'
   | 'plan'
   | 'intensity'
   | 'hours'
@@ -35,6 +37,7 @@ export type DetailKey =
 
 export const DETAIL_TITLES: Record<DetailKey, string> = {
   appearance: 'Appearance',
+  limits: 'Limits',
   plan: 'Plan',
   intensity: 'Work pace',
   hours: 'Active hours',
@@ -55,6 +58,8 @@ interface DetailProps {
   update: (next: ExtensionSettings) => void;
   reload: () => void;
   user: User;
+  /** Jump to another detail page (e.g. Limits → Plan). */
+  go?: (key: DetailKey) => void;
 }
 
 const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
@@ -63,6 +68,8 @@ export const Detail = ({ id, ...p }: DetailProps & { id: DetailKey }) => {
   switch (id) {
     case 'appearance':
       return <AppearanceDetail />;
+    case 'limits':
+      return <LimitsDetail settings={p.settings} user={p.user} onUpgrade={() => p.go?.('plan')} />;
     case 'plan':
       return <PlanDetail user={p.user} />;
     case 'intensity':

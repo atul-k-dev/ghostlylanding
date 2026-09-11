@@ -144,16 +144,16 @@ const Chat = ({ ask }: { ask: AskState }) => (
 );
 
 const Welcome = ({ ask, name, onFill }: { ask: AskState; name: string; onFill: (text: string) => void }) => (
-  // Anchored to the bottom so the suggestions sit right above the message bar,
-  // where your thumb (and eye) already is.
-  <div className="flex min-h-full flex-col justify-end gap-4 pt-4 pb-1">
-    <div className="flex items-center gap-3 px-1">
-      <span className="ghost-motion grid size-12 shrink-0 animate-[ghost-breathe_3s_ease-in-out_infinite] place-items-center rounded-full bg-primary text-primary-foreground ring-6 ring-primary/15">
-        <HugeiconsIcon icon={SparklesIcon} strokeWidth={1.8} className="size-6" />
+  // The greeting takes the free space in the middle; the suggestions sit at the
+  // bottom, right above the message bar.
+  <div className="flex min-h-full flex-col gap-4 pt-4 pb-1">
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
+      <span className="ghost-motion grid size-20 animate-[ghost-breathe_3s_ease-in-out_infinite] place-items-center rounded-full bg-primary text-primary-foreground shadow-lg ring-8 ring-primary/15">
+        <HugeiconsIcon icon={SparklesIcon} strokeWidth={1.8} className="size-9" />
       </span>
-      <div className="min-w-0">
-        <h2 className="font-display text-[20px] leading-tight font-extrabold tracking-tight">Hi {name}, what can I do?</h2>
-        <p className="text-xs text-muted-foreground">Nothing changes until you tap “Do it”.</p>
+      <div>
+        <h2 className="font-display text-[24px] leading-tight font-extrabold tracking-tight">Hi {name}, what can I do?</h2>
+        <p className="mt-1 text-xs text-muted-foreground">Nothing changes until you tap “Do it”.</p>
       </div>
     </div>
 
@@ -181,20 +181,23 @@ const Welcome = ({ ask, name, onFill }: { ask: AskState; name: string; onFill: (
       </div>
     )}
 
-    <div className="grid grid-cols-2 gap-2">
+    <div>
+      <p className="mb-2 px-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Try asking</p>
+      <div className="grid grid-cols-2 gap-2">
         {SUGGESTIONS.map((s) => (
           <button
             key={s.text}
             type="button"
             onClick={() => (s.send ? void ask.send(s.send) : onFill(s.fill ?? ''))}
-            className="flex cursor-pointer items-center gap-2.5 rounded-2xl bg-card p-2.5 text-left shadow-sm ring-1 ring-[color:var(--card-ring)] transition hover:ring-primary/40 active:scale-[0.98]"
+            className="flex cursor-pointer flex-col items-start gap-2.5 rounded-3xl bg-card p-3.5 text-left shadow-sm ring-1 ring-[color:var(--card-ring)] transition hover:ring-primary/40 active:scale-[0.98]"
           >
-            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
-              <HugeiconsIcon icon={s.icon} strokeWidth={2} className="size-4" />
+            <span className="grid size-9 place-items-center rounded-full bg-primary/15 text-primary">
+              <HugeiconsIcon icon={s.icon} strokeWidth={2} className="size-[18px]" />
             </span>
-            <span className="text-[13px] leading-snug font-semibold">{s.text}</span>
+            <span className="text-sm leading-snug font-semibold">{s.text}</span>
           </button>
         ))}
+      </div>
     </div>
   </div>
 );

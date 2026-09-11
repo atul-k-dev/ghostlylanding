@@ -54,6 +54,32 @@ const monthlyAmount = (price: Stripe.Price | null, quantity: number): number => 
 const startOfUTCDay = (d: Date): Date =>
   new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 
+/**
+ * The Stripe account is shared with another product, so everything below is
+ * scoped to the product(s) named `config.stripeProductName` — archived ones
+ * included, so revenue from a retired price still counts.
+ */
+const findProductIds = async (stripe: Stripe): Promise<Set<string>> => {
+  const products = await stripe.products.list({ limit: 100 }).autoPagingToArray({ limit: 1000 });
+  const ids = products.filter((p) => p.name.trim() === config.stripeProductName).map((p) => p.id);
+  if (ids.length === 0) {
+    throw new Error(`No Stripe product named "${config.stripeProductName}"`);
+  }
+  return new Set(ids);
+};
+
+const productOf = (price: Stripe.Price | string | null | undefined): string | null => {
+  if (!price || typeof price === 'string') return null;
+  return typeof price.product === 'string' ? price.product : (price.product?.id ?? null);
+};
+
+/** A charge belongs to us when its invoice bills one of our products. */
+const chargeIsOurs = (charge: Stripe.Charge, productIds: Set<string>): boolean => {
+  const invoice = charge.invoice;
+  if (!invoice || typeof invoice === 'string') return false;
+  return invoice.lines.data.some((line) => productIds.has(productOf(line.price) ?? ''));
+};
+
 // Lightweight in-memory cache — Stripe calls are not free and the dashboard
 // hits this on every load. 60s is fresh enough for an ops view.
 let cache: { at: number; days: number; data: RevenueOverview } | null = null;
@@ -81,20 +107,26 @@ export const getRevenueOverview = async (days = 30): Promise<RevenueOverview> =>
 
   const stripe = getStripe();
   const now = new Date();
+  const productIds = await findProductIds(stripe);
+  const isOurItem = (item: Stripe.SubscriptionItem) => productIds.has(productOf(item.price) ?? '');
+  const listOurSubs = async (status: 'active' | 'trialing' | 'past_due') => {
+    const subs = await stripe.subscriptions
+      .list({ status, limit: 100, expand: ['data.items.data.price'] })
+      .autoPagingToArray({ limit: 1000 });
+    return subs.filter((sub) => sub.items.data.some(isOurItem));
+  };
 
   // --- Subscriptions → MRR --------------------------------------------------
   const [activeSubs, trialingSubs, pastDueSubs] = await Promise.all([
-    stripe.subscriptions
-      .list({ status: 'active', limit: 100, expand: ['data.items.data.price'] })
-      .autoPagingToArray({ limit: 1000 }),
-    stripe.subscriptions.list({ status: 'trialing', limit: 100 }).autoPagingToArray({ limit: 1000 }),
-    stripe.subscriptions.list({ status: 'past_due', limit: 100 }).autoPagingToArray({ limit: 1000 }),
+    listOurSubs('active'),
+    listOurSubs('trialing'),
+    listOurSubs('past_due'),
   ]);
 
   let mrrCents = 0;
   let subCurrency = 'usd';
   for (const sub of activeSubs) {
-    for (const item of sub.items.data) {
+    for (const item of sub.items.data.filter(isOurItem)) {
       const price = item.price as Stripe.Price;
       if (price?.currency) subCurrency = price.currency;
       mrrCents += monthlyAmount(price, item.quantity ?? 1);
@@ -103,10 +135,12 @@ export const getRevenueOverview = async (days = 30): Promise<RevenueOverview> =>
 
   // --- Charges → gross volume + daily timeseries ----------------------------
   const charges = await stripe.charges
-    .list({ limit: 100 })
+    .list({ limit: 100, expand: ['data.invoice'] })
     .autoPagingToArray({ limit: CHARGE_SCAN_CAP });
 
-  const succeeded = charges.filter((c) => c.status === 'succeeded' && c.paid);
+  const succeeded = charges.filter(
+    (c) => c.status === 'succeeded' && c.paid && chargeIsOurs(c, productIds),
+  );
 
   const todayStart = startOfUTCDay(now).getTime() / 1000;
   const sevenStart = startOfUTCDay(new Date(now.getTime() - 6 * 86400_000)).getTime() / 1000;

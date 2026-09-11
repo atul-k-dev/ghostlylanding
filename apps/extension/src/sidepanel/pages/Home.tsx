@@ -7,6 +7,8 @@ import { Attention, AutoTuneDrops, BestTime, TodayBudget, TopPosts, WhatsWorking
 import { useGrowth } from '../home/useGrowth.js';
 import { useTodayNumbers } from '../home/useTodayNumbers.js';
 import { TrustOfferCard } from './AutoPosting.js';
+import { SetupCard } from '../onboarding/SetupCard.js';
+import { useOnboarding } from '../onboarding/useOnboarding.js';
 
 /**
  * Home, top to bottom:
@@ -19,15 +21,24 @@ import { TrustOfferCard } from './AutoPosting.js';
 export const Home = ({
   status,
   onNavigate,
+  onOpenSetup,
 }: {
   status: EngineStatus;
   onNavigate: (target: PanelTarget) => void;
+  /** Present while setup isn't finished — shows the "Finish setting up" card. */
+  onOpenSetup?: () => void;
 }) => {
   const growth = useGrowth();
+  const onboarding = useOnboarding();
   const today = useTodayNumbers(status, growth);
 
   return (
     <div className="flex flex-col gap-3 pt-1">
+      {onOpenSetup && (
+        <div className="px-4">
+          <SetupCard fraction={onboarding.fraction} onOpen={onOpenSetup} />
+        </div>
+      )}
       <HeroCards status={status} today={today} />
       <div className="flex flex-col gap-3 px-4">
         <StatusCard status={status} onNavigate={onNavigate} />

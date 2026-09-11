@@ -1,6 +1,6 @@
 import type { User } from '@casper/shared';
 import { COMMENT_LENGTH_LABELS } from '../pages/_shared.js';
-import { isPro } from '@casper/shared';
+import { FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
 import {
   Activity01Icon,
   AiMagicIcon,
@@ -13,6 +13,8 @@ import {
   Crown02Icon,
   DashboardSpeed01Icon,
   File01Icon,
+  Flag01Icon,
+  GaugeIcon,
   HashtagIcon,
   Logout01Icon,
   MessageMultiple01Icon,
@@ -36,6 +38,8 @@ import { isTrusted } from '../../lib/trust.js';
 import { DETAIL_TITLES, Detail, type DetailKey } from './details';
 import { Group, ProBadge, Row, Screen, UpgradeCard } from './kit';
 import { useSettingsStore } from './useSettingsStore';
+import { useOnboarding } from '../onboarding/useOnboarding';
+import { SetupCard } from '../onboarding/SetupCard';
 import { label as nameOf, useAppearance } from '../appearance';
 
 export type SettingsRoute = 'list' | DetailKey;
@@ -55,14 +59,17 @@ export const SettingsScreen = ({
   onRoute,
   onClose,
   onSignedOut,
+  onOpenSetup,
 }: {
   user: User;
   route: SettingsRoute;
   onRoute: (r: SettingsRoute) => void;
   onClose: () => void;
   onSignedOut: () => void;
+  onOpenSetup: () => void;
 }) => {
   const { settings, update, reload } = useSettingsStore();
+  const onboarding = useOnboarding();
   const [appearance] = useAppearance();
 
   if (!settings) {
@@ -74,7 +81,7 @@ export const SettingsScreen = ({
   if (route !== 'list') {
     return (
       <Screen title={DETAIL_TITLES[route]} backLabel="Settings" onBack={() => onRoute('list')}>
-        <Detail id={route} settings={settings} update={update} reload={reload} user={user} />
+        <Detail id={route} settings={settings} update={update} reload={reload} user={user} go={onRoute} />
       </Screen>
     );
   }
@@ -91,6 +98,8 @@ export const SettingsScreen = ({
 
   return (
     <Screen title="Settings" backLabel="Home" onBack={onClose}>
+      {!s.setupCompletedAt && <SetupCard fraction={onboarding.fraction} onOpen={onOpenSetup} />}
+
       <Group label="Info">
         <Row icon={UserIcon} label="Name" value={user.name || '—'} />
         <Row icon={AtIcon} label="Email" value={user.email} />
@@ -105,6 +114,13 @@ export const SettingsScreen = ({
       )}
 
       <Group label="App">
+        <Row
+          icon={GaugeIcon}
+          label="Limits"
+          value={pro ? 'Unlimited' : `${monthlyActionsUsed(user)} / ${FREE_TIER.monthlyActions} this month`}
+          onClick={go('limits')}
+        />
+        <Row icon={Flag01Icon} label="Setup guide" value={s.setupCompletedAt ? 'Done' : 'Not finished'} onClick={onOpenSetup} />
         <Row
           icon={PaintBoardIcon}
           label="Appearance"

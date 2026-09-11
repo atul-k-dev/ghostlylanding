@@ -14,8 +14,8 @@ export const PAID_PLANS = ['weekly', 'monthly'] as const satisfies readonly Paid
  * these strings must be kept in step with it.
  */
 export const PLAN_PRICING: Record<PaidPlan, { label: string; amount: string; per: string }> = {
-  weekly: { label: 'Pro · Weekly', amount: '$3.99', per: 'week' },
-  monthly: { label: 'Pro · Monthly', amount: '$12.99', per: 'month' },
+  weekly: { label: 'Pro · Weekly', amount: '$2.99', per: 'week' },
+  monthly: { label: 'Pro · Monthly', amount: '$7.99', per: 'month' },
 };
 
 export const SUBSCRIPTION_STATUSES = [

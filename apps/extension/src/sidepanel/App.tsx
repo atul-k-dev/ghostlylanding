@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import type { User } from '@casper/shared';
 import { sendToBackground } from '../lib/messages.js';
 import { STORAGE_KEYS } from '../lib/storage.js';
-import { Panel, TopBar } from '../ui/index.js';
 import { useEngineStatus } from './useEngineStatus.js';
 import type { PanelTarget } from './navigation.js';
 import { AppHeader } from './shell/AppHeader.js';
@@ -11,7 +10,8 @@ import { Home } from './pages/Home.js';
 import { PostPage } from './post/PostPage.js';
 import { AskPage } from './ask/AskPage.js';
 import { SettingsScreen, type SettingsRoute } from './settings/SettingsScreen.js';
-import { Setup } from './pages/Setup.js';
+import { Onboarding } from './onboarding/Onboarding.js';
+import { useOnboarding } from './onboarding/useOnboarding.js';
 import { NotificationsPage } from './notifications/NotificationsPage.js';
 import { useNotifications } from './notifications/useNotifications.js';
 import { LoggedOut } from './pages/LoggedOut.js';
@@ -24,6 +24,9 @@ export const App = () => {
   /** Settings sits OVER the pages — somewhere you go and come back from. */
   const [settings, setSettings] = useState<SettingsRoute | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  /** Onboarding opened on purpose (from Settings or the Home banner). */
+  const [setupOpen, setSetupOpen] = useState(false);
+  const onboarding = useOnboarding();
   const status = useEngineStatus();
   const notifications = useNotifications(status);
 
@@ -104,16 +107,31 @@ export const App = () => {
     );
   }
 
-  // Setup owns the whole panel until it is done. Deciding on
-  // `setupCompletedAt` rather than on "has targets" means someone who
+  // Onboarding owns the panel for a new account — until it's finished, or the
+  // user says "later" (then Settings and Home offer to pick it back up).
+  // Deciding on `setupCompletedAt` rather than "has targets" means someone who
   // deliberately runs with none isn't dragged back to step 1 every time.
-  if (status.settings && !status.settings.setupCompletedAt) {
+  const needsSetup = status.settings !== null && !status.settings.setupCompletedAt;
+  if (setupOpen || (needsSetup && onboarding.progress && !onboarding.progress.skippedAt)) {
     return (
-      <Panel top={<TopBar title="Let’s get you started" actions={[]} />}>
-        <Setup onDone={() => void status.refresh()} />
-      </Panel>
+      <div className="h-full w-full">
+        <Onboarding
+          user={auth.user}
+          onFinish={() => {
+            setSetupOpen(false);
+            setSettings(null);
+            setPage('home');
+            void status.refresh();
+          }}
+          onLater={() => setSetupOpen(false)}
+        />
+      </div>
     );
   }
+  const openSetup = () => {
+    setSettings(null);
+    setSetupOpen(true);
+  };
 
   if (settings) {
     return (
@@ -124,6 +142,7 @@ export const App = () => {
           onRoute={setSettings}
           onClose={() => setSettings(null)}
           onSignedOut={() => void refreshAuth()}
+          onOpenSetup={openSetup}
         />
       </div>
     );
@@ -153,7 +172,7 @@ export const App = () => {
       {/* The only scroll container; the bottom padding keeps content (and
           Ask's input) clear of the floating nav. */}
       <main className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-24">
-        {page === 'home' && <Home status={status} onNavigate={navigate} />}
+        {page === 'home' && <Home status={status} onNavigate={navigate} onOpenSetup={needsSetup ? openSetup : undefined} />}
         {page === 'post' && <PostPage />}
         {page === 'ask' && <AskPage user={auth.user} />}
       </main>
