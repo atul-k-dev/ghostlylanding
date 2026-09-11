@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { SafetyPresetName } from '@casper/shared';
+import type { SafetyPresetName, SearchQuery } from '@casper/shared';
 import { sendToBackground } from '../../lib/messages.js';
 import { getSettings, setSettings, STORAGE_KEYS } from '../../lib/storage.js';
 import { SAFETY_PRESETS, applyPreset } from '../../lib/presets.js';
@@ -91,6 +91,18 @@ export const Setup = ({ onDone }: { onDone: () => void }) => {
     setFinishing(true);
     const current = await getSettings();
     const withPreset = applyPreset(current, preset);
+    // Without this, a fresh setup only ever had two engagement sources: the
+    // home feed (filtered to these same topics) and a handful of target
+    // creators — so the whole account ended up cycling the same 2-3 people
+    // over and over, with no way to reach anyone else talking about what the
+    // user actually cares about. Search feeds are the thing that reaches
+    // people OUTSIDE the accounts already followed; leaving `searchQueries`
+    // empty after setup meant that source silently never ran; the user would
+    // have had to find "Who I watch" and add the exact same topics again by
+    // hand to discover it exists at all.
+    const now = new Date().toISOString();
+    const topicQueries: SearchQuery[] = [...keepTopics].map((query) => ({ query, addedAt: now }));
+    const existingQueries = current.searchQueries.filter((sq) => !keepTopics.has(sq.query));
     await setSettings({
       ...withPreset,
       // Under six months is what the age multiplier treats as new (quotas.ts).
@@ -101,6 +113,7 @@ export const Setup = ({ onDone }: { onDone: () => void }) => {
         enabled: true,
         keywords: [...keepTopics],
       },
+      searchQueries: [...existingQueries, ...topicQueries],
       targetCreators: (read?.targets ?? [])
         .filter((t) => keepTargets.has(t.handle))
         .map((t) => ({ platform: 'twitter' as const, handle: t.handle, addedAt: new Date().toISOString() })),

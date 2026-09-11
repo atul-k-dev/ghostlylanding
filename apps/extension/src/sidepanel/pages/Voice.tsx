@@ -125,24 +125,24 @@ export const Voice = () => {
       </Section>
 
       <Section
-        title="Review before posting"
-        subtitle="Hold each generated reply in the Review tab until you approve it."
+        title="Auto-approve replies"
+        subtitle="Turn this on for fully hands-off replying — nothing to review, nothing to click."
       >
         <label className="flex items-center gap-2 text-xs text-casper-ink/80">
           <input
             type="checkbox"
-            checked={settings.replyApproval !== false}
+            checked={settings.replyApproval === false}
             onChange={() =>
-              onChange({ ...settings, replyApproval: !(settings.replyApproval !== false) })
+              onChange({ ...settings, replyApproval: settings.replyApproval !== false })
             }
             className="h-3.5 w-3.5 rounded border-casper-ink/20 text-casper-violet focus:ring-casper-violet/30"
           />
-          Approve replies before they post
+          Post replies automatically — don't ask me first
         </label>
         <p className="mt-1 text-xs leading-relaxed text-casper-ink/40">
-          {settings.replyApproval !== false
-            ? 'Nothing goes out under your name until you say so. Drafts wait in Review.'
-            : 'Replies post automatically as soon as they are written.'}
+          {settings.replyApproval === false
+            ? 'Replies post the moment they are written. You can still read what went out any time in the action feed on Today.'
+            : "Off for now: every reply waits in Review until you approve it. Turn this on and there's nothing left to click."}
         </p>
       </Section>
 

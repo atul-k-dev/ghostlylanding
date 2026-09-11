@@ -167,7 +167,8 @@ const HomeFeedSection = ({
               className="w-full rounded-lg border border-casper-ink/10 bg-casper-cloud px-2 py-1.5 text-xs focus:border-casper-violet focus:outline-none"
             />
             <p className="mt-1 text-xs text-casper-ink/40">
-              Leave blank to engage with everything in your feed.
+              At least one topic, or I won't act on your home feed at all — I'll still work any
+              target accounts or searches below.
             </p>
           </div>
 
@@ -238,6 +239,23 @@ const SearchSection = ({
   const remove = (q: SearchQuery) =>
     onChange({ ...settings, searchQueries: queries.filter((x) => x.query !== q.query) });
 
+  // The topics already typed in for the home feed are the single most common
+  // thing anyone would type in here too — and until this existed, a topic
+  // feed only ever worked the accounts already followed, one at a time,
+  // instead of reaching anyone else posting about the same thing. One click
+  // instead of retyping the same words.
+  const existing = new Set(queries.map((q) => q.query.toLowerCase()));
+  const missingTopics = settings.contentTopics.filter((t) => !existing.has(t.toLowerCase()));
+  const addMyTopics = () => {
+    const room = Math.max(0, MAX_SEARCH_QUERIES - queries.length);
+    if (room === 0 || missingTopics.length === 0) return;
+    const now = new Date().toISOString();
+    const added: SearchQuery[] = missingTopics
+      .slice(0, room)
+      .map((query) => ({ query, addedAt: now }));
+    onChange({ ...settings, searchQueries: [...queries, ...added] });
+  };
+
   const runNow = async (q: SearchQuery) => {
     setStatus('Starting…');
     try {
@@ -304,6 +322,17 @@ const SearchSection = ({
           ? `That's the limit of ${MAX_SEARCH_QUERIES} feeds.`
           : `X's search operators work here — try "indie hackers min_faves:5 -filter:replies".`}
       </p>
+
+      {missingTopics.length > 0 && !full && (
+        <button
+          type="button"
+          onClick={addMyTopics}
+          className="mt-2 rounded-lg border border-casper-violet/30 px-2.5 py-1 text-xs font-medium text-casper-violet transition hover:bg-casper-violet/10"
+        >
+          + Add my {missingTopics.length === 1 ? 'topic' : `${missingTopics.length} topics`} as
+          search feeds too
+        </button>
+      )}
 
       {queries.length > 0 && (
         <div className="mt-2 space-y-1.5">

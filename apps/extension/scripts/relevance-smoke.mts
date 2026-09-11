@@ -58,7 +58,10 @@ assert(!matchesAny('some text', ['']), 'an empty keyword never matches');
 assert(!matchesAny('some text', ['   ']), 'a whitespace keyword never matches');
 
 // --- isRelevant / isExcluded ------------------------------------------------
-assert(isRelevant('literally anything', []), 'no keywords = engage with everything');
+assert(
+  !isRelevant('literally anything', []),
+  'no keywords = engage with nothing from the open feed (a watched target still bypasses this check separately)',
+);
 assert(isRelevant('about ai', AI), 'relevant when a keyword hits');
 assert(!isRelevant('about cats', AI), 'not relevant when nothing hits');
 assert(!isExcluded('a clean post', []), 'empty blocklist excludes nothing');

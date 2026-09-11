@@ -52,9 +52,23 @@ export const matchesAny = (text: string, keywords: string[]): boolean => {
   return false;
 };
 
-/** No keywords = engage with everything (the documented behaviour). */
+/**
+ * No keywords = engage with NOTHING from the open home feed.
+ *
+ * This used to mean "engage with everything" — a blank topics field was
+ * documented as a deliberate "unfiltered" mode. In practice that meant liking,
+ * bookmarking and replying to every single post in the feed, back to back,
+ * regardless of what it was about — which is not targeted growth, it's mass
+ * engagement, and it is exactly the pattern most likely to read as automated
+ * to X itself. A watched target's own post still bypasses this check entirely
+ * (`autopilot.ts`'s `authorIsWatched`) — following specific creators IS a form
+ * of targeting, and stays unaffected. An empty-keyword home feed now reports
+ * `nothing-matched` ("skipped N posts — nothing matched your topics — widen my
+ * topics") instead of silently acting on everything, because that is what is
+ * actually true: there is nothing to match against yet.
+ */
 export const isRelevant = (text: string, keywords: string[]): boolean =>
-  keywords.length === 0 || matchesAny(text, keywords);
+  keywords.length > 0 && matchesAny(text, keywords);
 
 /**
  * WHICH keyword made a post relevant, first match wins (updateplan 5.1's
