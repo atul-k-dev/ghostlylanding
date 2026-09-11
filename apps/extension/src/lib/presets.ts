@@ -49,11 +49,24 @@ export interface SafetyPreset {
 /** The floor every preset is checked against. Mirrors `ACTION_DELAY_MS.min`. */
 export const MIN_ACTION_DELAY_MS = 8_000;
 
-/** How long a new account takes to reach its full caps. */
-export const WARMUP_DAYS = 14;
+/**
+ * How long a new automation takes to reach its full caps.
+ *
+ * Was 14 days at a 10% floor — meaning a Balanced account (180/day across the
+ * on-by-default action types) got as few as 9-18 real actions on its first
+ * couple of days, no matter how old the X account itself was or which preset
+ * was chosen. That is not what protects an account from looking bot-like; it
+ * is what makes the product look broken during the exact days someone is
+ * deciding whether to keep using it. A real person doesn't ease into their
+ * own normal pace over two weeks — they just use the account. 5 days at a 40%
+ * floor still ramps (a sudden jump to 100% on day one is the actual
+ * bot-shaped spike this exists to avoid), but it gets there fast enough that
+ * the "safe" number and the "real" number aren't a factor of ten apart.
+ */
+export const WARMUP_DAYS = 5;
 
-/** Where the ramp starts: a tenth of the preset's caps on day one. */
-export const WARMUP_FLOOR = 0.1;
+/** Where the ramp starts: on day one, before the account's own age multiplier. */
+export const WARMUP_FLOOR = 0.4;
 
 export const SAFETY_PRESETS: Record<SafetyPresetName, SafetyPreset> = {
   careful: {

@@ -113,10 +113,14 @@ assert(
 const at = (days: number): Date => new Date(Date.UTC(2026, 0, 1) + days * 86_400_000);
 const START = new Date(Date.UTC(2026, 0, 1)).toISOString();
 
-assert(warmupFactor(START, at(0)) === WARMUP_FLOOR, 'day 0 is ~10% of caps');
-assert(Math.abs(warmupFactor(START, at(7)) - 0.55) < 1e-9, 'day 7 is ~55%');
-assert(warmupFactor(START, at(WARMUP_DAYS)) === 1, 'day 14 is full caps');
-assert(warmupFactor(START, at(40)) === 1, 'past day 14 stays at full caps, never above');
+assert(warmupFactor(START, at(0)) === WARMUP_FLOOR, 'day 0 is the ramp floor');
+assert(
+  Math.abs(warmupFactor(START, at(WARMUP_DAYS / 2)) - (WARMUP_FLOOR + (1 - WARMUP_FLOOR) * 0.5)) <
+    1e-9,
+  'halfway through the ramp is halfway between the floor and full caps',
+);
+assert(warmupFactor(START, at(WARMUP_DAYS)) === 1, 'the ramp completes at WARMUP_DAYS');
+assert(warmupFactor(START, at(WARMUP_DAYS + 40)) === 1, 'past the ramp stays at full caps, never above');
 assert(
   warmupFactor(START, at(3)) > warmupFactor(START, at(2)),
   'the ramp is monotonic day to day',
@@ -131,7 +135,10 @@ const full = computeDailyCaps(base, 24, 1.0, 1);
 assert(full.likesPerDay === base.likesPerDay, 'mature account, ramp done → the base caps exactly');
 
 const day0Mature = computeDailyCaps(base, 24, 1.0, warmupFactor(START, at(0)));
-assert(day0Mature.likesPerDay === Math.round(base.likesPerDay * 0.1), 'day 0 on a mature account = 10%');
+assert(
+  day0Mature.likesPerDay === Math.round(base.likesPerDay * WARMUP_FLOOR),
+  'day 0 on a mature account = the ramp floor',
+);
 
 // The riskiest combination in the product: a three-month-old account on day two.
 const young = computeDailyCaps(base, 3, 1.0, warmupFactor(START, at(2)));
