@@ -73,6 +73,9 @@ export const STORAGE_KEYS = {
    *  settings store) — sent to the server on every /api/ask request so the
    *  model honours them without being asked twice. */
   standingInstructions: 'casper.standingInstructions',
+  /** The side panel's notification page: when it was last opened, and feed
+   *  items the user cleared — so the bell only lights up for what's new. */
+  notificationsSeen: 'casper.notificationsSeen',
 } as const;
 
 /**

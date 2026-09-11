@@ -62,7 +62,7 @@ const ReviewCard = ({
           type="button"
           onClick={() => onApprove(reply.id, text)}
           disabled={busy || text.trim().length < 2}
-          className="flex-1 rounded-lg bg-casper-violet py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+          className="flex-1 rounded-lg bg-casper-violet py-1.5 text-xs font-medium text-casper-on-coral transition hover:opacity-90 disabled:opacity-40"
         >
           {edited ? 'Post my version' : 'Post it'}
         </button>

@@ -1,0 +1,45 @@
+/*
+ * Ghostly247 brand colours, shared by both stylesheets: theme.css (the
+ * floating panel on x.com) and sidepanel/globals.css (the shadcn side panel).
+ * Colours only — each sheet owns its own radius scale.
+ */
+@theme {
+  /* Brand accent — landing coral. */
+  --color-casper-coral: #f44d60;
+  --color-casper-coral-bright: #ff6467;
+
+  /*
+   * Semantic state colours (updateplan §3). Three states, three colours, and
+   * they never trade places:
+   *   coral      — brand, primary action, and the Spotlight outline
+   *   working    — running, gained, healthy
+   *   attention  — needs a human
+   *
+   * There is deliberately NO destructive red: coral already occupies red, so a
+   * second one would read as a mistake. Destructive is signalled by WEIGHT —
+   * coral as a solid fill with dark text — not by hue.
+   */
+  --color-casper-working: #3fbf87;
+  --color-casper-attention: #e6a53a;
+
+  /* Dark surface system (matches the landing page's .dark tokens). */
+  --color-casper-bg: #0e0e0e; /* page canvas */
+  --color-casper-surface: #1b1b1b; /* cards */
+  --color-casper-surface-2: #161616; /* insets / hovers */
+  --color-casper-border: #2e2e2e; /* hairlines */
+  --color-casper-fg: #f4f4f5; /* primary text */
+  --color-casper-muted: #a1a1aa; /* secondary text */
+
+  /*
+   * Back-compat aliases — existing components reference these three tokens
+   * everywhere, so remapping them flips the whole popup to the dark theme:
+   *   violet (was #7c5cff purple) → coral accent
+   *   cloud  (was #f6f5ff pale)   → dark canvas / input insets
+   *   ink    (was #1a1a2e navy)   → light text (incl. /opacity tints + borders)
+   */
+  --color-casper-violet: #f44d60;
+  --color-casper-cloud: #0e0e0e;
+  --color-casper-ink: #f4f4f5;
+  /* Text on a solid coral fill. */
+  --color-casper-on-coral: #0e0e0e;
+}

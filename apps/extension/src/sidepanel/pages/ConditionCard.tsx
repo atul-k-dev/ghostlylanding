@@ -86,7 +86,7 @@ const useNotice = (): { notice: Notice | null; pendingReplies: number } => {
   return { notice, pendingReplies };
 };
 
-const runAction = async (action: CardAction, nav: (t: PanelTarget) => void): Promise<void> => {
+export const runAction = async (action: CardAction, nav: (t: PanelTarget) => void): Promise<void> => {
   switch (action.kind) {
     case 'nav':
       nav(action.to);
@@ -122,13 +122,8 @@ const runAction = async (action: CardAction, nav: (t: PanelTarget) => void): Pro
   }
 };
 
-export const ConditionCard = ({
-  status,
-  onNavigate,
-}: {
-  status: EngineStatus;
-  onNavigate?: (t: PanelTarget) => void;
-}) => {
+/** Which condition card applies right now, if any — shared by this card and Home's status card. */
+export const useCondition = (status: EngineStatus): ConditionCardData | null => {
   const { notice, pendingReplies } = useNotice();
   const settings = status.settings;
 
@@ -174,6 +169,17 @@ export const ConditionCard = ({
     });
   }
 
+  return card;
+};
+
+export const ConditionCard = ({
+  status,
+  onNavigate,
+}: {
+  status: EngineStatus;
+  onNavigate?: (t: PanelTarget) => void;
+}) => {
+  const card = useCondition(status);
   const nav = onNavigate ?? (() => undefined);
 
   // Working, nothing to report, nothing waiting.

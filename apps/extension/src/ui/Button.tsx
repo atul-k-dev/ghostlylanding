@@ -23,7 +23,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
     'bg-transparent text-casper-muted border border-transparent ' +
     'hover:text-casper-fg hover:bg-casper-surface',
   destructive:
-    'bg-casper-coral text-[#0e0e0e] border border-casper-coral font-medium ' +
+    'bg-casper-coral text-casper-on-coral border border-casper-coral font-medium ' +
     'hover:bg-casper-coral-bright hover:border-casper-coral-bright',
 };
 

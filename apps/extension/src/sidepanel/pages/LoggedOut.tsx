@@ -17,7 +17,7 @@ export const labelCls = 'mb-1.5 block text-[13px] font-medium text-casper-ink';
 export const leadingIconCls =
   'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-casper-ink/40';
 export const primaryBtnCls =
-  'h-10 w-full rounded-lg bg-casper-coral text-sm font-semibold text-white transition hover:bg-casper-coral-bright disabled:opacity-50';
+  'h-10 w-full rounded-lg bg-casper-coral text-sm font-semibold text-casper-on-coral transition hover:bg-casper-coral-bright disabled:opacity-50';
 
 export const LoggedOut = () => {
   const [mode, setMode] = useState<Mode>('login');

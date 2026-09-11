@@ -75,7 +75,7 @@ export class ErrorBoundary extends React.Component<
             <button
               type="button"
               onClick={this.reset}
-              className="flex-1 rounded-xl bg-casper-violet px-3 py-2 text-xs font-medium text-white transition hover:opacity-90"
+              className="flex-1 rounded-xl bg-casper-violet px-3 py-2 text-xs font-medium text-casper-on-coral transition hover:opacity-90"
             >
               Try again
             </button>

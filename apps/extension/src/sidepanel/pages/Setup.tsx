@@ -141,7 +141,7 @@ export const Setup = ({ onDone }: { onDone: () => void }) => {
               className={[
                 'grid h-5 w-5 place-items-center rounded-full text-[11px] tabular-nums',
                 n === step
-                  ? 'bg-casper-coral text-[#0e0e0e] font-semibold'
+                  ? 'bg-casper-coral text-casper-on-coral font-semibold'
                   : n < step
                     ? 'bg-casper-working/20 text-casper-working'
                     : 'bg-casper-surface text-casper-muted',
@@ -249,7 +249,7 @@ export const Setup = ({ onDone }: { onDone: () => void }) => {
                             className={[
                               'mt-0.5 grid h-4 w-4 shrink-0 cursor-pointer place-items-center rounded border text-[10px]',
                               on
-                                ? 'border-casper-coral bg-casper-coral text-[#0e0e0e]'
+                                ? 'border-casper-coral bg-casper-coral text-casper-on-coral'
                                 : 'border-casper-border text-transparent',
                             ].join(' ')}
                           >

@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -11,6 +12,9 @@ export default defineConfig(({ mode }) => {
   console.log(`[ghostly247] building against API: ${apiBaseUrl}`);
   return {
     plugins: [react(), tailwindcss(), crx({ manifest: buildManifest(apiBaseUrl) })],
+    resolve: {
+      alias: { '@': path.resolve(import.meta.dirname, './src') },
+    },
     server: {
       port: 5173,
       strictPort: true,

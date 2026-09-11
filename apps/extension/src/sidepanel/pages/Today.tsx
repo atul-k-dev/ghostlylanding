@@ -17,7 +17,7 @@ import type { PanelTarget } from '../navigation.js';
  */
 
 /** Yesterday's counter, when the stored counter is still yesterday's. */
-const useOutcomes = () => {
+export const useOutcomes = () => {
   const [growth, setGrowth] = useState<GrowthSummary | null>(null);
   const [today, setToday] = useState<{ replies: number; follows: number; likes: number } | null>(
     null,
@@ -53,7 +53,7 @@ const useOutcomes = () => {
     return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
-  return { growth, today };
+  return { growth, today, reload: load };
 };
 
 const timeOf = (iso: string): string => {
@@ -80,7 +80,7 @@ const describe = (e: ActionLogEntry): string => {
   return `${v} ${who}’s post`;
 };
 
-const LiveFeed = () => {
+export const LiveFeed = () => {
   const [entries, setEntries] = useState<ActionLogEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 

@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AskResult, AskDiff, ExtensionSettings, GrowthSummary } from '@casper/shared';
-import { sendToBackground } from '../../lib/messages.js';
-import { getCorrectedDrafts, getPostOutcomes } from '../../lib/storage.js';
-import { detectProactiveNudge, type ProactiveNudge } from '../../lib/proactive.js';
 import { Button } from '../../ui/index.js';
+import { useAsk, type ChatTurn } from '../ask/useAsk.js';
 
 /**
- * Ask — the copilot (updateplan 5.2/5.3).
+ * Ask — the copilot, compact edition for the floating panel on x.com (the
+ * side panel has its own page, sidepanel/ask/AskPage). Logic lives in useAsk.
  *
  * A chat over the extension's own message bus, not a direct OpenAI call: the
  * server does the reasoning and never applies anything itself — every
@@ -20,18 +18,6 @@ import { Button } from '../../ui/index.js';
  * answer long enough to need a table/scroll offers "open in sidebar" instead
  * of trying to cram it into 360px.
  */
-
-interface ChatTurn {
-  role: 'user' | 'assistant';
-  content: string;
-  /** Present only on the assistant turn that proposed something. */
-  diff?: AskDiff;
-  clientAction?: { action: string; summary: string };
-  /** Once a diff/client-action turn has been answered, it stops offering the
-   *  buttons — never re-appliable by scrolling back up and clicking again. */
-  resolved?: 'done' | 'dismissed';
-  undo?: { tool: 'update_settings'; previous: ExtensionSettings };
-}
 
 /** Long enough that the floating brief (360px) is genuinely the wrong place
  *  to read it — not a table/chart detector, just a legible proxy for one. */
@@ -165,153 +151,26 @@ export const Ask = ({
   compact?: boolean;
   onOpenSidebar?: () => Promise<boolean>;
 }) => {
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
-  const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [instructions, setInstructions] = useState<string[]>([]);
-  const [nudge, setNudge] = useState<ProactiveNudge | null>(null);
+  const {
+    turns,
+    input,
+    setInput,
+    busy,
+    error,
+    instructions,
+    nudge,
+    dismissNudge,
+    send,
+    doIt,
+    dismiss,
+    undo,
+    removeInstruction,
+  } = useAsk();
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    void sendToBackground<{ ok: true; data: { standingInstructions: string[] } } | { ok: false }>({
-      type: 'GET_STANDING_INSTRUCTIONS',
-      payload: {},
-    }).then((r) => {
-      if (r.ok) setInstructions(r.data.standingInstructions);
-    });
-  }, []);
-
-  // Proactive questions (updateplan 6.2) — a deterministic pattern over data
-  // already on screen elsewhere (Growth, the corrected-draft pairs), never a
-  // model call, so it can never invent a trend. At most one, and only on the
-  // first open of a session (re-detecting on every render would nag).
-  useEffect(() => {
-    void (async () => {
-      // The standout-day detector needs the FULL outcome history, not just
-      // the top performers `GET_GROWTH` returns — a biased top-5 sample could
-      // make any one day look special by chance. `getPostOutcomes()` is the
-      // same local cache `bestTimes`/`scoreGrid` already read from.
-      const [growthResp, outcomes, corrected] = await Promise.all([
-        sendToBackground<{ ok: true; data: GrowthSummary } | { ok: false }>({
-          type: 'GET_GROWTH',
-          payload: { days: 30 },
-        }),
-        getPostOutcomes(),
-        getCorrectedDrafts(),
-      ]);
-      if (!growthResp.ok) return;
-      const found = detectProactiveNudge({
-        outcomes,
-        targets: growthResp.data.targets,
-        corrected,
-      });
-      setNudge(found);
-    })();
-  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [turns.length]);
-
-  const send = async (override?: string) => {
-    const message = (override ?? input).trim();
-    if (!message || busy) return;
-    if (!override) setInput('');
-    setError(null);
-    const history = turns.map((t) => ({ role: t.role, content: t.content }));
-    setTurns((t) => [...t, { role: 'user', content: message }]);
-    setBusy(true);
-    try {
-      const resp = await sendToBackground<
-        { ok: true; data: AskResult } | { ok: false; error: { message: string } | string }
-      >({ type: 'ASK', payload: { message, history } });
-      if (!resp.ok) {
-        setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
-        return;
-      }
-      const result = resp.data;
-      if (result.type === 'diff') {
-        setTurns((t) => [...t, { role: 'assistant', content: result.diff.summary, diff: result.diff }]);
-      } else if (result.type === 'client_action') {
-        setTurns((t) => [
-          ...t,
-          { role: 'assistant', content: result.summary, clientAction: { action: result.action, summary: result.summary } },
-        ]);
-      } else {
-        setTurns((t) => [...t, { role: 'assistant', content: result.text }]);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'failed');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const doIt = async (index: number) => {
-    const turn = turns[index];
-    if (!turn) return;
-    if (turn.diff) {
-      const resp = await sendToBackground<
-        { ok: true; data: { previous?: ExtensionSettings } } | { ok: false; error: { message: string } | string }
-      >({ type: 'ASK_APPLY_DIFF', payload: { tool: turn.diff.tool, args: turn.diff.args } });
-      if (!resp.ok) {
-        setError(typeof resp.error === 'string' ? resp.error : resp.error.message);
-        return;
-      }
-      // "Things you've told me" changes the visible list immediately.
-      if (turn.diff.tool === 'remember_instruction' || turn.diff.tool === 'forget_instruction') {
-        void sendToBackground<{ ok: true; data: { standingInstructions: string[] } } | { ok: false }>({
-          type: 'GET_STANDING_INSTRUCTIONS',
-          payload: {},
-        }).then((r) => {
-          if (r.ok) setInstructions(r.data.standingInstructions);
-        });
-      }
-      setTurns((t) =>
-        t.map((x, i) =>
-          i === index
-            ? {
-                ...x,
-                resolved: 'done',
-                ...(turn.diff?.tool === 'update_settings' && resp.data.previous
-                  ? { undo: { tool: 'update_settings', previous: resp.data.previous } }
-                  : {}),
-              }
-            : x,
-        ),
-      );
-    } else if (turn.clientAction?.action === 'run_dry_run') {
-      setTurns((t) => t.map((x, i) => (i === index ? { ...x, resolved: 'done' } : x)));
-      try {
-        await sendToBackground({ type: 'DRY_RUN', payload: {} });
-      } catch {
-        /* the resolved state is honest enough even if this failed silently */
-      }
-    }
-  };
-
-  const dismiss = (index: number) => {
-    setTurns((t) => t.map((x, i) => (i === index ? { ...x, resolved: 'dismissed' } : x)));
-  };
-
-  const undo = async (index: number) => {
-    const turn = turns[index];
-    if (!turn?.undo) return;
-    await sendToBackground({
-      type: 'ASK_APPLY_DIFF',
-      payload: { tool: 'undo_settings', args: { previous: turn.undo.previous } },
-    });
-    setTurns((t) => t.map((x, i) => (i === index ? { ...x, undo: undefined, resolved: 'dismissed' } : x)));
-  };
-
-  const removeInstruction = async (instruction: string) => {
-    const resp = await sendToBackground<{ ok: true; data: { standingInstructions: string[] } } | { ok: false }>({
-      type: 'ASK_APPLY_DIFF',
-      payload: { tool: 'forget_instruction', args: { instruction } },
-    });
-    if (resp.ok) setInstructions(resp.data.standingInstructions);
-  };
 
   return (
     <div className="flex h-full flex-col">
@@ -327,13 +186,13 @@ export const Ask = ({
                 variant="primary"
                 onClick={() => {
                   const msg = nudge.onYesMessage;
-                  setNudge(null);
+                  dismissNudge();
                   void send(msg);
                 }}
               >
                 Yes
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setNudge(null)}>
+              <Button size="sm" variant="ghost" onClick={dismissNudge}>
                 Not now
               </Button>
             </div>

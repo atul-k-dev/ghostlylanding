@@ -8,7 +8,9 @@
     "types": ["chrome", "vite/client"],
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*", "manifest.config.ts", "vite.config.ts"],
   "exclude": ["node_modules", "dist"]
