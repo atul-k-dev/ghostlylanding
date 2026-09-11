@@ -21,6 +21,28 @@ export const ageMultiplier = (months: number | null): number => {
 export const dailyVarianceFactor = (rand: number = Math.random()): number =>
   0.85 + rand * 0.3;
 
+/**
+ * A deterministic stand-in for `Math.random()`, seeded by the calendar day and
+ * platform rather than drawn fresh. `effectiveCap` is computed once and frozen
+ * in storage for the rest of the day — that's what keeps the number stable
+ * hour to hour, but with a truly random draw it also freezes whatever the
+ * ramp/preset math happened to produce at that exact moment, so a same-day
+ * code fix (or a preset switch) couldn't reach the UI until local midnight —
+ * which is exactly what made D17's fix invisible until the next day. Hashing
+ * `date:platform` into the same [0,1) range `Math.random()` would have used
+ * means the SAME day always produces the SAME variance (still "frozen for the
+ * day"), so `platformCapsForToday` can be safely recomputed as often as we
+ * like within a day, rather than only once and then locked in.
+ */
+const seededVariance = (date: string, platform: Platform): number => {
+  let hash = 0;
+  const seed = `${date}:${platform}`;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (Math.imul(hash, 31) + seed.charCodeAt(i)) >>> 0;
+  }
+  return dailyVarianceFactor(hash / 0xffffffff);
+};
+
 /** Floor at 1 so the variance can't push a cap to 0. */
 const cap = (n: number) => Math.max(1, Math.round(n));
 
@@ -55,11 +77,12 @@ export const computeDailyCaps = (
 export const platformCapsForToday = (
   settings: ExtensionSettings,
   platform: Platform,
+  date: string,
 ): PlatformCaps => {
   return computeDailyCaps(
     settings.caps[platform],
     settings.accountAgeMonths[platform],
-    dailyVarianceFactor(),
+    seededVariance(date, platform),
     warmupFactor(settings.warmupStartedAt),
   );
 };

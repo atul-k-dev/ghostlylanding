@@ -122,16 +122,37 @@ const installSidePanelBehavior = async (): Promise<void> => {
   }
 };
 
+/**
+ * Recompute (and, if it differs, re-persist) today's effective caps on every
+ * boot. `ensureToday` freezes the day's caps in storage so they don't drift
+ * hour to hour — correct — but that used to mean a same-day fix to the ramp
+ * math, or a preset switch, sat invisibly in storage until local midnight,
+ * because nothing ever re-ran the computation for a day that already had a
+ * counter. Reloading the extension (exactly what happens after installing a
+ * new build) restarts the service worker, so doing it here means a fix like
+ * D17 reaches the UI on the very next load — not tomorrow — whether or not
+ * the engine happens to be Active.
+ */
+const refreshTodaysCaps = async (): Promise<void> => {
+  try {
+    await ensureToday(await getSettings());
+  } catch (err) {
+    console.warn('[casper] could not refresh today\'s caps on boot —', err);
+  }
+};
+
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('[casper] installed', details.reason);
   void installScheduler();
   void installSidePanelBehavior();
+  void refreshTodaysCaps();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   console.log('[casper] startup');
   void installScheduler();
   void installSidePanelBehavior();
+  void refreshTodaysCaps();
 });
 
 const SELECTOR_ALARM = 'casper.selectors.refresh';
@@ -197,6 +218,7 @@ const sessionIdFromUrl = (url: string): string | undefined => {
 
 // Install on initial SW boot too (some lifecycles skip onInstalled).
 void installScheduler();
+void refreshTodaysCaps();
 void installSelectorRefresh();
 void installSidePanelBehavior();
 

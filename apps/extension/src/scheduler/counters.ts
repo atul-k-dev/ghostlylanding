@@ -24,7 +24,7 @@ const newDailyCounter = (
   settings: ExtensionSettings,
   platform: Platform,
 ): DailyCounter => {
-  const effectiveCap = platformCapsForToday(settings, platform);
+  const effectiveCap = platformCapsForToday(settings, platform, date);
   return {
     date,
     byActionType: emptyByAction(),
@@ -44,31 +44,43 @@ export const ensureToday = async (settings: ExtensionSettings): Promise<Counters
 
   const reset = (existing: DailyCounter | null, platform: Platform): DailyCounter => {
     if (existing && existing.date === today) {
-      // Backfill the search-budget fields (updateplan 6.7) for a counter that
-      // was persisted by an older build earlier today, before an upgrade —
-      // without this, `existing` would be returned as-is and every search
-      // action would throw on a missing `searchByActionType`.
-      if (existing.searchByActionType && existing.searchCap) return existing;
+      // `effectiveCap` used to be frozen the instant today's counter was first
+      // created and never touched again — so a preset switch, or a same-day
+      // fix to the ramp math (D17), silently had no effect until local
+      // midnight. `platformCapsForToday` is now a pure function of the day
+      // (the variance is seeded by the date, not `Math.random()`), so
+      // recomputing it here is idempotent — same settings, same day, same
+      // number — and only actually changes anything when settings or the code
+      // computing them did. `byActionType`/`searchByActionType` (what's
+      // actually been DONE today) are untouched either way.
+      const effectiveCap = platformCapsForToday(settings, platform, today);
       return {
         ...existing,
+        effectiveCap,
         searchByActionType: existing.searchByActionType ?? emptyByAction(),
-        searchCap: existing.searchCap ?? searchCapsForToday(existing.effectiveCap),
+        searchCap: searchCapsForToday(effectiveCap),
       };
     }
     return newDailyCounter(today, settings, platform);
   };
 
-  const next: CountersState = {
-    twitter: reset(current.twitter, 'twitter'),
-    linkedin: reset(current.linkedin, 'linkedin'),
-  };
+  const nextTwitter = reset(current.twitter, 'twitter');
+  const nextLinkedin = reset(current.linkedin, 'linkedin');
+  const next: CountersState = { twitter: nextTwitter, linkedin: nextLinkedin };
 
-  // Persist only if changed
+  // Persist whenever the date rolled over OR today's effectiveCap was
+  // recomputed to something different than what's stored — a preset switch,
+  // or a same-day fix to the ramp/age math, changes the cap without changing
+  // the date, and the UI reads counters from storage directly (not through
+  // this function's return value), so skipping the write here would leave it
+  // showing yesterday's number under today's rules.
+  const capsDiffer = (a: DailyCounter | null, b: DailyCounter): boolean =>
+    !a || JSON.stringify(a.effectiveCap) !== JSON.stringify(b.effectiveCap);
   if (
-    !current.twitter ||
-    !current.linkedin ||
-    current.twitter.date !== next.twitter?.date ||
-    current.linkedin.date !== next.linkedin?.date
+    capsDiffer(current.twitter, nextTwitter) ||
+    capsDiffer(current.linkedin, nextLinkedin) ||
+    current.twitter?.date !== nextTwitter.date ||
+    current.linkedin?.date !== nextLinkedin.date
   ) {
     await setCounters(next);
   }
