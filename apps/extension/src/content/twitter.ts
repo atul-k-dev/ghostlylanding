@@ -7,6 +7,7 @@ import { installTwitterHandler } from '../platforms/twitter/handler.js';
 import { hydrateSelectors } from '../lib/selector-config.js';
 import { mountFloatingPanel } from '../floating/mount.js';
 import { installReplyForMe } from '../floating/reply-for-me.js';
+import { installWorkerMark } from './worker-mark.js';
 
 // Apply any remotely-served selector overrides BEFORE the handler can act on a
 // message. The handler awaits this same promise, so a message arriving during
@@ -20,6 +21,8 @@ mountFloatingPanel();
 // The 👻 button on every post's action bar (updateplan 2.4). One delegated
 // listener, because X recycles timeline articles constantly.
 installReplyForMe();
+// Ghostly's own working tab marks itself; the others learn where it is.
+installWorkerMark();
 console.log('[casper] twitter content script loaded');
 
 export {};

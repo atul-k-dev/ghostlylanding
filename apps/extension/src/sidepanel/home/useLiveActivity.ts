@@ -28,7 +28,7 @@ export interface LiveActivity {
   /** ms epoch the current wait (or task) was first seen — for progress. */
   since: number;
   /** Why it's resting, when it is resting for a reason. */
-  reason: 'outside-hours' | 'caps-spent' | 'nothing-matched' | null;
+  reason: 'break' | 'outside-hours' | 'caps-spent' | 'nothing-matched' | null;
   now: number;
 }
 
@@ -55,6 +55,7 @@ const capsReset = (s: ExtensionSettings, from = new Date()): number => {
 export const useLiveActivity = (status: EngineStatus): LiveActivity => {
   const [queue, setQueue] = useState<QueuedTask[]>([]);
   const [nextEligibleAt, setNextEligibleAt] = useState(0);
+  const [restUntil, setRestUntil] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   // First time we saw the current task / wait, keyed so it survives re-renders.
   const seen = useRef<{ key: string; at: number }>({ key: '', at: Date.now() });
@@ -64,6 +65,7 @@ export const useLiveActivity = (status: EngineStatus): LiveActivity => {
       const [q, s] = await Promise.all([getQueue(), getSchedulerState()]);
       setQueue(q);
       setNextEligibleAt(s.nextEligibleAt);
+      setRestUntil(s.restUntil ?? null);
     };
     void load();
     const listener = (changes: { [key: string]: chrome.storage.StorageChange }, area: chrome.storage.AreaName) => {
@@ -90,6 +92,10 @@ export const useLiveActivity = (status: EngineStatus): LiveActivity => {
     mode = 'paused';
   } else if (task) {
     mode = 'running';
+  } else if (restUntil && restUntil > now) {
+    mode = 'waiting';
+    reason = 'break';
+    until = restUntil;
   } else if (settings && code === 'outside-hours') {
     mode = 'waiting';
     reason = 'outside-hours';

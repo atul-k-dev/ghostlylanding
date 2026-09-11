@@ -10,6 +10,7 @@ import { BRIEF_SIZE, clampToViewport, nearestCorner, type Size } from './state.j
 import { ReplyForMeCard, useReplyForMe } from './ReplyForMeCard.js';
 import { Bubble } from './Bubble';
 import { Brief } from './Brief';
+import { onWorkerState, workerState } from '../content/worker-mark.js';
 
 /**
  * The floating panel on x.com (updateplan 2.2), in the side panel's design
@@ -54,12 +55,25 @@ const useFollowerSummary = () => {
       setLoading(false);
     }
   };
+  const [refreshing, setRefreshing] = useState(false);
+  /** Take a fresh profile reading, then reload — what the ↻ on the card means. */
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      await sendToBackground({ type: 'REFRESH_GROWTH', payload: {} });
+    } catch {
+      /* the reload below still shows whatever the server has */
+    } finally {
+      setRefreshing(false);
+      await reload();
+    }
+  };
   useEffect(() => {
     void reload();
     const id = setInterval(() => void reload(), 15 * 60_000);
     return () => clearInterval(id);
   }, []);
-  return { summary, loading, reload };
+  return { summary, loading, refreshing, refresh };
 };
 
 /** Ask the service worker to open the side panel for this tab (2.5). */
@@ -92,6 +106,9 @@ export const FloatingApp = () => {
   /** Set only when Chrome refuses to open the side panel from this click (2.5). */
   const [expandFallback, setExpandFallback] = useState(false);
   const card = useRef<HTMLDivElement>(null);
+  // Is this x.com tab the one Ghostly works in — and if not, does it have one?
+  const [worker, setWorker] = useState(workerState);
+  useEffect(() => onWorkerState(() => setWorker(workerState())), []);
 
   // "Reply for me" on a post is a request for the panel — the draft is about to
   // appear in it. Without this the button would look broken from the bubble.
@@ -220,6 +237,16 @@ export const FloatingApp = () => {
               <p className="rounded-3xl bg-casper-attention/12 px-3.5 py-2.5 text-xs leading-relaxed">
                 Chrome won’t open the full panel from this button. Press <span className="font-bold">Alt+G</span> and it opens.
               </p>
+            )}
+            {!worker.isWorker && worker.workerExists && (
+              <button
+                type="button"
+                onClick={() => void sendToBackground({ type: 'FOCUS_WORKER_TAB', payload: {} })}
+                className="flex cursor-pointer items-center gap-2 rounded-full bg-primary/12 py-2 pr-2 pl-3.5 text-left text-xs font-medium transition hover:bg-primary/18"
+              >
+                <span className="flex-1">Ghostly works in its own tab — this one is yours</span>
+                <span className="rounded-full bg-primary px-2.5 py-1 font-bold text-primary-foreground">Show it</span>
+              </button>
             )}
             <ReplyForMeCard state={replyForMe} />
           </>

@@ -11,6 +11,7 @@ import {
   Comment01Icon,
   ComputerIcon,
   FavouriteIcon,
+  Home09Icon,
   Loading03Icon,
   MessageMultiple01Icon,
   Mic01Icon,
@@ -18,7 +19,9 @@ import {
   QuoteDownIcon,
   RepeatIcon,
   Rocket01Icon,
+  Search01Icon,
   Sun03Icon,
+  Tag01Icon,
   Tick02Icon,
   UserAdd01Icon,
   UserGroupIcon,
@@ -45,8 +48,8 @@ export interface StepCtx {
   s: ExtensionSettings;
   update: (next: ExtensionSettings) => void;
   user: User;
-  goal: Goal | null;
-  setGoal: (g: Goal) => void;
+  goals: Goal[];
+  setGoals: (g: Goal[]) => void;
   setBusy: (b: boolean) => void;
 }
 
@@ -97,19 +100,69 @@ export const ChoiceCard = ({
   </button>
 );
 
-const Chip = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) => (
+const Chip = ({ on, onClick, children, danger }: { on: boolean; onClick: () => void; children: ReactNode; danger?: boolean }) => (
   <button
     type="button"
     onClick={onClick}
     aria-pressed={on}
     className={cn(
       'inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition active:scale-95',
-      on ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-card text-foreground/80 ring-1 ring-[color:var(--card-ring)] hover:ring-primary/40',
+      on
+        ? danger
+          ? 'bg-destructive text-white shadow-sm'
+          : 'bg-primary text-primary-foreground shadow-sm'
+        : 'bg-background text-foreground/80 ring-1 ring-foreground/10 hover:ring-foreground/25',
     )}
   >
-    {on ? <HugeiconsIcon icon={Tick02Icon} strokeWidth={2.6} className="size-3.5" /> : <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-3.5 opacity-60" />}
+    {on ? (
+      <HugeiconsIcon icon={danger ? Cancel01Icon : Tick02Icon} strokeWidth={2.6} className="size-3.5" />
+    ) : (
+      <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-3.5 opacity-60" />
+    )}
     {children}
   </button>
+);
+
+/** One section of a step, as its own card: an icon, a title, a line of why. */
+const StepCard = ({
+  icon,
+  title,
+  body,
+  tone = 'primary',
+  children,
+}: {
+  icon: IconSvgElement;
+  title: string;
+  body: string;
+  tone?: 'primary' | 'danger' | 'plain';
+  children: ReactNode;
+}) => (
+  <section
+    className={cn(
+      'flex flex-col gap-3.5 rounded-4xl p-4 shadow-sm ring-1',
+      tone === 'danger'
+        ? 'bg-destructive/[0.06] ring-destructive/20'
+        : tone === 'primary'
+          ? 'bg-primary/[0.07] ring-primary/20'
+          : 'bg-card ring-[color:var(--card-ring)]',
+    )}
+  >
+    <div className="flex items-start gap-3">
+      <span
+        className={cn(
+          'grid size-10 shrink-0 place-items-center rounded-2xl',
+          tone === 'danger' ? 'bg-destructive/15 text-destructive' : 'bg-primary text-primary-foreground',
+        )}
+      >
+        <HugeiconsIcon icon={icon} strokeWidth={2} className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="font-display text-[15px] leading-tight font-bold">{title}</p>
+        <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">{body}</p>
+      </div>
+    </div>
+    {children}
+  </section>
 );
 
 const AddInput = ({ placeholder, onAdd }: { placeholder: string; onAdd: (v: string) => void }) => {
@@ -197,32 +250,42 @@ export const GOALS: Record<Goal, { icon: IconSvgElement; title: string; body: st
   },
 };
 
-export const GoalStep = ({ s, update, goal, setGoal }: StepCtx) => (
-  <div className="flex flex-col gap-2.5">
-    {(Object.keys(GOALS) as Goal[]).map((g) => (
-      <ChoiceCard
-        key={g}
-        icon={GOALS[g].icon}
-        title={GOALS[g].title}
-        body={GOALS[g].body}
-        on={goal === g}
-        onClick={() => {
-          setGoal(g);
-          const cfg = GOALS[g];
-          // The goal pre-sets what Ghostly does; every one of these can be changed two steps on.
-          update({
-            ...s,
-            homeFeed: { ...s.homeFeed, ...cfg.flags },
-            searchFeed: { ...s.searchFeed, ...cfg.flags },
-            followBack: cfg.followBack,
-            autoPost: { ...s.autoPost, enabled: cfg.autoPost },
-          });
-        }}
-      />
-    ))}
-    <p className="px-1 text-xs text-muted-foreground">This just sets good starting choices — you can change any of them.</p>
-  </div>
-);
+/** What the chosen goals add up to: every action any of them wants, the gentlest pace only if all of them ask for it. */
+export const combineGoals = (goals: Goal[]) => {
+  const flags: Flags = { like: false, comment: false, follow: false, bookmark: false, repost: false, quote: false };
+  for (const g of goals) for (const k of Object.keys(flags) as (keyof Flags)[]) flags[k] ||= GOALS[g].flags[k];
+  return {
+    flags,
+    followBack: goals.some((g) => GOALS[g].followBack),
+    autoPost: goals.some((g) => GOALS[g].autoPost),
+    preset: (goals.length > 0 && goals.every((g) => GOALS[g].preset === 'careful') ? 'careful' : 'balanced') as SafetyPresetName,
+  };
+};
+
+export const GoalStep = ({ s, update, goals, setGoals }: StepCtx) => {
+  const toggle = (g: Goal) => {
+    const next = goals.includes(g) ? goals.filter((x) => x !== g) : [...goals, g];
+    setGoals(next);
+    if (next.length === 0) return;
+    // The goals pre-set what Ghostly does; every one can be changed on the actions step.
+    const cfg = combineGoals(next);
+    update({
+      ...s,
+      homeFeed: { ...s.homeFeed, ...cfg.flags, enabled: true },
+      searchFeed: { ...s.searchFeed, ...cfg.flags },
+      followBack: cfg.followBack,
+      autoPost: { ...s.autoPost, enabled: cfg.autoPost },
+    });
+  };
+  return (
+    <div className="flex flex-col gap-2.5">
+      {(Object.keys(GOALS) as Goal[]).map((g) => (
+        <ChoiceCard key={g} icon={GOALS[g].icon} title={GOALS[g].title} body={GOALS[g].body} on={goals.includes(g)} onClick={() => toggle(g)} />
+      ))}
+      <p className="px-1 text-xs text-muted-foreground">Pick as many as you like — they just set good starting choices you can change later.</p>
+    </div>
+  );
+};
 
 /* -- 2 · account ----------------------------------------------------------------------- */
 
@@ -377,7 +440,7 @@ const withTopics = (s: ExtensionSettings, topics: string[], searchToo: boolean):
   return {
     ...s,
     contentTopics: topics.slice(0, 10),
-    homeFeed: { ...s.homeFeed, enabled: true, keywords: topics },
+    homeFeed: { ...s.homeFeed, keywords: topics },
     searchQueries: searchToo ? [...kept, ...added] : kept.filter((q) => !lower.has(q.query.toLowerCase())),
   };
 };
@@ -391,11 +454,16 @@ export const TopicsStep = ({ s, update }: StepCtx) => {
   const ideas = [...(read?.topics ?? []), ...TOPIC_IDEAS].filter((t, i, a) => a.findIndex((x) => x.toLowerCase() === t.toLowerCase()) === i);
   const custom = topics.filter((t) => !ideas.some((x) => x.toLowerCase() === t.toLowerCase()));
   const avoid = s.homeFeed.excludeKeywords;
+  const avoidAll = [...AVOID_IDEAS, ...avoid.filter((a) => !AVOID_IDEAS.includes(a))];
+  const setAvoid = (list: string[]) => update({ ...s, homeFeed: { ...s.homeFeed, excludeKeywords: list } });
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2.5">
-        <SectionLabel>{read?.topics.length ? 'From your posts, plus a few ideas' : 'Pick a few'}</SectionLabel>
+    <div className="flex flex-col gap-4">
+      <StepCard
+        icon={Tag01Icon}
+        title="Engage with posts about"
+        body={`I like, reply to and follow people on posts that mention these. ${read?.topics.length ? 'Some come from your own posts. ' : ''}Short words (“AI”, “SaaS”) match more posts than long phrases.`}
+      >
         <div className="flex flex-wrap gap-2">
           {[...ideas, ...custom].map((t) => (
             <Chip key={t} on={has(t)} onClick={() => toggle(t)}>
@@ -404,34 +472,52 @@ export const TopicsStep = ({ s, update }: StepCtx) => {
           ))}
         </div>
         <AddInput placeholder="Add your own topic" onAdd={(t) => !has(t) && update(withTopics(s, [...topics, t], searchToo))} />
-      </div>
+        <p className="text-xs font-medium text-primary">{topics.length === 0 ? 'Pick at least one' : `${topics.length} selected`}</p>
+      </StepCard>
 
-      <Group footer="Topic feeds reach people outside the accounts you already follow.">
-        <Row
-          icon={UserGroupIcon}
-          label="Also search these topics on X"
-          hint="Find new people talking about them"
-          toggle={{ checked: searchToo, onChange: (v) => update(withTopics(s, topics, v)) }}
-        />
-      </Group>
+      <StepCard
+        icon={Search01Icon}
+        title="Where I look for them"
+        body="Both are on by default — the home feed keeps you close to who you follow, topic feeds find new people."
+        tone="plain"
+      >
+        <div className="overflow-hidden rounded-3xl bg-background ring-1 ring-foreground/5">
+          <Row
+            icon={Home09Icon}
+            label="Home feed"
+            hint="Your own timeline — people you already follow"
+            toggle={{ checked: s.homeFeed.enabled, onChange: (v) => update({ ...s, homeFeed: { ...s.homeFeed, enabled: v } }) }}
+          />
+          <Row
+            icon={UserGroupIcon}
+            label="Topic feeds"
+            hint="Search X for these topics — reach people you don’t follow yet"
+            toggle={{ checked: searchToo, onChange: (v) => update(withTopics(s, topics, v)) }}
+          />
+        </div>
+      </StepCard>
 
-      <div className="flex flex-col gap-2.5">
-        <SectionLabel>Never engage with posts about</SectionLabel>
+      <StepCard
+        icon={Cancel01Icon}
+        title="Stay away from"
+        body="I skip any post that mentions these — even when it matches a topic above. Tap to block."
+        tone="danger"
+      >
         <div className="flex flex-wrap gap-2">
-          {AVOID_IDEAS.map((t) => {
+          {avoidAll.map((t) => {
             const on = avoid.includes(t);
             return (
-              <Chip
-                key={t}
-                on={on}
-                onClick={() => update({ ...s, homeFeed: { ...s.homeFeed, excludeKeywords: on ? avoid.filter((x) => x !== t) : [...avoid, t] } })}
-              >
+              <Chip key={t} danger on={on} onClick={() => setAvoid(on ? avoid.filter((x) => x !== t) : [...avoid, t])}>
                 {t}
               </Chip>
             );
           })}
         </div>
-      </div>
+        <AddInput
+          placeholder="Add a word to avoid"
+          onAdd={(t) => !avoid.some((a) => a.toLowerCase() === t.toLowerCase()) && setAvoid([...avoid, t])}
+        />
+      </StepCard>
     </div>
   );
 };
@@ -495,8 +581,8 @@ export const PeopleStep = ({ s, update }: StepCtx) => {
 
 /* -- 5 · actions ------------------------------------------------------------------------ */
 
-export const ActionsStep = ({ s, update, goal }: StepCtx) => {
-  const rec = goal ? GOALS[goal].flags : null;
+export const ActionsStep = ({ s, update, goals }: StepCtx) => {
+  const rec = goals.length > 0 ? combineGoals(goals).flags : null;
   const set = (patch: Partial<Flags>) => update({ ...s, homeFeed: { ...s.homeFeed, ...patch }, searchFeed: { ...s.searchFeed, ...patch } });
   const rows: { key: keyof Flags; label: string; hint: string; icon: IconSvgElement }[] = [
     { key: 'like', label: 'Like', hint: 'The lightest touch — gets you noticed', icon: FavouriteIcon },
@@ -663,9 +749,9 @@ export const PostingStep = ({ s, update }: StepCtx) => (
 
 const hh = (h: number) => new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: 'numeric' });
 
-export const PaceStep = ({ s, update, goal }: StepCtx) => {
+export const PaceStep = ({ s, update, goals }: StepCtx) => {
   const young = (s.accountAgeMonths.twitter ?? 0) < 6;
-  const rec: SafetyPresetName = young ? 'careful' : goal ? GOALS[goal].preset : 'balanced';
+  const rec: SafetyPresetName = young ? 'careful' : combineGoals(goals).preset;
   const hours = s.activeHours;
   return (
     <div className="flex flex-col gap-4">

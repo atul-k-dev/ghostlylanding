@@ -27,6 +27,8 @@ export interface SafetyPreset {
   hourlyCeiling: number;
   /** Safety auto-pause after this many minutes of continuous work. */
   sessionMinutes: number;
+  /** Rest between sessions, in minutes (used when auto-resume is on). */
+  breakMinutes: number;
   /**
    * How many posts a day the auto-draft loop (updateplan 3.2) may put on the
    * schedule. A publishing cadence is a safety number like any other — an
@@ -86,6 +88,7 @@ export const SAFETY_PRESETS: Record<SafetyPresetName, SafetyPreset> = {
     actionDelayMs: { min: 15_000, max: 75_000 },
     hourlyCeiling: 12,
     sessionMinutes: 30,
+    breakMinutes: 30,
     postsPerDay: 1,
     actions: { like: true, comment: true, follow: false, bookmark: false, repost: false, quote: false },
   },
@@ -106,6 +109,7 @@ export const SAFETY_PRESETS: Record<SafetyPresetName, SafetyPreset> = {
     actionDelayMs: { min: 8_000, max: 45_000 },
     hourlyCeiling: 30,
     sessionMinutes: 60,
+    breakMinutes: 20,
     postsPerDay: 1,
     actions: { like: true, comment: true, follow: true, bookmark: false, repost: false, quote: false },
   },
@@ -126,7 +130,8 @@ export const SAFETY_PRESETS: Record<SafetyPresetName, SafetyPreset> = {
     },
     actionDelayMs: { min: 8_000, max: 45_000 },
     hourlyCeiling: 60,
-    sessionMinutes: 90,
+    sessionMinutes: 60,
+    breakMinutes: 10,
     postsPerDay: 2,
     actions: { like: true, comment: true, follow: true, bookmark: true, repost: false, quote: false },
   },
@@ -187,6 +192,7 @@ export const applyPreset = (
     ...settings,
     safetyPreset: preset.name,
     sessionMinutes: preset.sessionMinutes,
+    breakMinutes: preset.breakMinutes,
     caps: { ...settings.caps, twitter: { ...preset.caps } },
     homeFeed: { ...settings.homeFeed, ...preset.actions },
     // Switching presets never restarts a ramp that is already running — that

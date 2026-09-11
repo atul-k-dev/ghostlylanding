@@ -13,10 +13,12 @@ export const STEPS = [
   'account',
   'topics',
   'people',
+  // Pace before actions: choosing a pace also sets which actions are on, so
+  // the actions step comes after it and has the last word.
+  'pace',
   'actions',
   'voice',
   'posting',
-  'pace',
   'look',
   'preview',
   'ready',
@@ -27,16 +29,20 @@ export type Goal = 'followers' | 'engagement' | 'authority' | 'promote';
 
 export interface OnboardingProgress {
   step: StepId;
-  goal: Goal | null;
+  /** The goals picked — any number of them. */
+  goals: Goal[];
   /** Set when the user picked "I'll do it later" — the app opens normally. */
   skippedAt: number | null;
 }
 
-const DEFAULT: OnboardingProgress = { step: 'welcome', goal: null, skippedAt: null };
+const DEFAULT: OnboardingProgress = { step: 'welcome', goals: [], skippedAt: null };
 
 const read = async (): Promise<OnboardingProgress> => {
   const got = await chrome.storage.local.get(STORAGE_KEYS.onboarding);
-  return { ...DEFAULT, ...((got[STORAGE_KEYS.onboarding] as Partial<OnboardingProgress> | undefined) ?? {}) };
+  const stored = (got[STORAGE_KEYS.onboarding] as (Partial<OnboardingProgress> & { goal?: Goal | null }) | undefined) ?? {};
+  // Earlier builds stored a single `goal`.
+  const goals = stored.goals ?? (stored.goal ? [stored.goal] : []);
+  return { ...DEFAULT, ...stored, goals };
 };
 
 export const saveOnboarding = async (patch: Partial<OnboardingProgress>) => {

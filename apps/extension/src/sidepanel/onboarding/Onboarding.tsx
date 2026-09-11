@@ -58,14 +58,19 @@ const DEFS: Record<StepId, StepDef> = {
     subtitle: 'Your growth copilot for X. Let’s set it up in about three minutes.',
     Body: WelcomeStep,
   },
-  goal: { icon: Flag01Icon, title: () => 'What do you want from X?', subtitle: 'I’ll tune everything around it.', Body: GoalStep },
+  goal: { icon: Flag01Icon, title: () => 'What do you want from X?', subtitle: 'Pick all that fit — I’ll tune everything around them.', Body: GoalStep },
   account: {
     icon: NewTwitterIcon,
     title: () => 'Let me read your account',
     subtitle: 'So I can suggest topics and people — instead of making you type them.',
     Body: AccountStep,
   },
-  topics: { icon: Tag01Icon, title: () => 'What do you post about?', subtitle: 'I only engage with posts on these topics.', Body: TopicsStep },
+  topics: {
+    icon: Tag01Icon,
+    title: () => 'What should I engage with?',
+    subtitle: 'The topics your audience cares about, where to find them — and what to stay away from.',
+    Body: TopicsStep,
+  },
   people: {
     icon: UserSearch01Icon,
     title: () => 'Who should I watch?',
@@ -132,12 +137,12 @@ export const Onboarding = ({ user, onFinish, onLater }: { user: User; onFinish: 
     s: settings,
     update,
     user,
-    goal: onboarding.progress.goal,
-    setGoal: (goal) => onboarding.save({ goal }),
+    goals: onboarding.progress.goals,
+    setGoals: (goals) => onboarding.save({ goals }),
     setBusy,
   };
 
-  const canContinue = !busy && !(step === 'goal' && !onboarding.progress.goal);
+  const canContinue = !busy && !(step === 'goal' && onboarding.progress.goals.length === 0);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-canvas text-foreground">
@@ -217,7 +222,7 @@ export const Onboarding = ({ user, onFinish, onLater }: { user: User; onFinish: 
               disabled={!canContinue}
               className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary font-display text-[15px] font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 active:scale-[0.99] disabled:cursor-default disabled:opacity-50"
             >
-              {step === 'welcome' ? 'Let’s go' : step === 'goal' && !onboarding.progress.goal ? 'Pick one to continue' : 'Continue'}
+              {step === 'welcome' ? 'Let’s go' : step === 'goal' && onboarding.progress.goals.length === 0 ? 'Pick at least one' : 'Continue'}
               <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2.2} className="size-5" />
             </button>
             {step === 'welcome' && (

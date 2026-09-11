@@ -33,8 +33,11 @@ export interface TodayNumbers {
   byType: ActionBudget[];
   /** Followers gained today; null until the server has two readings. */
   followersGained: number | null;
+  /** Follower count at the latest reading; null before the first one. */
+  followersTotal: number | null;
   growthLoading: boolean;
-  reloadGrowth: () => Promise<void>;
+  /** Take a fresh profile reading (a minute or so), then reload the numbers. */
+  refreshGrowth: () => Promise<void>;
 }
 
 const ORDER: ActionType[] = ['like', 'comment', 'follow', 'bookmark', 'repost', 'quote'];
@@ -48,7 +51,10 @@ const CAP_KEY: Record<ActionType, keyof PlatformCaps> = {
 };
 const EMPTY: ActionTypeCounts = { like: 0, comment: 0, follow: 0, bookmark: 0, repost: 0, quote: 0 };
 
-export const useTodayNumbers = (status: EngineStatus, growth: Pick<Growth, 'summary' | 'loading' | 'reload'>): TodayNumbers => {
+export const useTodayNumbers = (
+  status: EngineStatus,
+  growth: Pick<Growth, 'summary' | 'loading' | 'refreshing' | 'refresh'>,
+): TodayNumbers => {
   const settings = status.settings;
   const counter = status.counters?.twitter ?? null;
   const today = settings ? localDate(new Date(), settings.timezone) : null;
@@ -78,7 +84,8 @@ export const useTodayNumbers = (status: EngineStatus, growth: Pick<Growth, 'summ
     fraction: allowance > 0 ? Math.min(1, used / allowance) : 0,
     byType,
     followersGained: growth.summary?.deltas.day.change ?? null,
-    growthLoading: growth.loading,
-    reloadGrowth: growth.reload,
+    followersTotal: growth.summary?.latest?.followers ?? null,
+    growthLoading: growth.loading || growth.refreshing,
+    refreshGrowth: growth.refresh,
   };
 };

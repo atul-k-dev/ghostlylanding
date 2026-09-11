@@ -143,6 +143,13 @@ export interface HomeAutopilotOptions {
   repost: boolean;
   quote: boolean;
   keywords: string[];
+  /**
+   * Whether a post must match `keywords` to be engaged. True only for the
+   * open home feed. A search feed's query IS its filter, and a profile visit
+   * is a creator the user chose — both send no keywords, and since "no
+   * keywords = engage nothing" (D18) they would otherwise skip every post.
+   */
+  matchKeywords: boolean;
   /** Blocklist — posts containing any of these are skipped entirely. */
   excludeKeywords: string[];
   /**

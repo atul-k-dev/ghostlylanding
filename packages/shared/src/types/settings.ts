@@ -188,6 +188,14 @@ export interface ExtensionSettings {
    */
   sessionMinutes: number;
   /**
+   * What happens when a session ends: true = take a break of `breakMinutes`,
+   * then carry on by itself (still inside active hours and the daily caps);
+   * false = pause until the user starts it again.
+   */
+  autoResume: boolean;
+  /** Length of the break between sessions, in minutes. */
+  breakMinutes: number;
+  /**
    * Browse like a person instead of doing everything from the timeline: open an
    * author's profile to follow them there, open a post's own page to reply on
    * it, then come back to the feed. Off = every action happens inline in the

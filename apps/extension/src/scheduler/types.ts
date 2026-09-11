@@ -43,6 +43,8 @@ export interface SchedulerState {
   lastDiagFlushAt?: number;
   /** ms epoch when the current Active session began; null while paused. */
   activeSince: number | null;
+  /** ms epoch a between-sessions break ends (auto-resume); null/absent when not on one. */
+  restUntil?: number | null;
   /** Consecutive 'degraded' runs. Resets on any healthy one; trips the breaker. */
   degradedStreak?: number;
   /**

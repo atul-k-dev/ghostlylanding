@@ -28,7 +28,8 @@ import {
   nextScrollPauseMs,
   readDwellMs,
 } from '../common/pacing.js';
-import { spotlightOn, clearSpotlight, type SpotlightAction } from '../../floating/spotlight.js';
+import { spotlightOn, spotlightDone, type SpotlightAction } from '../../floating/spotlight.js';
+import { isStopped, stoppableWait, syncStopSignal } from '../common/stop-signal.js';
 
 /** Report one completed action to the background the instant it lands, so the
  *  dashboard counters update live during a long session (instead of only when
@@ -57,13 +58,25 @@ const recordAction = async (
 };
 
 /**
- * Point Spotlight (2.3) at the post we are about to act on, and take the
- * outline down however this ends.
+ * Point Spotlight (2.3) at the post we're reading or acting on, and when the
+ * action ends, say how it went — the outline stays until the next post.
  *
- * It sits here because this is the only code that knows what it is about to do,
- * and it is a no-op when the user has Spotlight off or the post isn't really on
- * screen — so every call site can be unconditional.
+ * It sits here because this is the only code that knows what it is about to
+ * do, and it's a no-op when the user has Spotlight off — so every call site
+ * can be unconditional.
  */
+const outcomeOf = (action: SpotlightAction, r: unknown): 'done' | 'drafted' | 'skipped' | null => {
+  if (action === 'reading') return null; // the next step (or post) decides
+  if (r === 'skip' || r === false || r === null || r === undefined) return 'skipped';
+  if (typeof r === 'object') {
+    const o = r as { ok?: boolean; posted?: boolean; followed?: boolean; draftText?: string };
+    if (o.ok === false || o.posted === false || o.followed === false) return 'skipped';
+    // A reply held for review was written, not posted.
+    if (action === 'reply' && typeof o.draftText === 'string' && o.posted === undefined) return 'drafted';
+  }
+  return 'done';
+};
+
 const withSpotlight = async <T>(
   el: HTMLElement | null,
   action: SpotlightAction,
@@ -79,9 +92,13 @@ const withSpotlight = async <T>(
     });
   }
   try {
-    return await fn();
-  } finally {
-    clearSpotlight();
+    const r = await fn();
+    const outcome = outcomeOf(action, r);
+    if (outcome) spotlightDone(outcome);
+    return r;
+  } catch (err) {
+    spotlightDone('skipped');
+    throw err;
   }
 };
 
@@ -721,7 +738,14 @@ export const runHomeAutopilot = async (
   let reposts = 0;
   let quotes = 0;
   const total = (): number => likes + comments + follows + bookmarks + reposts + quotes;
-  const pause = (): Promise<void> => wait(randomInt(opts.minDelayMs, opts.maxDelayMs));
+  // Pausing stops a real run within a fraction of a second — every wait below
+  // ends early when it flips. A dry run is meant to work while paused.
+  const respectStop = !opts.dryRun;
+  await syncStopSignal();
+  const stopNow = (): boolean => respectStop && isStopped();
+  const pause = async (): Promise<void> => {
+    await stoppableWait(randomInt(opts.minDelayMs, opts.maxDelayMs), respectStop);
+  };
   // Tags every action this session records with its source (updateplan 6.7 —
   // D8), so the background spends search-feed actions from the search budget
   // instead of the one home/profile sessions share.
@@ -748,14 +772,7 @@ export const runHomeAutopilot = async (
   // The kill switch lives in storage: toggling the Active pill off flips
   // settings.isPaused. Poll it so a long session stops within a couple seconds
   // instead of running to its deadline. (Key mirrors STORAGE_KEYS.settings.)
-  const stopRequested = async (): Promise<boolean> => {
-    try {
-      const got = await chrome.storage.local.get('casper.settings');
-      return (got['casper.settings'] as { isPaused?: boolean } | undefined)?.isPaused === true;
-    } catch {
-      return false;
-    }
-  };
+  const stopRequested = async (): Promise<boolean> => stopNow();
 
   /**
    * The per-hour ceiling, checked before EVERY action rather than once at the
@@ -779,7 +796,7 @@ export const runHomeAutopilot = async (
     while (timeLeft()) {
       if (await stopRequested()) return false;
       const due = await msUntilSlotNow();
-      await wait(Math.min(Math.max(due, 1_000), RATE_POLL_MS));
+      await stoppableWait(Math.min(Math.max(due, 1_000), RATE_POLL_MS), respectStop);
       if (await canActNow()) return true;
     }
     return false;
@@ -802,7 +819,7 @@ export const runHomeAutopilot = async (
     let seenNew = 0;
     const articles = Array.from(document.querySelectorAll<HTMLElement>(S.postArticle));
     for (const article of articles) {
-      if (!timeLeft() || !budgetLeft()) break;
+      if (!timeLeft() || !budgetLeft() || stopNow()) break;
 
       const meta = readArticle(article);
       if (!meta || processed.has(meta.postId)) continue;
@@ -856,8 +873,9 @@ export const runHomeAutopilot = async (
         article,
         'reading',
         { authorHandle: meta.authorHandle, postUrl: meta.postUrl, text: enriched.text },
-        () => wait(readDwellMs(enriched.text)),
+        () => stoppableWait(readDwellMs(enriched.text), respectStop),
       );
+      if (stopNow()) break;
 
       // Relevance is relaxed for media exactly the way the plan asks: an
       // author already on the watch list is relevant regardless of caption —
@@ -868,7 +886,8 @@ export const runHomeAutopilot = async (
         enriched.authorHandle &&
           opts.targetHandles.includes(enriched.authorHandle.toLowerCase()),
       );
-      if (!authorIsWatched && !isRelevant(enriched.text, opts.keywords)) continue;
+      // Topic match is the open home feed's filter only (see `matchKeywords`).
+      if (opts.matchKeywords && !authorIsWatched && !isRelevant(enriched.text, opts.keywords)) continue;
       if (isExcluded(enriched.text, opts.excludeKeywords)) continue;
       meta.text = enriched.text;
       // Which keyword actually matched (updateplan 5.1's "which topics are
@@ -1194,8 +1213,9 @@ export const runHomeAutopilot = async (
     // virtualizes the timeline, so the DOM stays bounded as we go. Distance and
     // pause are drawn fresh each pass: an exact 700px / 650ms metronome is a
     // fingerprint whatever the delays around it look like.
+    if (stopNow()) break;
     await smoothScrollBy(nextScrollDistancePx());
-    await wait(nextScrollPauseMs());
+    if (await stoppableWait(nextScrollPauseMs(), respectStop)) break;
 
     // If several passes in a row surface nothing new, we've caught up to the
     // feed — nudge harder and wait a beat before trying again, rather than
@@ -1204,7 +1224,7 @@ export const runHomeAutopilot = async (
       emptyPasses++;
       if (emptyPasses >= 3) {
         window.scrollBy({ top: 1600, behavior: 'instant' as ScrollBehavior });
-        await wait(2_000);
+        if (await stoppableWait(2_000, respectStop)) break;
         emptyPasses = 0;
       }
     } else {
@@ -1212,6 +1232,7 @@ export const runHomeAutopilot = async (
     }
   }
 
-  clearSpotlight();
+  // Spotlight is left on the last post on purpose: it shows where Ghostly
+  // left off. Only the setting (or leaving the page) takes it down.
   return result;
 };

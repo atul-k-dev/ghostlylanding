@@ -1,10 +1,11 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Alert02Icon, CheckmarkCircle02Icon, GhostIcon, HourglassIcon, Moon02Icon, PauseIcon } from '@hugeicons/core-free-icons';
+import { Alert02Icon, CheckmarkCircle02Icon, Coffee02Icon, HourglassIcon, Moon02Icon, PauseIcon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
 import type { EngineStatus } from '../sidepanel/useEngineStatus.js';
 import type { LiveActivity } from '../sidepanel/home/useLiveActivity.js';
 import { lookOf, span } from '../sidepanel/home/StatusCard.js';
+import { logoUrl } from './logo.js';
 
 /**
  * The bubble on x.com — Ghostly's state at a glance, without opening anything.
@@ -13,7 +14,7 @@ import { lookOf, span } from '../sidepanel/home/StatusCard.js';
  *             between moves; otherwise shows how much of today's limit is used.
  *             Amber and pulsing when something needs you.
  *  · centre — the activity itself (scrolling bobs, searching roams, liking
- *             beats…), a pause glyph, or the ghost breathing while it watches.
+ *             beats…), a pause glyph, or the logo breathing while it watches.
  *  · badge  — replies waiting for your approval.
  *  · hover  — a chip with the live status line.
  */
@@ -29,6 +30,7 @@ export const statusLine = (status: EngineStatus, live: LiveActivity): string => 
   }
   if (live.mode === 'paused') return 'Paused — tap to start';
   if (live.mode === 'waiting' && live.until) {
+    if (live.reason === 'break') return `On a break · back in ${span(live.until - live.now)}`;
     if (live.reason === 'outside-hours' || live.reason === 'caps-spent') {
       return `Back at ${new Date(live.until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
     }
@@ -61,10 +63,11 @@ export const Bubble = ({
   const waitingFor = live.mode === 'waiting' && live.until ? Math.min(1, Math.max(0, (live.until - live.now) / Math.max(1, live.until - live.since))) : null;
 
   const look = live.task ? lookOf(live.task) : null;
+  // null = nothing to report: the logo stands in for a glyph.
   const icon = attention
     ? Alert02Icon
     : look?.icon ??
-      (paused ? PauseIcon : live.reason === 'outside-hours' ? Moon02Icon : live.reason === 'caps-spent' ? CheckmarkCircle02Icon : live.mode === 'waiting' ? HourglassIcon : GhostIcon);
+      (paused ? PauseIcon : live.reason === 'break' ? Coffee02Icon : live.reason === 'outside-hours' ? Moon02Icon : live.reason === 'caps-spent' ? CheckmarkCircle02Icon : live.mode === 'waiting' ? HourglassIcon : null);
   const motion = attention
     ? ''
     : look?.motion ??
@@ -104,14 +107,18 @@ export const Bubble = ({
             )}
           />
         </svg>
-        <span
-          className={cn(
-            'relative grid size-[42px] place-items-center rounded-full transition-colors',
-            paused ? 'bg-muted text-muted-foreground' : attention ? 'bg-casper-attention text-white' : 'bg-primary text-primary-foreground',
-          )}
-        >
-          <HugeiconsIcon icon={icon} strokeWidth={2} className={cn('size-5', motion)} />
-        </span>
+        {icon ? (
+          <span
+            className={cn(
+              'relative grid size-[42px] place-items-center rounded-full transition-colors',
+              paused ? 'bg-muted text-muted-foreground' : attention ? 'bg-casper-attention text-white' : 'bg-primary text-primary-foreground',
+            )}
+          >
+            <HugeiconsIcon icon={icon} strokeWidth={2} className={cn('size-5', motion)} />
+          </span>
+        ) : (
+          <img src={logoUrl()} alt="" draggable={false} className={cn('relative size-[42px] object-contain', motion)} />
+        )}
       </button>
 
       {waiting > 0 && (

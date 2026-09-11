@@ -47,7 +47,7 @@ import {
   SCHEDULER_ALARM,
 } from '../scheduler/scheduler.js';
 import { fetchGoogleIdToken } from './google-signin.js';
-import { driveTab } from '../platforms/common/tab-driver.js';
+import { driveTab, focusWorkerTab, getWorkerTabId, setWorkerTabWorking } from '../platforms/common/tab-driver.js';
 import { readAccountForSetup, getSetupRead } from './setup-read.js';
 import { runDryRun } from '../scheduler/dry-run.js';
 import { mostDistinctiveTerm } from '../lib/topics.js';
@@ -312,6 +312,14 @@ chrome.commands?.onCommand.addListener((command) => {
  * one too many.
  */
 let openSidePanels = 0;
+
+// End / Start repaint the Ghostly tab group straight away (the tick follows).
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !(STORAGE_KEYS.settings in changes)) return;
+  const was = (changes[STORAGE_KEYS.settings]!.oldValue as { isPaused?: boolean } | undefined)?.isPaused;
+  const now = (changes[STORAGE_KEYS.settings]!.newValue as { isPaused?: boolean } | undefined)?.isPaused;
+  if (was !== now) void setWorkerTabWorking(now !== true);
+});
 void chrome.storage.local.set({ [STORAGE_KEYS.sidePanelOpen]: 0 });
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'sidepanel') return;
@@ -354,6 +362,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
    * Handled here rather than in asyncHandlers because it needs `sender.tab.id`,
    * which a content script cannot read for itself.
    */
+  // Which x.com tab is Ghostly's? Asked by every x.com page on load, so its
+  // own tab can mark itself and the others can point to it.
+  if (message.type === 'AM_I_WORKER') {
+    void getWorkerTabId().then((id) => sendResponse({ worker: id !== null && id === sender.tab?.id, exists: id !== null }));
+    return true;
+  }
+  if (message.type === 'FOCUS_WORKER_TAB') {
+    void focusWorkerTab().then((ok) => sendResponse({ ok }));
+    return true;
+  }
   if (message.type === 'OPEN_SIDE_PANEL') {
     const tabId = sender.tab?.id;
     if (typeof tabId !== 'number') {

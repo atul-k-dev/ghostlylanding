@@ -43,9 +43,7 @@ export const AuthShell = ({
       </div>
 
       <div className="mt-2 mb-7 flex flex-col items-center text-center">
-        <span className="grid size-16 place-items-center rounded-[1.4rem] bg-primary shadow-lg ring-8 ring-primary/15">
-          <img src={chrome.runtime.getURL('ghostly247logo.png')} alt="" className="size-10 object-contain" />
-        </span>
+        <img src={chrome.runtime.getURL('ghostly247logo.png')} alt="" className="size-16 object-contain drop-shadow-lg" />
         <h1 className="mt-5 font-display text-[26px] leading-tight font-extrabold tracking-tight">{title}</h1>
         <p className="mt-1.5 max-w-[28ch] text-sm leading-snug text-muted-foreground">{subtitle}</p>
       </div>

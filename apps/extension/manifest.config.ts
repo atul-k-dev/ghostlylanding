@@ -75,11 +75,21 @@ export const buildManifest = (apiBaseUrl: string) => {
         run_at: 'document_start',
       },
     ],
+    // The floating card on x.com shows the logo, so the page must be allowed to load it.
+    web_accessible_resources: [
+      {
+        resources: ['icons/icon-128.png', 'icons/icon-32.png'],
+        matches: ['https://x.com/*', 'https://twitter.com/*'],
+      },
+    ],
     // Minimal set: storage (settings/auth), alarms (scheduler tick),
     // identity (Google sign-in), sidePanel (the workspace mode), notifications
     // (4.3's capped, decaying-moment alerts). No scripting/activeTab — actions
     // run via the statically-declared x.com content script.
-    permissions: ['storage', 'alarms', 'identity', 'sidePanel', 'notifications'],
+    // tabGroups: Ghostly's one working tab sits in a labelled "👻 Ghostly"
+    // group, so it stands out in the tab strip (and can be re-found after a
+    // reload instead of a second tab being opened).
+    permissions: ['storage', 'alarms', 'identity', 'sidePanel', 'notifications', 'tabGroups'],
     host_permissions: ['https://x.com/*', 'https://twitter.com/*', `${apiOrigin}/*`],
   });
 };

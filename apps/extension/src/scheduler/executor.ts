@@ -605,7 +605,7 @@ const runInlineAutopilot = async (
   // the scheduler's session auto-pause tick fires (clean teardown, no SW race).
   const sched = await getSchedulerState();
   const sessionStartedAt = sched.activeSince ?? Date.now();
-  const sessionMs = Math.max(1, settings.sessionMinutes) * 60_000;
+  const sessionMs = Math.min(60, Math.max(1, settings.sessionMinutes)) * 60_000;
   const SESSION_END_BUFFER_MS = 15_000;
   const maxRunMs = Math.max(
     30_000,
@@ -701,6 +701,9 @@ const runInlineAutopilot = async (
           repost: doRepost,
           quote: doQuote,
           keywords,
+          // Only the open home feed filters by topic; a search query and a
+          // chosen creator are filters already.
+          matchKeywords: !isProfile && !isSearch,
           excludeKeywords: hf.excludeKeywords,
           targetHandles,
           whitelist: whitelistHandles,

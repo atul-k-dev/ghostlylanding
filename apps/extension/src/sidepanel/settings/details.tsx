@@ -16,7 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { HomeFeedDetail, TargetsDetail, TopicFeedsDetail, WhitelistDetail } from './sources';
 import { AppearanceDetail } from './AppearanceDetail';
 import { LimitsDetail } from './LimitsDetail';
-import { AccentButton, Group, Row, ProBadge } from './kit';
+import { Slider } from '@/components/ui/slider';
+import { AccentButton, Group, Pad, Row, ProBadge } from './kit';
 
 export type DetailKey =
   | 'appearance'
@@ -157,8 +158,54 @@ const PlanDetail = ({ user }: { user: User }) => {
   );
 };
 
+/** 45 → "45 min", 90 → "1 h 30 min", 120 → "2 h". */
+const duration = (m: number) => {
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return h === 0 ? `${r} min` : r === 0 ? `${h} h` : `${h} h ${r} min`;
+};
+
+/** A labelled slider row: the name, the current value, the slider, the ends. */
+const SliderRow = ({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+}) => (
+  <Pad className="flex flex-col gap-3">
+    <div className="flex items-baseline justify-between text-[15px]">
+      <span>{label}</span>
+      <span className="font-display font-bold text-primary tabular-nums">{duration(value)}</span>
+    </div>
+    <Slider
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onValueChange={(v) => onChange(Array.isArray(v) ? (v[0] ?? min) : v)}
+      aria-label={label}
+    />
+    <div className="flex justify-between text-xs text-muted-foreground">
+      <span>{duration(min)}</span>
+      <span>{duration(max)}</span>
+    </div>
+  </Pad>
+);
+
 const IntensityDetail = ({ settings, update }: DetailProps) => (
-  <Group label="How hard I work" footer="One choice — it moves the daily caps, the pacing and the hourly ceiling together.">
+  <Group
+    label="How hard I work"
+    footer="One choice — it moves the daily caps, the pacing, the hourly ceiling, the work and break lengths, and which actions are on. Fine-tune sessions in Active hours."
+  >
     {(['careful', 'balanced', 'growth'] as SafetyPresetName[]).map((name) => {
       const preset = SAFETY_PRESETS[name];
       const on = settings.safetyPreset === name;
@@ -201,6 +248,58 @@ const HourSelect = ({ value, onChange, label }: { value: number; onChange: (h: n
   </Select>
 );
 
+/** Work sessions and the breaks between them — shown on the Active hours page. */
+const SESSION_MAX = 60;
+const BREAK_MAX = 30;
+
+const SessionsControls = ({ settings, update }: Pick<DetailProps, 'settings' | 'update'>) => {
+  const work = Math.min(SESSION_MAX, settings.sessionMinutes);
+  const rest = Math.min(BREAK_MAX, settings.breakMinutes ?? 20);
+  const resume = settings.autoResume !== false;
+  const { startHour, endHour } = settings.activeHours;
+  const windowMin = ((endHour - startHour + 24) % 24 || 24) * 60;
+  const sessions = resume ? Math.max(1, Math.floor((windowMin + rest) / (work + rest))) : 1;
+  const workToday = Math.min(windowMin, sessions * work);
+
+  return (
+    <>
+      <Group label="Work sessions" footer="One stretch of work in a single tab — at most an hour. Shorter sessions look more like a person.">
+        <SliderRow label="Work for" value={work} min={15} max={SESSION_MAX} step={5} onChange={(v) => update({ ...settings, sessionMinutes: v })} />
+      </Group>
+
+      <Group label="When a session ends">
+        <Row
+          label="Take a break, then carry on"
+          hint="Rest, then start the next session on my own"
+          selected={resume}
+          onClick={() => update({ ...settings, autoResume: true })}
+        />
+        <Row
+          label="Pause until I start again"
+          hint="Stop after one session — you press Start"
+          selected={!resume}
+          onClick={() => update({ ...settings, autoResume: false })}
+        />
+      </Group>
+
+      {resume && (
+        <Group
+          label="Break"
+          footer={
+            <>
+              About <span className="font-semibold text-foreground">{sessions}</span> {sessions === 1 ? 'session' : 'sessions'} and{' '}
+              <span className="font-semibold text-foreground">{duration(workToday)}</span> of work between {hh(startHour)} and {hh(endHour)} — always
+              inside your daily limits.
+            </>
+          }
+        >
+          <SliderRow label="Break for" value={rest} min={5} max={BREAK_MAX} step={5} onChange={(v) => update({ ...settings, breakMinutes: v })} />
+        </Group>
+      )}
+    </>
+  );
+};
+
 const HoursDetail = ({ settings, update }: DetailProps) => {
   const hours = settings.activeHours;
   const set = (patch: Partial<typeof hours>) => update({ ...settings, activeHours: { ...hours, ...patch } });
@@ -211,10 +310,13 @@ const HoursDetail = ({ settings, update }: DetailProps) => {
         ? 'Runs overnight.'
         : 'I only work inside this window.';
   return (
-    <Group label="Window" footer={`${note} Times are in your timezone (${settings.timezone}).`}>
-      <Row label="From" trailing={<HourSelect label="From" value={hours.startHour} onChange={(h) => set({ startHour: h })} />} />
-      <Row label="Until" trailing={<HourSelect label="Until" value={hours.endHour} onChange={(h) => set({ endHour: h })} />} />
-    </Group>
+    <>
+      <Group label="Window" footer={`${note} Times are in your timezone (${settings.timezone}).`}>
+        <Row label="From" trailing={<HourSelect label="From" value={hours.startHour} onChange={(h) => set({ startHour: h })} />} />
+        <Row label="Until" trailing={<HourSelect label="Until" value={hours.endHour} onChange={(h) => set({ endHour: h })} />} />
+      </Group>
+      <SessionsControls settings={settings} update={update} />
+    </>
   );
 };
 

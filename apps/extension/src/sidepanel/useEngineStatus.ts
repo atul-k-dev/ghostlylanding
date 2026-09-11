@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CountersState, ExtensionSettings } from '@casper/shared';
-import { getSettings, setSettings, getCounters, STORAGE_KEYS } from '../lib/storage.js';
+import { getSettings, setSettings, getCounters, getSchedulerState, STORAGE_KEYS } from '../lib/storage.js';
 import { getBlockReason, type BlockReason } from '../scheduler/block-reason.js';
 import type { EngineState } from '../ui/index.js';
 
@@ -25,6 +25,8 @@ export interface EngineStatus {
   pace: number | undefined;
   spent: number;
   allowance: number;
+  /** ms epoch a between-sessions break ends; null when not on one. */
+  restUntil: number | null;
   togglePause: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -66,13 +68,15 @@ export const useEngineStatus = (): EngineStatus => {
   const [settings, setLocal] = useState<ExtensionSettings | null>(null);
   const [counters, setCountersState] = useState<CountersState | null>(null);
   const [blockReason, setReason] = useState<BlockReason | null>(null);
+  const [restUntil, setRestUntil] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const [s, c, r] = await Promise.all([getSettings(), getCounters(), getBlockReason()]);
+    const [s, c, r, sched] = await Promise.all([getSettings(), getCounters(), getBlockReason(), getSchedulerState()]);
     setLocal(s);
     setCountersState(c);
     setReason(r);
+    setRestUntil(sched.restUntil && sched.restUntil > Date.now() ? sched.restUntil : null);
     setLoading(false);
   }, []);
 
@@ -86,7 +90,8 @@ export const useEngineStatus = (): EngineStatus => {
       if (
         STORAGE_KEYS.settings in changes ||
         STORAGE_KEYS.counters in changes ||
-        STORAGE_KEYS.blockReason in changes
+        STORAGE_KEYS.blockReason in changes ||
+        STORAGE_KEYS.schedulerState in changes
       ) {
         void refresh();
       }
@@ -117,8 +122,14 @@ export const useEngineStatus = (): EngineStatus => {
   } else if (paused) {
     state = 'paused';
     label = SHORT_REASON.paused ?? 'Paused';
+  } else if (code && NEEDS_A_HUMAN.has(code)) {
+    state = 'attention';
+    label = SHORT_REASON[code] ?? 'Resting';
+  } else if (restUntil) {
+    state = 'waiting';
+    label = 'Taking a break';
   } else if (code) {
-    state = NEEDS_A_HUMAN.has(code) ? 'attention' : 'waiting';
+    state = 'waiting';
     label = SHORT_REASON[code] ?? 'Resting';
   }
 
@@ -132,6 +143,7 @@ export const useEngineStatus = (): EngineStatus => {
     pace,
     spent,
     allowance,
+    restUntil,
     togglePause,
     refresh,
   };

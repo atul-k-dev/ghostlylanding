@@ -133,6 +133,10 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   commentLength: 1,
   // Auto-pause after an hour of activity to protect the account.
   sessionMinutes: 60,
+  // …then rest and carry on, rather than stopping for the day (the old
+  // behaviour left the engine paused after one session until someone noticed).
+  autoResume: true,
+  breakMinutes: 20,
   // Outline the post being acted on, on the page. Defaults on: it is the answer
   // to "is this actually doing anything?", which is the first thing anyone asks.
   spotlight: true,

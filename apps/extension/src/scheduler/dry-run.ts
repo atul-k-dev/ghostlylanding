@@ -66,6 +66,7 @@ export const runDryRun = async (max = DRY_RUN_POSTS): Promise<DryRunOutcome> => 
           repost: false,
           quote: false,
           keywords: hf.keywords,
+          matchKeywords: true,
           excludeKeywords: hf.excludeKeywords,
           targetHandles: settings.targetCreators
             .filter((t) => t.platform === 'twitter')

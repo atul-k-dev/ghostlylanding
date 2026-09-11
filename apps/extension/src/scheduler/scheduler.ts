@@ -42,6 +42,7 @@
  * scheduler/rate-limit.ts, enforced inside the feed loop before every action.
  */
 import type { ExtensionSettings, Platform } from '@casper/shared';
+import { setWorkerTabWorking } from '../platforms/common/tab-driver.js';
 import { FREE_TIER, isPro, monthlyActionsUsed, bumpMonthly } from '@casper/shared';
 import {
   getSettings,
@@ -241,6 +242,10 @@ const runAutoTune = async (): Promise<void> => {
   }
 };
 
+/** Longest work session and longest break, in minutes (Active hours sliders). */
+export const SESSION_MAX_MIN = 60;
+export const BREAK_MAX_MIN = 30;
+
 export const handleTick = async (): Promise<void> => {
   try {
     // Scheduled posts publish at their scheduled time regardless of the Active
@@ -263,8 +268,10 @@ export const handleTick = async (): Promise<void> => {
       console.log('[casper] tick: PAUSED — toggle the Active pill to start');
       await setBlockReason('paused');
       stopKeepAlive();
-      if (schedState.activeSince !== null) {
-        await setSchedulerState({ ...schedState, activeSince: null });
+      void setWorkerTabWorking(false);
+      // Pausing also ends any break: pressing Start means "work now".
+      if (schedState.activeSince !== null || schedState.restUntil) {
+        await setSchedulerState({ ...schedState, activeSince: null, restUntil: null });
       }
       await maybeFlush();
       return;
@@ -284,12 +291,30 @@ export const handleTick = async (): Promise<void> => {
       // whole night. The reason carries `since`, so the UI can say how long.
       await setBlockReason('outside-hours', `${window} ${settings.timezone}`);
       stopKeepAlive();
+      void setWorkerTabWorking(false);
       await maybeFlush();
       return;
     }
 
+    // On a break between sessions (auto-resume): sit it out, then start a
+    // fresh session. No block reason — a break is the engine resting on
+    // purpose, and the panel reads `restUntil` to show "back in 32:10".
+    if (schedState.restUntil && Date.now() < schedState.restUntil) {
+      console.log('[casper] tick: on a break until', new Date(schedState.restUntil).toLocaleTimeString());
+      stopKeepAlive();
+      void setWorkerTabWorking(false);
+      await maybeFlush();
+      return;
+    }
+    if (schedState.restUntil) {
+      schedState.restUntil = null;
+      schedState.activeSince = null;
+      await setSchedulerState({ ...schedState });
+    }
+
     console.log('[casper] tick: active');
     startKeepAlive();
+    void setWorkerTabWorking(true);
 
     // Active → start the session clock on the first tick after arming.
     if (schedState.activeSince === null) {
@@ -297,8 +322,23 @@ export const handleTick = async (): Promise<void> => {
     }
     const startedAt = schedState.activeSince ?? Date.now();
 
-    // Safety auto-pause: once a session exceeds the limit, pause and notify.
-    const sessionMs = Math.max(1, settings.sessionMinutes) * 60_000;
+    // End of a session. Either take a break and carry on by itself, or — if
+    // the user turned auto-resume off — pause until they start it again.
+    // Sessions are capped at an hour and breaks at half an hour, whatever an
+    // older stored value says.
+    const sessionMs = Math.min(SESSION_MAX_MIN, Math.max(1, settings.sessionMinutes)) * 60_000;
+    if (Date.now() - startedAt >= sessionMs && settings.autoResume !== false) {
+      const breakMs = Math.min(BREAK_MAX_MIN, Math.max(5, settings.breakMinutes ?? 20)) * 60_000;
+      await setSchedulerState({ ...schedState, activeSince: null, restUntil: Date.now() + breakMs });
+      stopKeepAlive();
+      await appendDiagnostic({
+        kind: 'auto_pause',
+        context: 'safety',
+        detail: `Break: worked ${settings.sessionMinutes} min, resting ${settings.breakMinutes} min, then carrying on.`,
+      });
+      await maybeFlush();
+      return;
+    }
     if (Date.now() - startedAt >= sessionMs) {
       await setSettings({ ...settings, isPaused: true });
       await setSchedulerState({ ...schedState, activeSince: null });

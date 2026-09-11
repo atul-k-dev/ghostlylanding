@@ -10,6 +10,7 @@ import {
   Bookmark02Icon,
   Cancel01Icon,
   CheckmarkCircle02Icon,
+  Coffee02Icon,
   Comment01Icon,
   FavouriteIcon,
   Globe02Icon,
@@ -25,6 +26,7 @@ import {
   ViewIcon,
 } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
+import { sendToBackground } from '../../lib/messages.js';
 import type { EngineStatus } from '../useEngineStatus.js';
 import type { PanelTarget } from '../navigation.js';
 import type { QueuedTask } from '../../scheduler/types.js';
@@ -160,8 +162,10 @@ const Orb = ({ live, look }: { live: LiveActivity; look: Look | null }) => {
     look?.icon ??
     (paused
       ? PauseIcon
-      : live.reason === 'outside-hours'
-        ? Moon02Icon
+      : live.reason === 'break'
+        ? Coffee02Icon
+        : live.reason === 'outside-hours'
+          ? Moon02Icon
         : live.reason === 'caps-spent'
           ? CheckmarkCircle02Icon
           : live.mode === 'waiting'
@@ -235,14 +239,18 @@ const LiveNow = ({ status }: { status: EngineStatus }) => {
       break;
     case 'waiting':
       eyebrow =
-        live.reason === 'outside-hours'
+        live.reason === 'break'
+          ? 'Taking a break'
+          : live.reason === 'outside-hours'
           ? 'Outside your hours'
           : live.reason === 'caps-spent'
             ? 'Today’s limit reached'
             : 'Next move in';
       headline = <span className="tabular-nums">{span(remaining)}</span>;
       detail =
-        live.reason === 'outside-hours' || live.reason === 'caps-spent'
+        live.reason === 'break'
+          ? `Back at ${clock(live.until!)} — resting like a person would`
+          : live.reason === 'outside-hours' || live.reason === 'caps-spent'
           ? `Back at ${clock(live.until!)}`
           : live.reason === 'nothing-matched'
             ? 'Nothing worth replying to yet'
@@ -269,6 +277,18 @@ const LiveNow = ({ status }: { status: EngineStatus }) => {
         <h3 className="mt-1 font-display text-[28px] leading-none font-extrabold tracking-tight">{headline}</h3>
         <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
       </div>
+
+      {/* Where it's working — one tap to the Ghostly tab in the tab strip. */}
+      {live.mode !== 'paused' && (
+        <button
+          type="button"
+          onClick={() => void sendToBackground({ type: 'FOCUS_WORKER_TAB', payload: {} })}
+          className="-mt-1 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-semibold text-foreground/80 transition hover:bg-muted/70 hover:text-foreground"
+        >
+          <HugeiconsIcon icon={ViewIcon} strokeWidth={2} className="size-3.5" />
+          View the Ghostly tab
+        </button>
+      )}
 
       {live.mode === 'paused' && (
         <button

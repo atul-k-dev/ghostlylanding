@@ -3,7 +3,7 @@ import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
   Comment01Icon,
   DashboardSpeed02Icon,
-  PauseIcon,
+  StopIcon,
   PlayIcon,
   RefreshIcon,
   UserAdd01Icon,
@@ -56,8 +56,15 @@ const StatPill = ({ icon, value, label }: { icon: IconSvgElement; value: string;
 };
 
 const TodayCard = ({ today }: { today: TodayNumbers }) => {
+  // Gained today needs two daily readings. Until then, show the count we have
+  // rather than a dash — "1 total" is true, "—" just looks broken.
   const gained = today.followersGained;
-  const followers = gained === null ? '—' : gained > 0 ? `+${gained}` : String(gained);
+  const [followers, followersLabel] =
+    gained !== null
+      ? [gained > 0 ? `+${gained}` : String(gained), 'followers']
+      : today.followersTotal !== null
+        ? [String(today.followersTotal), 'total']
+        : ['—', 'followers'];
 
   return (
     <section className={cn(CARD, THEMED, 'flex flex-col gap-3')}>
@@ -69,7 +76,9 @@ const TodayCard = ({ today }: { today: TodayNumbers }) => {
         </h2>
         <button
           type="button"
-          onClick={() => void today.reloadGrowth()}
+          onClick={() => void today.refreshGrowth()}
+          disabled={today.growthLoading}
+          title="Read my profile now — takes about a minute"
           aria-label="Refresh today’s numbers"
           className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full bg-primary-foreground/15 transition outline-none hover:bg-primary-foreground/25 focus-visible:ring-3 focus-visible:ring-primary-foreground/40"
         >
@@ -77,7 +86,7 @@ const TodayCard = ({ today }: { today: TodayNumbers }) => {
         </button>
       </div>
       <div className="flex flex-col gap-2">
-        <StatPill icon={UserGroupIcon} value={followers} label="followers" />
+        <StatPill icon={UserGroupIcon} value={followers} label={followersLabel} />
         <StatPill icon={Comment01Icon} value={String(today.replies)} label="replies" />
         <StatPill icon={UserAdd01Icon} value={String(today.follows)} label="follows" />
       </div>
@@ -110,12 +119,13 @@ const AutopilotCard = ({ status, today }: { status: EngineStatus; today: TodayNu
       <button
         type="button"
         onClick={() => void status.togglePause()}
-        aria-label={paused ? 'Start autopilot' : 'Pause autopilot'}
+        aria-label={paused ? 'Start autopilot' : 'End — stop everything now'}
         className="mt-auto flex h-14 w-full cursor-pointer items-center justify-between rounded-full bg-white pr-1.5 pl-5 font-display text-[17px] font-semibold shadow-sm transition outline-none hover:shadow-md focus-visible:ring-3 focus-visible:ring-black/30 active:scale-[0.98]"
       >
-        {paused ? 'Start' : 'Pause'}
-        <span className="grid size-11 place-items-center rounded-full bg-black text-white">
-          <HugeiconsIcon icon={paused ? PlayIcon : PauseIcon} strokeWidth={2} className="size-5 fill-current" />
+        <span className={paused ? undefined : 'text-[#E5484D]'}>{paused ? 'Start' : 'End'}</span>
+        {/* Running: a red End that stops everything at once. Stopped: Start. */}
+        <span className={cn('grid size-11 place-items-center rounded-full text-white', paused ? 'bg-black' : 'bg-[#E5484D]')}>
+          <HugeiconsIcon icon={paused ? PlayIcon : StopIcon} strokeWidth={2} className="size-5 fill-current" />
         </span>
       </button>
     </section>

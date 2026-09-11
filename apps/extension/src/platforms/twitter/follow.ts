@@ -1,4 +1,5 @@
 import { TWITTER_SELECTORS as S } from './selectors.js';
+import { isStopped, stoppableWait } from '../common/stop-signal.js';
 import { waitFor } from './dom.js';
 import type { FollowBioFilter, ScannedFollower, ScannedProfile } from '../common/content-messages.js';
 import { passesFollowFilter } from '../../lib/follow-filter.js';
@@ -56,7 +57,7 @@ export const followBackInList = async (
     if (await isPaused()) break;
     const cells = Array.from(document.querySelectorAll<HTMLElement>(S.userCell));
     for (const cell of cells) {
-      if (done.length >= max) break;
+      if (done.length >= max || isStopped()) break;
       const link = cell.querySelector<HTMLAnchorElement>('a[role="link"][href^="/"]');
       const href = link?.getAttribute('href') ?? '';
       const handle = cleanHandleFromHref(href);
@@ -104,8 +105,9 @@ export const followBackInList = async (
       } catch {
         /* background unreachable */
       }
-      await sleep(randomInt(minDelayMs, maxDelayMs));
+      if (await stoppableWait(randomInt(minDelayMs, maxDelayMs))) break;
     }
+    if (isStopped()) break;
     window.scrollBy({ top: 1400, behavior: 'instant' as ScrollBehavior });
     await sleep(900);
   }
