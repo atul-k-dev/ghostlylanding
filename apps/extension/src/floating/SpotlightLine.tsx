@@ -26,16 +26,30 @@ export const SpotlightLine = () => {
   if (!target) return null;
 
   const who = target.authorHandle ? `@${target.authorHandle.replace(/^@/, '')}` : null;
+  // 'reading' is not an action — it's most of what the engine does, and it
+  // should read calmer than "I am about to change something". Coral is
+  // reserved for the rare post that's actually being acted on.
+  const reading = target.action === 'reading';
 
   return (
     <a
       href={target.postUrl}
       target="_blank"
       rel="noreferrer"
-      className="block rounded-2xl border border-casper-coral/40 bg-casper-coral/[0.08] px-3.5 py-2.5 transition-colors hover:bg-casper-coral/15"
+      className={
+        reading
+          ? 'block rounded-2xl border border-casper-border bg-casper-surface px-3.5 py-2.5 transition-colors hover:bg-casper-border'
+          : 'block rounded-2xl border border-casper-coral/40 bg-casper-coral/[0.08] px-3.5 py-2.5 transition-colors hover:bg-casper-coral/15'
+      }
     >
-      <p className="flex items-center gap-1.5 text-[13px] leading-snug font-medium text-casper-coral">
-        <span aria-hidden className="motion-safe:animate-pulse">
+      <p
+        className={
+          reading
+            ? 'flex items-center gap-1.5 text-[13px] leading-snug font-medium text-casper-muted'
+            : 'flex items-center gap-1.5 text-[13px] leading-snug font-medium text-casper-coral'
+        }
+      >
+        <span aria-hidden className={reading ? undefined : 'motion-safe:animate-pulse'}>
           ●
         </span>
         {SPOTLIGHT_LABEL[target.action]}

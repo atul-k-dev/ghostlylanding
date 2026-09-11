@@ -20,8 +20,16 @@
 import { getSettings, STORAGE_KEYS } from '../lib/storage.js';
 import { isInViewport } from './state.js';
 
-/** What the engine is doing to the post it is pointing at. */
-export type SpotlightAction = 'like' | 'reply' | 'follow' | 'bookmark' | 'repost' | 'quote';
+/**
+ * What the engine is doing to the post it is pointing at. `reading` is not an
+ * action at all — it is every post the engine dwells on while deciding, which
+ * is most of them. Without it, Spotlight only ever lit up for the rare post
+ * that matched and got acted on, so a session spent mostly scrolling and
+ * reading looked completely idle in between — the "is this even doing
+ * anything" complaint. `reading` makes the considering itself visible, in a
+ * calmer register than an actual action.
+ */
+export type SpotlightAction = 'like' | 'reply' | 'follow' | 'bookmark' | 'repost' | 'quote' | 'reading';
 
 export interface SpotlightTarget {
   action: SpotlightAction;
@@ -42,7 +50,11 @@ export const SPOTLIGHT_LABEL: Record<SpotlightAction, string> = {
   bookmark: 'Ghostly is bookmarking this',
   repost: 'Ghostly is reposting this',
   quote: 'Ghostly is quoting this',
+  reading: 'Ghostly is reading this',
 };
+
+/** True for the "just looking" state — everything else is a real action. */
+export const isReadingOnly = (action: SpotlightAction): boolean => action === 'reading';
 
 /* -- the store -------------------------------------------------------------- */
 
@@ -67,6 +79,11 @@ const publish = (target: SpotlightTarget | null): void => {
 
 const STYLE_ID = 'ghostly247-spotlight-style';
 const MARK_CLASS = 'ghostly247-spotlight';
+/** Modifier for the `reading` action — deliberately NOT coral. Coral means
+ *  "about to change something"; reusing it for "just looking at this" would
+ *  make every post the engine merely scrolls past look like it's about to be
+ *  acted on, which is the opposite of calming. */
+const READING_CLASS = 'ghostly247-spotlight-reading';
 
 /**
  * The one stylesheet we put on X's own page, and the reason the shadow root
@@ -85,8 +102,12 @@ const SPOTLIGHT_CSS = `
   border-radius: 8px;
   transition: background-color 160ms ease-out;
 }
+.${MARK_CLASS}.${READING_CLASS} {
+  outline: 2px dashed #a1a1aa !important;
+  background-color: rgba(161, 161, 170, 0.05);
+}
 @media (prefers-reduced-motion: no-preference) {
-  .${MARK_CLASS} { animation: ghostly247-spotlight-pulse 1.8s ease-in-out infinite; }
+  .${MARK_CLASS}:not(.${READING_CLASS}) { animation: ghostly247-spotlight-pulse 1.8s ease-in-out infinite; }
   @keyframes ghostly247-spotlight-pulse {
     0%, 100% { background-color: rgba(244, 77, 96, 0.06); }
     50% { background-color: rgba(244, 77, 96, 0.12); }
@@ -147,7 +168,7 @@ export const clearSpotlight = (): void => {
     clearInterval(watchdog);
     watchdog = null;
   }
-  marked?.classList.remove(MARK_CLASS);
+  marked?.classList.remove(MARK_CLASS, READING_CLASS);
   marked = null;
   markedPath = '';
   if (current !== null) publish(null);
@@ -173,6 +194,7 @@ export const spotlightOn = async (
   clearSpotlight();
   ensureStyle();
   article.classList.add(MARK_CLASS);
+  if (target.action === 'reading') article.classList.add(READING_CLASS);
   marked = article;
   markedPath = location.pathname;
   publish(target);

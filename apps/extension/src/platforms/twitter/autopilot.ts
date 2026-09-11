@@ -844,7 +844,20 @@ export const runHomeAutopilot = async (
       // or not anything comes of it — a reader who only ever pauses on the posts
       // they are about to like has a very distinctive rhythm. Proportional to
       // length, so a thread costs more attention than a one-liner.
-      await wait(readDwellMs(enriched.text));
+      //
+      // Spotlighted as 'reading' the same as an action, so the engine is
+      // visibly doing something for every post it considers, not only the
+      // rare one it acts on — a session spent mostly reading looked
+      // completely idle in between without this. `withSpotlight` clears it
+      // the instant the dwell ends regardless of what happens next; if this
+      // post goes on to be acted on, that action's own `withSpotlight` call
+      // replaces it with the real (coral) outline a moment later.
+      await withSpotlight(
+        article,
+        'reading',
+        { authorHandle: meta.authorHandle, postUrl: meta.postUrl, text: enriched.text },
+        () => wait(readDwellMs(enriched.text)),
+      );
 
       // Relevance is relaxed for media exactly the way the plan asks: an
       // author already on the watch list is relevant regardless of caption —
