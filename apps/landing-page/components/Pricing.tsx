@@ -124,11 +124,11 @@ export function Pricing() {
             </div>
 
             <div className="mt-8 flex items-baseline gap-2">
-              <span className="font-aeonik text-5xl font-bold tracking-tight text-fg">$12.99</span>
+              <span className="font-aeonik text-5xl font-bold tracking-tight text-fg">$7.99</span>
               <span className="font-geist text-xs uppercase tracking-wider text-fg/50">/month</span>
             </div>
             <p className="mt-2 font-geist text-[11px] uppercase tracking-wider text-fg/50">
-              or $3.99 / week
+              or $2.99 / week
             </p>
 
             <p className="mt-3 font-inter text-[14px] text-fg/60">
