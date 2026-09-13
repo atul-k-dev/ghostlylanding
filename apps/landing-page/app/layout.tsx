@@ -152,13 +152,13 @@ const STRUCTURED_DATA = {
         },
         {
           "@type": "Offer",
-          price: "3.99",
+          price: "2.99",
           priceCurrency: "USD",
           name: "Pro Weekly",
         },
         {
           "@type": "Offer",
-          price: "12.99",
+          price: "7.99",
           priceCurrency: "USD",
           name: "Pro Monthly",
         },

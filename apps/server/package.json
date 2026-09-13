@@ -16,6 +16,7 @@
     "weekly-summary-smoke": "tsx scripts/weekly-summary-smoke.mts",
     "digest-claim-smoke": "tsx scripts/digest-claim-smoke.mts",
     "ask-tools-smoke": "tsx scripts/ask-tools-smoke.mts",
+    "fix-diagnostic-index": "tsx scripts/fix-diagnostic-index.mts",
     "set-pro": "tsx scripts/set-pro.mts",
     "set-admin": "tsx scripts/set-admin.mts",
     "create-admin": "tsx scripts/create-admin.mts",

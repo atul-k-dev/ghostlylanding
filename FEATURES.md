@@ -96,7 +96,7 @@ Everything else Ghostly records is what it **did**. This is what it **got**.
 
 ## Plans & billing
 - **Free** — 50 actions per month (likes + replies + follows + bookmarks + reposts + quotes combined), resets monthly.
-- **Pro** — unlimited actions, billed **$12.99/month** or **$3.99/week** (pick either at checkout). Stripe checkout + self-serve billing portal; subscriptions stay in sync via webhooks.
+- **Pro** — unlimited actions, billed **$7.99/month** or **$2.99/week** (pick either at checkout). Stripe checkout + self-serve billing portal; subscriptions stay in sync via webhooks.
 
 ## Support & misc
 - **Contact Support** — opens a pre-addressed email to `support@ghostly247.com`.

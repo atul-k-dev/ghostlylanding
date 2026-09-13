@@ -30,7 +30,9 @@ const diagnosticSchema = new Schema(
     extensionVersion: { type: String, default: null },
     /** Which selector map the client was running when it broke. */
     selectorVersion: { type: String, default: null },
-    at: { type: Date, required: true, index: true },
+    // No `index: true` here — the TTL index below is on the same `{ at: 1 }`
+    // key, so declaring both made Mongoose warn about a duplicate index.
+    at: { type: Date, required: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

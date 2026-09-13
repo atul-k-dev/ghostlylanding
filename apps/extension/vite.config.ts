@@ -25,7 +25,10 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
-      sourcemap: true,
+      // Dev only. A store build ships no .map files: they roughly 6x the zip
+      // and publish the full readable source of a paid product. `pnpm dev` and
+      // any non-production mode still gets them for debugging.
+      sourcemap: mode !== 'production',
       rollupOptions: {
         input: {
           // One entry. The popup was deleted in updateplan 1.6 — the side panel
