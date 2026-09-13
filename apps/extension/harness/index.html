@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ghostly247 — shot harness</title>
+    <style>
+      /*
+        The page IS the screenshot: #stage is sized to the scene's exact output
+        and #frame is the panel at its real layout width, scaled onto it. The
+        backdrop is the landing page's own --surface-2 (#daedf1), so a shot
+        dropped into a recessed panel there has no visible seam.
+      */
+      html,
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #daedf1;
+      }
+      #stage {
+        position: relative;
+        background: #daedf1;
+      }
+      /*
+        Absolutely centred rather than grid-centred: a panel taller than the
+        canvas is the normal case here, and an overflowing grid item does not
+        centre predictably. left/top 50% plus a -50% translate always does.
+      */
+      #frame {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        border-radius: 22px;
+        overflow: hidden;
+        transform-origin: center center;
+        box-shadow: 0 24px 60px -24px rgb(9 11 12 / 22%);
+      }
+      #root {
+        height: 100%;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <div id="frame"><div id="root"></div></div>
+    </div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

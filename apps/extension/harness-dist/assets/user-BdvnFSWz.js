@@ -1,0 +1,1 @@
+const o=["weekly","monthly"],e={weekly:{label:"Pro · Weekly",amount:"$2.99",per:"week"},monthly:{label:"Pro · Monthly",amount:"$7.99",per:"month"}},r={monthlyActions:50},i=t=>t==="active"||t==="trialing",n=(t=new Date)=>t.toISOString().slice(0,7),l=t=>!t||t.actionPeriodKey!==n()?0:t.monthlyActionCount??0;export{r as F,o as P,e as a,i,l as m};
