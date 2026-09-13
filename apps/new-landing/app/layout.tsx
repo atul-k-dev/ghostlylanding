@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Urbanist, Jost } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { SITE, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -159,6 +160,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         {children}
+        <Analytics />
       </body>
     </html>
   );
