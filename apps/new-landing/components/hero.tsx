@@ -4,12 +4,14 @@ import Image from "next/image";
 import { motion } from "motion/react";
 import { IMG } from "@/lib/assets";
 import { SITE } from "@/lib/site";
-import { MEDIA } from "@/lib/media";
 import { StarsIcon } from "./icons";
 import { GhostButton, PrimaryButton } from "./site-nav";
 import { Float } from "./motion-primitives";
+import { FeatureWall } from "./feature-wall";
 
 const EASE = [0.44, 0, 0.22, 1] as const;
+
+const AVATARS = [IMG.avatar1, IMG.avatar2, IMG.avatar4, IMG.avatar3, IMG.avatar5];
 
 export function Hero() {
   // Reduced motion is handled by the root <MotionConfig reducedMotion="user">,
@@ -21,11 +23,16 @@ export function Hero() {
   });
 
   return (
-    <section className="relative flex w-full flex-col items-center overflow-hidden py-10 max-[1199px]:pb-10 max-[1199px]:pt-20 max-[809px]:pt-[120px]">
+    /*
+      Desktop: exactly the viewport height minus the 64px fixed nav, so the
+      whole hero fits in view with nothing clipped behind the header. Stacked
+      below 1024px, it fills at least the screen below the nav.
+    */
+    <section className="relative flex w-full flex-col items-center overflow-hidden min-[1024px]:h-[calc(100vh-4rem)] min-[1024px]:min-h-[616px] max-[1023px]:min-h-[calc(100vh-4rem)] max-[1023px]:pb-10 max-[1023px]:pt-16 max-[809px]:pt-10">
       {/*
-        Decorations sit in the section's outer margins and around the copy so
-        they frame the hero without landing on the dashboard. Hidden below
-        1200px, where there is no margin to spare for them.
+        Decorations sit around the copy on the left — the right edge belongs to
+        the feature wall. Hidden below 1200px, where there is no margin to
+        spare for them.
       */}
       <div className="pointer-events-none absolute inset-0 z-[1] max-[1199px]:hidden">
         {/* grinning sun — above the headline */}
@@ -33,8 +40,8 @@ export function Hero() {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: EASE }}
-          className="absolute h-[140px] w-[140px]"
-          style={{ top: "6%", left: "3%" }}
+          className="absolute h-[110px] w-[110px]"
+          style={{ top: "9%", left: "1%" }}
         >
           <Float distance={8} duration={5}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -73,49 +80,40 @@ export function Hero() {
           </Float>
         </div>
 
-        {/* pink arc — right margin, top */}
-        <div
-          className="absolute h-[169px] w-[169px]"
-          style={{ top: "8%", right: "-2%" }}
-        >
-          <Float distance={14} duration={7}>
-            <Image
-              src={IMG.mrPink}
-              alt=""
-              width={485}
-              height={485}
-              preload
-              className="h-full w-full object-contain"
-            />
-          </Float>
-        </div>
-
-        {/* blue mascot — right margin, bottom */}
-        <div
-          className="absolute h-[235px] w-[178px]"
-          style={{ top: "66%", right: "-1%" }}
-        >
-          <Float distance={10} duration={8} delay={0.6}>
-            <Image
-              src={IMG.mrBlue}
-              alt=""
-              width={356}
-              height={471}
-              preload
-              className="h-full w-full object-contain"
-            />
-          </Float>
-        </div>
       </div>
 
       {/* ---- two-column content ---- */}
-      <div className="relative z-[2] flex w-full max-w-[1600px] items-center gap-10 px-5 max-[1023px]:flex-col max-[1023px]:items-stretch max-[1023px]:gap-12">
-        {/* LEFT — copy */}
-        <div className="flex flex-[0_0_46%] flex-col items-start gap-8 max-[1023px]:flex-none max-[1023px]:items-center">
-          <motion.div {...entry(0.05, 20)} className="flex items-center gap-2">
-            <StarsIcon /> <br />
-            <p className="t-body" style={{ color: "var(--muted)" }}>
-              Built for solo creators on X
+      <div className="relative z-[2] flex h-full w-full max-w-[1600px] items-stretch gap-10 px-4 sm:px-6 lg:px-8 max-[1023px]:flex-col max-[1023px]:gap-10">
+        {/* LEFT — copy, centred in the space below the nav */}
+        <div className="relative flex min-w-0 max-w-[720px] flex-1 flex-col items-start justify-center gap-6 sm:gap-8 pb-25 pt-0 max-[1023px]:max-w-none max-[1023px]:flex-none max-[1023px]:items-center max-[1023px]:p-0">
+          <motion.div
+            {...entry(0.05, 20)}
+            className="inline-flex items-center gap-2.5 rounded-full py-1 pl-1 pr-4"
+            style={{
+              background: "var(--card-80)",
+              border: "1px solid var(--line)",
+              boxShadow: "0 1px 2px rgb(9 11 12 / 0.04), 0 6px 20px -8px rgb(29 155 240 / 0.25)",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <span
+              className="t-sm-med inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5"
+              style={{ background: "var(--brand-050)", color: "var(--brand-800)" }}
+            >
+              <span className="relative flex size-1.5" aria-hidden="true">
+                <span
+                  className="absolute inset-0 animate-ping rounded-full opacity-70"
+                  style={{ background: "var(--brand)" }}
+                />
+                <span
+                  className="relative size-1.5 rounded-full"
+                  style={{ background: "var(--brand)" }}
+                />
+              </span>
+              Free Chrome extension
+            </span>
+            <p className="t-sm-med" style={{ color: "var(--ink-soft)" }}>
+              For creators on X
             </p>
           </motion.div>
 
@@ -132,9 +130,8 @@ export function Hero() {
             className="t-h6 max-w-[480px] text-left max-[1023px]:text-center"
             style={{ color: "var(--muted)", textWrap: "balance" }}
           >
-            Ghostly247 likes, replies, follows and posts for you — in your own
-            voice, from your own browser. You approve everything, and every
-            action is logged.
+            Ghostly247 likes, replies, follows and posts on X for you — and it
+            sounds just like you. You stay in control.
           </motion.p>
 
           <motion.div
@@ -142,45 +139,49 @@ export function Hero() {
             className="flex flex-col items-start gap-3 max-[1023px]:items-center"
           >
             <div className="flex flex-wrap items-center gap-4 max-[1023px]:justify-center">
-              <PrimaryButton href={SITE.chromeStoreUrl} className="border border-blue-400">Add to Chrome</PrimaryButton>
+              <PrimaryButton href={SITE.chromeStoreUrl}>Add to Chrome</PrimaryButton>
               <GhostButton href="#watch">See it work</GhostButton>
             </div>
-            
+          </motion.div>
+
+          {/* social proof — pinned to the bottom of the column on desktop */}
+          <motion.div
+            {...entry(0.36)}
+            className="mt-6 flex items-center gap-4 max-[1023px]:mt-2 min-[1024px]:absolute min-[1024px]:inset-x-0 min-[1024px]:bottom-10 min-[1024px]:mt-0"
+          >
+            <div className="flex -space-x-3">
+              {AVATARS.map((src) => (
+                <Image
+                  key={src}
+                  src={src}
+                  alt=""
+                  width={44}
+                  height={44}
+                  className="size-11 rounded-full object-cover"
+                  style={{ boxShadow: "0 0 0 2.5px var(--page)" }}
+                />
+              ))}
+            </div>
+            <div className="flex flex-col gap-1">
+              <StarsIcon color="var(--ink)" size={16} />
+              <p className="t-sm" style={{ color: "var(--zinc)" }}>
+                Trusted by 1000+ creators
+              </p>
+            </div>
           </motion.div>
         </div>
 
-        {/* RIGHT — the side panel on its square stage */}
-        <motion.div {...entry(0.34)} className="min-w-0 flex-1">
-          <div
-            className="relative w-full overflow-hidden rounded-3xl"
-            style={{ aspectRatio: "1 / 1" }}
-          >
-            <Image
-              src={IMG.tabPlate}
-              alt=""
-              width={2480}
-              height={1380}
-              preload
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            <div
-              className="absolute overflow-hidden"
-              style={{
-                left: "1.5%",
-                right: "1.5%",
-                top: "1.5%",
-                bottom: "1.5%",
-                
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={MEDIA.heroPanel}
-                alt="The Ghostly247 side panel running beside X"
-                className=" w-full object-cover object-top rounded-3xl"
-              />
-            </div>
-          </div>
+        {/*
+          RIGHT — every feature drifting past, running the full height of the
+          screen (under the nav) with no stage behind it.
+        */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.9, delay: 0.34, ease: EASE }}
+          className="relative ml-auto w-[600px] flex-none self-stretch max-[1199px]:w-[440px] max-[1023px]:ml-0 max-[1023px]:h-[640px] max-[1023px]:w-full max-[639px]:h-[520px]"
+        >
+          <FeatureWall />
         </motion.div>
       </div>
     </section>

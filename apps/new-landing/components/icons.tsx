@@ -23,10 +23,21 @@ export function ChevronIcon({ color = "var(--brand-ink)" }: { color?: string }) 
 const STAR_PATH =
   "M 6.863 1.722 L 7.743 3.496 C 7.863 3.743 8.183 3.98 8.453 4.026 L 10.048 4.293 C 11.068 4.464 11.308 5.21 10.573 5.946 L 9.333 7.196 C 9.123 7.408 9.008 7.816 9.073 8.109 L 9.428 9.656 C 9.708 10.881 9.063 11.355 7.988 10.715 L 6.493 9.823 C 6.224 9.661 5.779 9.661 5.504 9.823 L 4.009 10.715 C 2.939 11.355 2.289 10.876 2.569 9.656 L 2.924 8.109 C 2.989 7.816 2.874 7.408 2.664 7.196 L 1.424 5.946 C 0.694 5.21 0.929 4.464 1.949 4.293 L 3.544 4.026 C 3.809 3.98 4.129 3.743 4.249 3.496 L 5.129 1.722 C 5.609 0.759 6.388 0.759 6.863 1.722 Z";
 
-/** The five-star row above the hero headline. */
-export function StarsIcon({ color = "var(--muted)" }: { color?: string }) {
+/** The five-star rating row in the hero's social proof. `size` is star height. */
+export function StarsIcon({
+  color = "var(--muted)",
+  size = 12,
+}: {
+  color?: string;
+  size?: number;
+}) {
   return (
-    <svg width="68" height="12" viewBox="0 0 68 12" aria-hidden="true">
+    <svg
+      width={(68 / 12) * size}
+      height={size}
+      viewBox="0 0 68 12"
+      aria-hidden="true"
+    >
       {[0, 1, 2, 3, 4].map((i) => (
         <path
           key={i}

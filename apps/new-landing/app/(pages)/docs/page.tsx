@@ -135,8 +135,8 @@ export default function DocsPage() {
       <H2>Stopping it</H2>
       <UL>
         <li>
-          <strong>Instantly</strong> — one tap on the Active pill halts
-          everything mid-action, in about two seconds.
+          <strong>Instantly</strong> — one tap on pause stops everything
+          mid-action, in about a second.
         </li>
         <li>
           <strong>On its own</strong> — sessions run for a set length and then

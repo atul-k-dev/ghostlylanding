@@ -22,6 +22,7 @@ export default function Home() {
       <main className="flex w-full flex-col items-center">
         <Hero />
         <WatchItWork />
+        
         <BenefitCards />
         <EngagementActions />
         <FeatureCards />

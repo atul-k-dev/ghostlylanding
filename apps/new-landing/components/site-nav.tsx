@@ -15,11 +15,13 @@ const LINKS = [
 ];
 
 const PRODUCT_MENU = [
-  { label: "Ask", href: "/#ask", desc: "Tell Ghostly what to change. It proposes, you approve." },
-  { label: "Your voice", href: "/#voice", desc: "Learns how you write from your own posts." },
-  { label: "Create & schedule", href: "/#create", desc: "Draft, thread and queue posts ahead." },
-  { label: "Targeting", href: "/#targeting", desc: "Topic feeds and creators worth replying to." },
-  { label: "Growth", href: "/#growth", desc: "Followers gained, not just actions taken." },
+  { label: "How it works", href: "/#how", desc: "Set up in a few minutes, in three steps." },
+  { label: "Ask", href: "/#ask", desc: "Tell Ghostly what you want in plain words." },
+  { label: "Your voice", href: "/#voice", desc: "Replies that sound just like you." },
+  { label: "Write & schedule", href: "/#create", desc: "AI writes your posts and posts them on time." },
+  { label: "Reach the right people", href: "/#targeting", desc: "Your topics and the creators you pick." },
+  { label: "Mentions", href: "/#mentions", desc: "Answers people who reply to you." },
+  { label: "Growth", href: "/#growth", desc: "See the followers you're actually gaining." },
 ];
 
 /**
@@ -72,8 +74,8 @@ export function SiteNav() {
 
   return (
     <>
-      {/* Spacer holding the 80px the fixed bar takes out of the flow. */}
-      <div className="h-20 w-full" />
+      {/* Spacer holding the 64px the fixed bar takes out of the flow. */}
+      <div className="h-16 w-full" />
 
       <header
         className="fixed inset-x-0 top-0 z-40 w-full"
@@ -83,9 +85,9 @@ export function SiteNav() {
           backgroundColor: "var(--page-80)",
         }}
       >
-        <nav className="mx-auto flex h-20 w-full max-w-[1500px] items-center gap-5 px-5">
+        <nav className="mx-auto flex h-16 w-full max-w-[1500px] items-center gap-5 px-4 sm:px-6 lg:px-8">
           {/* Wordmark */}
-          <div className="flex min-w-[240px] items-center gap-5">
+          <div className="flex items-center gap-5 lg:min-w-[240px]">
             <Link href="/" className="t-logo flex items-center gap-2" style={{ color: "var(--ink)" }}>
               <Image
                 src="/logo.png"
@@ -93,7 +95,7 @@ export function SiteNav() {
                 width={44}
                 height={44}
                 priority
-                className="h-10 w-10 rounded-xl object-cover"
+                className="h-9 w-9 rounded-xl object-cover"
               />
               Ghostly<span style={{ color: "var(--muted-2)" }}>247</span>
             </Link>
@@ -184,7 +186,7 @@ export function SiteNav() {
           </div>
 
           {/* Right-hand actions */}
-          <div className="ml-auto hidden items-center gap-4 lg:flex border border-blue-400 rounded-full">
+          <div className="ml-auto hidden items-center gap-4 lg:flex">
             <PrimaryButton href={SITE.chromeStoreUrl}>Add to Chrome</PrimaryButton>
           </div>
 
@@ -226,7 +228,7 @@ export function SiteNav() {
               className="overflow-hidden lg:hidden"
               style={{ borderBottom: "1px solid var(--line)" }}
             >
-              <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-2 px-5 pb-6 pt-2">
+              <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-2 px-4 pb-6 pt-2 sm:px-6">
                 {LINKS.map((link) => (
                   <a
                     key={link.label}

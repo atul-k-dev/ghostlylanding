@@ -55,6 +55,47 @@ export const QuoteIcon = ({ className }: P) => (
   </svg>
 );
 
+export const AutoPostIcon = ({ className }: P) => (
+  <svg {...base} className={className}>
+    <path d="M4 20l1-4.2L15.6 5.2a2.1 2.1 0 0 1 3 3L8 18.8Z" />
+    <path d="M18.5 14.5l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7Z" />
+  </svg>
+);
+
+export const SearchIcon = ({ className }: P) => (
+  <svg {...base} className={className}>
+    <circle cx="10.5" cy="10.5" r="6" />
+    <path d="M15 15l5 5" />
+  </svg>
+);
+
+export const MentionIcon = ({ className }: P) => (
+  <svg {...base} className={className}>
+    <circle cx="12" cy="12" r="3.5" />
+    <path d="M15.5 12v1.5a2.5 2.5 0 0 0 5 0V12a8.5 8.5 0 1 0-3.4 6.8" />
+  </svg>
+);
+
+export const ScheduleIcon = ({ className }: P) => (
+  <svg {...base} className={className}>
+    <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+    <path d="M3.5 10h17M8 3v4M16 3v4M12 13.5v2.5l1.8 1.2" />
+  </svg>
+);
+
+export const FollowBackIcon = ({ className }: P) => (
+  <svg {...base} className={className}>
+    <circle cx="9" cy="8.5" r="3.5" />
+    <path d="M2.5 19.5a6.5 6.5 0 0 1 11.5-4.2M16 16.5l2 2 3.5-4" />
+  </svg>
+);
+
+export const EarlyReplyIcon = ({ className }: P) => (
+  <svg {...base} className={className}>
+    <path d="M13 3 5.5 13.5H12L11 21l7.5-10.5H12Z" />
+  </svg>
+);
+
 export const ACTION_ICONS = {
   like: LikeIcon,
   reply: ReplyIcon,
@@ -62,4 +103,10 @@ export const ACTION_ICONS = {
   bookmark: BookmarkIcon,
   repost: RepostIcon,
   quote: QuoteIcon,
+  autopost: AutoPostIcon,
+  search: SearchIcon,
+  mentions: MentionIcon,
+  schedule: ScheduleIcon,
+  followback: FollowBackIcon,
+  early: EarlyReplyIcon,
 } as const;

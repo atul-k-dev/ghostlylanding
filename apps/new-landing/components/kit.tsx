@@ -12,7 +12,7 @@ export function Shell({
   className?: string;
 }) {
   return (
-    <div className={`mx-auto w-full max-w-[1600px] px-5 ${className}`}>
+    <div className={`mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-8 ${className}`}>
       {children}
     </div>
   );
@@ -62,7 +62,7 @@ export function SectionHead({
 
   return (
     <Reveal
-      className={`flex w-full flex-col gap-4 ${
+      className={`flex w-full flex-col gap-3 sm:gap-4 ${
         centred ? "items-center text-center" : "items-start text-left"
       } ${className}`}
     >
@@ -100,7 +100,7 @@ export function Section({
   return (
     <section
       id={id}
-      className={`flex w-full flex-col items-center py-20 max-[1199px]:py-10 ${className}`}
+      className={`flex w-full flex-col items-center py-12 md:py-16 xl:py-20 ${className}`}
       style={background ? { background } : undefined}
     >
       {children}

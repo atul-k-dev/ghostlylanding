@@ -22,10 +22,10 @@ export const SITE = {
   shortName: "Ghostly247",
   tagline: "Grow your X account while you sleep",
   description:
-    "Ghostly247 likes, replies, follows and posts on X for you — in your own voice, from your own browser. You approve everything, every action is logged, and it stops in two seconds. Free for 50 actions a month.",
+    "Ghostly247 likes, replies, follows and posts on X for you — and it sounds just like you. It works at a human pace, you stay in control, and it pauses with one tap. Free for 50 actions a month.",
   /** Trimmed for cards, which clip around 160-200 characters. */
   cardDescription:
-    "A Chrome extension that likes, replies, follows and posts on X in your own voice — from your own browser, at a human pace. Free for 50 actions a month.",
+    "A free Chrome extension that grows your X account — it likes, replies, follows and posts for you, in your own voice. Free for 50 actions a month.",
   email: "support@ghostly247.com",
   xHandle: "@ghostly247",
   /**

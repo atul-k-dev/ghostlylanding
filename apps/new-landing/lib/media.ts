@@ -48,6 +48,12 @@ export const MEDIA = {
   composerPanel: "/product/composer-thread.png",
   /** 1200x1200 — Settings → Sources: saved topic feeds + target creators. */
   targetingPanel: "/product/targeting-feeds.png",
+  /**
+   * 1200x1200 — a drafted answer to a mention, waiting for approval. Reuses the
+   * review-queue shot until a dedicated capture exists (mention drafts land in
+   * that same queue, so it is accurate, just not specific).
+   */
+  mentionsPanel: "/product/review-queue.png",
 
   // ---- growth ----------------------------------------------------------
   /** 1400x1000 — Growth tab: follower sparkline, deltas, best replies. */

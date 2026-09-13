@@ -30,7 +30,7 @@ export default function HomePage() {
   return (
     <main className="relative z-10 min-h-screen overflow-clip bg-bg">
       <Hero />
-      
+
       {/* Global wrapper for remaining sections to maintain the 1500px width and side borders */}
       <div className="mx-auto w-full max-w-[1500px] flex flex-col relative z-10 border-x border-border bg-bg">
         {/* Full-width product demo video, right after the hero */}
@@ -77,7 +77,7 @@ export default function HomePage() {
         <SectionWrapper>
           <Footer />
         </SectionWrapper>
-        
+
         {/* Bottom border for the entire page */}
         <div className="relative border-t border-border w-full">
           <div className="absolute left-[-50vw] right-[-50vw] top-[-1px] h-[1px] bg-border z-[-1]" />

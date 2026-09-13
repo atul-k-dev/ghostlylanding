@@ -6,14 +6,14 @@ import { Section, SectionHead, Shell } from "./kit";
 
 const PANELS = [
   {
-    eyebrow: "Review queue",
+    eyebrow: "Review",
     tint: "var(--violet)",
-    title: "Read it before X does",
-    body: "Turn on approval and a generated reply never posts straight away. It waits beside the post it answers, so you can judge it in context, fix a word, then approve or skip.",
+    title: "Check replies before they post",
+    body: "Every reply waits for your OK, right next to the post it answers. Edit it, approve it, or skip it.",
     bullets: [
-      "Edit in place — your version is what goes out",
-      "Skip once and Ghostly never revisits that post",
-      "Holds 30, and when it's full it stops drafting rather than quietly binning work you never saw",
+      "Change any word — your version is what goes out",
+      "Want it hands-off? Switch approval off anytime",
+      "After 20 approvals with no edits, it asks if it can post on its own — only if you say yes",
     ],
     image: MEDIA.reviewQueue,
     alt: "Review tab showing a queued reply beside the post it answers",
@@ -21,12 +21,12 @@ const PANELS = [
   {
     eyebrow: "Daily recap",
     tint: "var(--pink)",
-    title: "One email, every morning",
-    body: "A end-of-day summary timed to your local morning: what Ghostly did, who it followed, and the full text of every AI reply and quote it sent.",
+    title: "A summary every morning",
+    body: "One short email: what Ghostly did yesterday, who it followed, and every reply it sent.",
     bullets: [
-      "Per-action counts for the day",
-      "Every reply in full, so you can check it still sounds like you",
-      "A weekly edition too — followers against last week, and the post that won it",
+      "Read every reply to check it still sounds like you",
+      "A weekly email too — your growth and your best post",
+      "When it's resting, it tells you why — like “Back at 9am”",
     ],
     image: MEDIA.recapEmail,
     alt: "The Ghostly247 daily recap email",
@@ -40,21 +40,21 @@ export function Control() {
         <SectionHead
           eyebrow="In your hands"
           tone="violet"
-          title="Automated, not unattended"
-          body="Two habits keep the whole thing honest: you see the reply before it goes out, and you see everything it did after."
+          title="Automatic, but always in your hands"
+          body="See replies before they go out, and see everything it did after."
         />
 
-        <div className="grid w-full grid-cols-2 gap-5 max-[1023px]:grid-cols-1">
+        <div className="grid w-full grid-cols-2 gap-4 sm:gap-5 max-w-[1500px] mx-auto max-[1023px]:grid-cols-1 max-[1023px]:max-w-[720px]">
           {PANELS.map((p, i) => (
             <Reveal key={p.eyebrow} delay={i * 0.1}>
               <div
-                className="flex h-full flex-col gap-6 p-8 max-[809px]:p-5"
+                className="flex h-full flex-col gap-5 p-3 sm:gap-6 sm:p-4"
                 style={{
                   background: "var(--card)",
                   borderRadius: 32,
                 }}
               >
-                <div className="flex flex-col items-start gap-3">
+                <div className="flex flex-col items-start gap-3 p-3 pb-0">
                   <span
                     className="t-sm-med rounded-full px-3 py-1"
                     style={{ background: p.tint, color: "var(--ink)" }}
@@ -69,7 +69,7 @@ export function Control() {
                   </p>
                 </div>
 
-                <ul className="flex flex-col gap-2.5">
+                <ul className="flex flex-col gap-2.5 p-3 pt-0">
                   {p.bullets.map((b) => (
                     <li key={b} className="flex items-start gap-3">
                       <span

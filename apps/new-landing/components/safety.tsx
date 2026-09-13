@@ -1,109 +1,149 @@
 "use client";
 
+import {
+  Dices,
+  Gauge,
+  Hourglass,
+  Laptop,
+  OctagonPause,
+  Siren,
+  Sprout,
+  type LucideIcon,
+} from "lucide-react";
 import { Reveal } from "./motion-primitives";
-import { Shell } from "./kit";
+import { Section, SectionHead, Shell } from "./kit";
 
-const GUARANTEES = [
+type Size = "lg" | "sm" | "wide";
+
+type Guarantee = {
+  title: string;
+  body: string;
+  icon: LucideIcon;
+  tint: string;
+  size: Size;
+};
+
+const GUARANTEES: Guarantee[] = [
   {
-    title: "Runs in your own browser",
-    body: "Ghostly acts as you, in your session, on your machine. It never asks for your X password and never signs in from a server somewhere.",
-    span: true,
+    title: "Uses your own browser",
+    body: "Ghostly works from your own Chrome, just like you would. It never asks for your X password.",
+    icon: Laptop,
+    tint: "var(--violet)",
+    size: "lg",
   },
   {
-    title: "Human-paced",
-    body: "Randomised delays between every action. No two ever land in the same second.",
+    title: "Moves like a person",
+    body: "Random pauses between every action, never rushed.",
+    icon: Dices,
+    tint: "var(--pink)",
+    size: "sm",
   },
   {
-    title: "Caps that know your age",
-    body: "Newer accounts get conservative daily limits, with ±15% variance so the pattern never looks mechanical.",
+    title: "Choose your pace",
+    body: "Careful, Balanced or Growth. One choice sets every limit.",
+    icon: Gauge,
+    tint: "var(--lime-soft)",
+    size: "sm",
   },
   {
-    title: "Stops in ~2 seconds",
-    body: "One tap on the Active pill halts everything — mid-scroll, mid-action, whenever.",
+    title: "Starts slow",
+    body: "New setups and newer accounts begin gently, then build up.",
+    icon: Sprout,
+    tint: "var(--pink)",
+    size: "sm",
   },
   {
-    title: "Sessions, not marathons",
-    body: "Run for 15, 30, 45 or 60 minutes, then it pauses itself.",
+    title: "Stops in a second",
+    body: "One tap on pause and everything stops.",
+    icon: OctagonPause,
+    tint: "var(--violet)",
+    size: "sm",
   },
   {
-    title: "Auto-pause on anomalies",
-    body: "Anything unexpected from X and it stops on its own, then tells you what it saw in Diagnostics.",
+    title: "Works your hours, takes breaks",
+    body: "It only works when you'd be awake, and rests between sessions — just like a real person.",
+    icon: Hourglass,
+    tint: "var(--lime-soft)",
+    size: "wide",
   },
   {
-    title: "Fresh posts only",
-    body: "Nothing older than about 48 hours, so you're never the person replying to a week-old thread.",
+    title: "Stops if something's off",
+    body: "If it can't see X properly, it pauses by itself and tells you why.",
+    icon: Siren,
+    tint: "var(--pink)",
+    size: "wide",
   },
 ];
 
+/*
+  A 4-column bento: the first card (lg) claims a 2x2 block, the grid's
+  default row-major auto-placement then slots the four "sm" cards into the
+  remaining two cells per row, and the trailing "wide" pair closes the grid
+  as a full-width row. Order in GUARANTEES drives the placement, so keep the
+  lg card first and the two wide cards last.
+*/
+const SIZE_CLASS: Record<Size, string> = {
+  lg: "col-span-2 row-span-2 min-h-[320px] max-[1023px]:row-span-1 max-[1023px]:min-h-[220px] max-[639px]:col-span-1",
+  sm: "col-span-1 row-span-1 min-h-[150px]",
+  wide: "col-span-2 row-span-1 min-h-[140px] max-[639px]:col-span-1",
+};
+
 export function Safety() {
   return (
-    <section
-      id="safety"
-      className="flex w-full flex-col items-center py-20 max-[1199px]:py-10"
-    >
-      <Shell>
-        <Reveal>
-          <div
-            className="flex w-full flex-col gap-10 overflow-hidden p-14 max-[809px]:p-6"
-            style={{ background: "var(--forest)", borderRadius: 32 }}
-          >
-            <div className="flex flex-col gap-4">
-              <span
-                className="t-sm-med w-fit rounded-full px-3 py-1"
-                style={{ background: "var(--lime)", color: "var(--ink)" }}
-              >
-                Safety
-              </span>
-              <h2
-                className="t-h2 max-w-[760px]"
-                style={{ color: "var(--forest-ink)", textWrap: "balance" }}
-              >
-                You spent years on this account. We&apos;re not going to risk it.
-              </h2>
-              <p
-                className="t-h6 max-w-[620px]"
-                style={{ color: "var(--forest-muted)", textWrap: "balance" }}
-              >
-                Every safety choice in Ghostly is the conservative one. These
-                aren&apos;t settings buried three menus deep — they&apos;re how
-                the engine is built.
-              </p>
-            </div>
+    <Section id="safety">
+      <Shell className="flex flex-col items-center gap-10">
+        <SectionHead
+          eyebrow="Safety"
+          tone="lime"
+          title="Your account comes first"
+          body="Ghostly is careful by design. You don't need to set anything up to stay safe."
+        />
 
-            <div className="grid grid-cols-3 gap-4 max-[1023px]:grid-cols-2 max-[639px]:grid-cols-1">
-              {GUARANTEES.map((g, i) => (
-                <Reveal
-                  key={g.title}
-                  delay={i * 0.05}
-                  className={g.span ? "col-span-2 max-[639px]:col-span-1" : ""}
+        <div className="grid w-full grid-cols-4 gap-2 sm:gap-2 max-[1023px]:grid-cols-2 max-[639px]:grid-cols-1">
+          {GUARANTEES.map((g, i) => {
+            const Icon = g.icon;
+            return (
+              <Reveal key={g.title} delay={i * 0.05} className={SIZE_CLASS[g.size]}>
+                <div
+                  className={
+                    "group flex h-full flex-col gap-4 p-5 sm:p-6 transition-colors" +
+                    (g.size === "lg" ? " justify-between" : "")
+                  }
+                  style={{ background: "var(--card)", borderRadius: 24 }}
                 >
-                  <div
-                    className="flex h-full flex-col gap-2 p-6"
-                    style={{
-                      background: "var(--forest-fill)",
-                      borderRadius: 24,
-                    }}
+                  <span
+                    className={
+                      "grid flex-none place-items-center rounded-2xl transition-transform duration-300 group-hover:-rotate-6 " +
+                      (g.size === "lg" ? "size-14" : "size-12")
+                    }
+                    style={{ background: g.tint, color: "var(--ink)" }}
                   >
-                    <h3 className="t-h5" style={{ color: "var(--forest-ink)" }}>
+                    <Icon size={g.size === "lg" ? 26 : 22} strokeWidth={1.75} />
+                  </span>
+
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="t-h5" style={{ color: "var(--ink)" }}>
                       {g.title}
                     </h3>
-                    <p className="t-body" style={{ color: "var(--forest-muted)" }}>
+                    <p className="t-body" style={{ color: "var(--zinc)" }}>
                       {g.body}
                     </p>
                   </div>
-                </Reveal>
-              ))}
-            </div>
+                </div>
+              </Reveal>
+            );
+          })}
+        </div>
 
-            <p className="t-sm max-w-[760px]" style={{ color: "var(--forest-faint)" }}>
-              Ghostly reduces risk — it can&apos;t remove it. Automated
-              engagement sits against X&apos;s terms however carefully it&apos;s
-              paced, so you run it at your own discretion. We&apos;d rather say
-              that here than in the small print.
-            </p>
-          </div>
-        </Reveal>
+        <p
+          className="t-sm max-w-[760px] text-center"
+          style={{ color: "var(--muted)" }}
+        >
+          An honest note: no tool can promise zero risk on X, and X&apos;s own
+          rules on automation apply. Ghostly keeps things slow and human, and
+          you&apos;re always in charge.
+        </p>
       </Shell>
-    </section>
+    </Section>
   );
 }

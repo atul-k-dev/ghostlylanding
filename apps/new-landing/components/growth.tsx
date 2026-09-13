@@ -6,16 +6,16 @@ import { Section, SectionHead, Shell } from "./kit";
 
 const METRICS = [
   {
-    label: "Follower trend",
-    body: "A reading a day, charted, with change over 1, 7 and 30 days — each labelled with the span it actually covers.",
+    label: "Followers over time",
+    body: "A simple chart of your followers, and how much you've grown this week and month.",
   },
   {
-    label: "Reply performance",
-    body: "Likes, replies, reposts and views on the replies Ghostly sent, with your best ones linked.",
+    label: "Your best replies",
+    body: "Which replies got the most likes and views — so you know what works.",
   },
   {
-    label: "Follow-back payoff",
-    body: "How many of your recent followers are accounts Ghostly followed first.",
+    label: "What's working",
+    body: "Which topics and creators bring you results. It can even drop the ones that stopped working.",
   },
 ];
 
@@ -26,13 +26,13 @@ export function Growth() {
         <SectionHead
           eyebrow="Growth"
           tone="lime"
-          title="Everything else counts what it did. This counts what it got."
-          body="Once a day Ghostly opens your own profile in a background tab and just reads — no clicks, nothing spent against your caps or your monthly allowance."
+          title="See what you're actually getting"
+          body="Not just what Ghostly did — what it got you. Checking your numbers is free and never counts toward your limits."
         />
 
         <Reveal className="w-full">
           <div
-            className="flex w-full items-center gap-10 p-4 pr-8 max-[1023px]:flex-col max-[1023px]:p-6"
+            className="flex w-full items-center gap-10 p-4 max-w-[1350px] mx-auto pr-8 max-[1023px]:flex-col max-[1023px]:items-stretch max-[1023px]:gap-6 max-[1023px]:p-6 max-[639px]:p-4"
             style={{ background: "var(--card)", borderRadius: 32 }}
           >
             <div className="min-w-0 flex-[1.3] max-[1023px]:w-full">
@@ -40,7 +40,7 @@ export function Growth() {
               <img
                 src={MEDIA.growthBoard}
                 alt="Growth tab showing a follower sparkline, deltas and best-performing replies"
-                className="block h-auto w-full"
+                className="mx-auto block h-auto w-auto max-w-full max-h-[650px] max-[639px]:max-h-[460px]"
                 style={{ borderRadius: 16, boxShadow: "var(--shadow-card)" }}
               />
             </div>
@@ -61,9 +61,8 @@ export function Growth() {
                 className="t-sm rounded-2xl p-4"
                 style={{ background: "var(--line-2)", color: "var(--zinc)" }}
               >
-                A three-day-old install says <strong>+21 over 2d</strong> — never
-                a month of history it doesn&apos;t have. If a number isn&apos;t
-                honestly knowable, Ghostly leaves it out.
+                <strong>No made-up numbers.</strong> If Ghostly doesn&apos;t know
+                something yet, it tells you instead of guessing.
               </p>
             </div>
           </div>

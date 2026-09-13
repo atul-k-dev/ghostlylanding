@@ -6,28 +6,28 @@ import { Section, SectionHead, Shell } from "./kit";
 
 const POINTS = [
   {
-    title: "It shows you the post",
-    body: "Spotlight outlines the exact post the engine is reading, right on x.com, with a label saying what it's doing.",
+    title: "It highlights the post",
+    body: "A coloured outline shows the post Ghostly is on, with a note like “Liking this” or “Reply ready for you”.",
   },
   {
-    title: "The outline stays put",
-    body: "It moves to the next post rather than vanishing, so you can always see where Ghostly is — or where it last was.",
+    title: "A little ghost keeps you posted",
+    body: "A small ghost in the corner of X shows it's working, and tells you when something needs your OK.",
   },
   {
-    title: "Or run it in the background",
-    body: "Watch-it-work mode is a toggle. Turn it off and the same work happens quietly in a tab you never look at.",
+    title: "Reply for me, anytime",
+    body: "Hover any post on X and tap the ghost. You get a reply in your voice, ready to send.",
   },
 ];
 
 export function WatchItWork() {
   return (
     <Section id="watch" >
-      <Shell className="flex flex-col items-center gap-8">
+      <Shell className="flex flex-col items-center gap-6 sm:gap-8">
         <SectionHead
           eyebrow="Watch it work"
           tone="lime"
-          title="Nothing happens off-screen"
-          body="Most automation tools ask you to trust a dashboard. Ghostly does the work on X itself, and points at it while it happens."
+          title="See exactly what it's doing"
+          body="Ghostly works right on X, in its own tab, and highlights each post as it goes. Nothing hidden — and you can keep using your browser."
         />
 
         <Reveal className="w-full">
@@ -57,7 +57,7 @@ export function WatchItWork() {
           {POINTS.map((p, i) => (
             <Reveal key={p.title} delay={i * 0.08}>
               <div
-                className="flex h-full flex-col gap-2 p-6"
+                className="flex h-full flex-col gap-2 p-5 min-[1200px]:p-6"
                 style={{
                   background: "var(--card)",
                   borderRadius: 24,

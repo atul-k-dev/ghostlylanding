@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Reveal } from "./motion-primitives";
 import { GhostButton } from "./site-nav";
 import { Section, SectionHead, Shell } from "./kit";
@@ -15,22 +14,22 @@ import { FREE_MONTHLY_ACTIONS, PRICING } from "../lib/limits";
  */
 
 const FREE = [
-  `${FREE_MONTHLY_ACTIONS} actions a month, reset on the 1st`,
-  "All six actions — like, reply, follow, bookmark, repost, quote",
-  "AI replies in your trained voice",
-  "Create & schedule posts",
-  "Growth scoreboard and daily recap",
-  "Every safety control",
+  `${FREE_MONTHLY_ACTIONS} free actions every month`,
+  "Every feature included",
+  "Replies that sound like you",
+  "Write & schedule posts",
+  "Growth stats and daily email",
+  "All safety features",
 ];
 
 const PRO = [
-  "Unlimited actions — no monthly cap",
-  "Every feature from Free, none of them metered",
-  "Daily safety limits unchanged — they protect your account, not your plan",
-  "Cancel any time from the billing portal",
+  "Unlimited actions",
+  "Every feature, no monthly limit",
+  "Same safety limits — they protect your account",
+  "Cancel anytime in one click",
 ];
 
-function Check({ light = false }: { light?: boolean }) {
+function Check({ color = "var(--ink)" }: { color?: string }) {
   return (
     <svg
       width="16"
@@ -42,7 +41,7 @@ function Check({ light = false }: { light?: boolean }) {
     >
       <path
         d="M3 8.5 6.2 11.7 13 5"
-        stroke={light ? "var(--lime)" : "var(--ink)"}
+        stroke={color}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -51,57 +50,136 @@ function Check({ light = false }: { light?: boolean }) {
   );
 }
 
-export function Pricing() {
-  const [weekly, setWeekly] = useState(false);
-  const price = weekly ? PRICING.weekly : PRICING.monthly;
+/**
+ * The two Pro cards' looks — both drawn from the brand blue so they sit in the
+ * theme, but distinct: weekly is the soft tint, monthly the bold fill that
+ * carries the "best value" emphasis.
+ */
+const PRO_THEMES = {
+  soft: {
+    background: "var(--brand-100)",
+    title: "var(--brand-800)",
+    price: "var(--ink)",
+    muted: "var(--zinc)",
+    item: "var(--ink-soft)",
+    check: "var(--brand-800)",
+    buttonBg: "var(--brand)",
+    buttonInk: "var(--brand-ink)",
+    badgeBg: "var(--card)",
+    badgeInk: "var(--brand-800)",
+  },
+  bold: {
+    background: "linear-gradient(145deg, var(--brand) 0%, var(--brand-800) 100%)",
+    title: "var(--brand-050)",
+    price: "var(--brand-ink)",
+    muted: "var(--brand-100)",
+    item: "var(--brand-ink)",
+    check: "var(--brand-ink)",
+    buttonBg: "var(--card)",
+    buttonInk: "var(--brand-800)",
+    badgeBg: "var(--card)",
+    badgeInk: "var(--brand-800)",
+  },
+} as const;
 
+/** The two Pro cards — identical product, billed weekly or monthly. */
+function ProCard({
+  title,
+  price,
+  per,
+  body,
+  cta,
+  badge,
+  theme,
+  delay = 0,
+}: {
+  title: string;
+  price: string;
+  per: string;
+  body: string;
+  cta: string;
+  badge?: string;
+  theme: keyof typeof PRO_THEMES;
+  delay?: number;
+}) {
+  const t = PRO_THEMES[theme];
+  return (
+    <Reveal delay={delay}>
+      <div
+        className="relative flex h-full flex-col gap-6 p-6 xl:p-8"
+        style={{ background: t.background, borderRadius: 32 }}
+      >
+        <div className="flex flex-col gap-2">
+          {/* Badge sits in the title row and wraps under it on a narrow card,
+              instead of being pinned absolutely over the title. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="t-h5" style={{ color: t.title }}>
+              {title}
+            </h3>
+            {badge ? (
+              <span
+                className="t-sm-med rounded-full px-3 py-1"
+                style={{ background: t.badgeBg, color: t.badgeInk }}
+              >
+                {badge}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-end gap-x-2">
+            <span className="t-h2" style={{ color: t.price }}>
+              {price}
+            </span>
+            <span className="t-body pb-2" style={{ color: t.muted }}>
+              {per}
+            </span>
+          </div>
+          <p className="t-body" style={{ color: t.muted }}>
+            {body}
+          </p>
+        </div>
+
+        <ul className="flex flex-col gap-2.5">
+          {PRO.map((f) => (
+            <li key={f} className="flex items-start gap-3">
+              <Check color={t.check} />
+              <span className="t-body" style={{ color: t.item }}>
+                {f}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-auto pt-2">
+          <a
+            href={SITE.chromeStoreUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="t-nav inline-flex items-center justify-center rounded-3xl px-6 py-3 transition-transform hover:-translate-y-0.5"
+            style={{ background: t.buttonBg, color: t.buttonInk }}
+          >
+            {cta}
+          </a>
+        </div>
+      </div>
+    </Reveal>
+  );
+}
+
+export function Pricing() {
   return (
     <Section id="pricing">
       <Shell className="flex flex-col items-center gap-10">
         <SectionHead
           eyebrow="Pricing"
-          title="Free until it's worth paying for"
-          body={`Start with ${FREE_MONTHLY_ACTIONS} actions a month, forever, no card. Upgrade the week it starts working.`}
+          title="Simple pricing that grows with you"
+          body={`Start free with ${FREE_MONTHLY_ACTIONS} actions a month — no card needed. Go unlimited whenever you're ready.`}
         />
 
-        {/* billing toggle */}
-        <Reveal>
-          <div
-            className="flex items-center gap-1 p-1"
-            style={{
-              background: "var(--line-2)",
-              borderRadius: 999,
-            }}
-          >
-            {[
-              { id: "monthly", label: "Monthly" },
-              { id: "weekly", label: "Weekly" },
-            ].map((opt) => {
-              const on = (opt.id === "weekly") === weekly;
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => setWeekly(opt.id === "weekly")}
-                  aria-pressed={on}
-                  className="t-sm-med cursor-pointer rounded-full px-5 py-2 transition-colors"
-                  style={{
-                    background: on ? "var(--card)" : "transparent",
-                    color: on ? "var(--ink)" : "var(--muted)",
-                    boxShadow: on ? "var(--shadow-soft)" : "none",
-                  }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </Reveal>
-
-        <div className="grid w-full max-w-[1100px] grid-cols-2 gap-5 max-[809px]:grid-cols-1">
+        <div className="grid w-full max-w-[1240px] grid-cols-3 gap-4 xl:gap-5 max-[1023px]:max-w-[560px] max-[1023px]:grid-cols-1">
           {/* Free */}
           <Reveal>
             <div
-              className="flex h-full flex-col gap-6 p-8"
+              className="flex h-full flex-col gap-6 p-6 xl:p-8"
               style={{
                 background: "var(--card)",
                 borderRadius: 32,
@@ -123,7 +201,7 @@ export function Pricing() {
                   </span>
                 </div>
                 <p className="t-body" style={{ color: "var(--zinc)" }}>
-                  The whole product, metered. Good enough to actually use.
+                  Try everything. No card needed.
                 </p>
               </div>
 
@@ -144,67 +222,28 @@ export function Pricing() {
             </div>
           </Reveal>
 
-          {/* Pro */}
-          <Reveal delay={0.08}>
-            <div
-              className="relative flex h-full flex-col gap-6 p-8"
-              style={{ background: "var(--forest)", borderRadius: 32 }}
-            >
-              <span
-                className="t-sm-med absolute right-8 top-8 rounded-full px-3 py-1"
-                style={{ background: "var(--lime)", color: "var(--ink)" }}
-              >
-                Unlimited
-              </span>
+          {/* Weekly */}
+          <ProCard
+            title="Pro Weekly"
+            price={PRICING.weekly.amount}
+            per={PRICING.weekly.per}
+            body="Unlimited actions, week to week. Cancel anytime."
+            cta="Start Pro Weekly"
+            theme="soft"
+            delay={0.08}
+          />
 
-              <div className="flex flex-col gap-2">
-                <h3 className="t-h5" style={{ color: "var(--forest-ink)" }}>
-                  Pro
-                </h3>
-                <div className="flex items-end gap-2">
-                  <span className="t-h2" style={{ color: "var(--forest-ink)" }}>
-                    {price.amount}
-                  </span>
-                  <span
-                    className="t-body pb-2"
-                    style={{ color: "var(--forest-muted)" }}
-                  >
-                    {price.per}
-                  </span>
-                </div>
-                <p className="t-body" style={{ color: "var(--forest-muted)" }}>
-                  One thing changes: the monthly cap comes off. Cancel any time
-                  from the billing portal — no contract, no minimum.
-                </p>
-              </div>
-
-              <ul className="flex flex-col gap-2.5">
-                {PRO.map((f) => (
-                  <li key={f} className="flex items-start gap-3">
-                    <Check light />
-                    <span
-                      className="t-body"
-                      style={{ color: "var(--forest-soft)" }}
-                    >
-                      {f}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-auto pt-2">
-                <a
-                  href={SITE.chromeStoreUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="t-nav inline-flex items-center justify-center rounded-3xl px-6 py-3 transition-transform hover:-translate-y-0.5"
-                  style={{ background: "var(--lime)", color: "var(--ink)" }}
-                >
-                  Go Pro
-                </a>
-              </div>
-            </div>
-          </Reveal>
+          {/* Monthly — the better deal over four weeks, so it carries the badge */}
+          <ProCard
+            title="Pro Monthly"
+            price={PRICING.monthly.amount}
+            per={PRICING.monthly.per}
+            body="Unlimited actions for less. Save over 30% vs weekly."
+            cta="Start Pro Monthly"
+            badge="Best value"
+            theme="bold"
+            delay={0.16}
+          />
         </div>
       </Shell>
     </Section>

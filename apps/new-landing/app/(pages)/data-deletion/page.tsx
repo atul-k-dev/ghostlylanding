@@ -86,7 +86,7 @@ export default function DataDeletionPage() {
       <H2>Just want to stop it running?</H2>
       <P>
         You do not have to delete anything. Toggling Ghostly247 off in the side
-        panel halts it in about two seconds, and uninstalling the extension
+        panel stops it in about a second, and uninstalling the extension
         stops it entirely while leaving your account intact for later.
       </P>
 

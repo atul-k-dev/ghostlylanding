@@ -9,37 +9,73 @@ const ACTIONS = [
   {
     key: "like" as const,
     label: "Like",
-    body: "Fresh posts that match your keywords.",
+    body: "New posts about your topics.",
     tint: "var(--pink)",
   },
   {
     key: "reply" as const,
     label: "Reply",
-    body: "AI-written, in your trained voice.",
+    body: "Short, real replies in your voice.",
     tint: "var(--lime)",
   },
   {
     key: "follow" as const,
     label: "Follow",
-    body: "Authors worth knowing, plus follow-backs.",
+    body: "People likely to follow you back.",
     tint: "var(--violet)",
   },
   {
     key: "bookmark" as const,
     label: "Bookmark",
-    body: "Quietly saved for you to read later.",
+    body: "Save good posts to read later.",
     tint: "var(--lime-soft)",
   },
   {
     key: "repost" as const,
     label: "Repost",
-    body: "Amplify the posts that fit your topic.",
+    body: "Share great posts with your followers.",
     tint: "var(--pink)",
   },
   {
     key: "quote" as const,
     label: "Quote",
-    body: "A short take of your own on top.",
+    body: "Repost with your own take on top.",
+    tint: "var(--violet)",
+  },
+  {
+    key: "autopost" as const,
+    label: "Auto-post",
+    body: "Writes posts for you and shares them at the best time.",
+    tint: "var(--pink)",
+  },
+  {
+    key: "search" as const,
+    label: "Real-time search",
+    body: "Finds fresh posts about your topics across all of X.",
+    tint: "var(--lime)",
+  },
+  {
+    key: "mentions" as const,
+    label: "Answer mentions",
+    body: "Replies to people who reply to or mention you.",
+    tint: "var(--violet)",
+  },
+  {
+    key: "schedule" as const,
+    label: "Schedule posts",
+    body: "Plan your week. Posts go out right on time.",
+    tint: "var(--lime-soft)",
+  },
+  {
+    key: "followback" as const,
+    label: "Follow back",
+    body: "Follows back your new followers automatically.",
+    tint: "var(--pink)",
+  },
+  {
+    key: "early" as const,
+    label: "Early replies",
+    body: "Replies first on new posts from creators you pick.",
     tint: "var(--violet)",
   },
 ];
@@ -49,18 +85,18 @@ export function EngagementActions() {
     <Section id="features" className="max-w-[1500px]">
       <Shell className="flex flex-col items-center gap-2">
         <SectionHead
-          eyebrow="Six actions"
-          title="One tab, scrolling your real timeline"
-          body="Ghostly opens a single tab, scrolls your feed like a person would, and acts in place — no scraping, no second account, no headless server."
+          eyebrow="What it does"
+          title="Everything you'd do on X, done for you"
+          body="Pick what you want Ghostly to do. Turn the rest off."
         />
 
-        <div className="grid w-full grid-cols-3 gap-1.5 max-[1023px]:grid-cols-2 max-[639px]:grid-cols-1 mt-10 max-w-[1400px]">
+        <div className="grid w-full grid-cols-3 gap-1.5 max-[1023px]:grid-cols-2 max-[639px]:grid-cols-1 mt-8 sm:mt-10 max-w-[1400px]">
           {ACTIONS.map((a, i) => {
             const Icon = ACTION_ICONS[a.key];
             return (
               <Reveal key={a.key} delay={i * 0.05}>
                 <div
-                  className="group flex h-full items-start gap-4 p-6 transition-colors"
+                  className="group flex h-full items-start gap-4 p-5 sm:p-6 transition-colors"
                   style={{
                     background: "var(--card)",
                     borderRadius: 24,
@@ -89,7 +125,7 @@ export function EngagementActions() {
         {/* every action, logged */}
         <Reveal className="w-full">
           <div
-            className="flex w-full bg-white items-center gap-10 overflow-hidden p-4 pl-8 max-[1023px]:flex-col max-[1023px]:p-6"
+            className="flex w-full bg-white items-center gap-10 overflow-hidden p-4 pl-8 max-[1023px]:flex-col max-[1023px]:items-stretch max-[1023px]:gap-6 max-[1023px]:p-6 max-[639px]:p-4"
             style={{ borderRadius: 32 }}
           >
             <div className="flex min-w-0 flex-1 flex-col items-start gap-4">
@@ -100,10 +136,8 @@ export function EngagementActions() {
                 className="t-body max-w-[520px]"
                 style={{ color: "var(--zinc)" }}
               >
-                Each like, reply, follow, bookmark, repost and quote lands in the
-                activity log with a timestamp, the target, and whether it
-                succeeded. There is no silent activity anywhere in the product —
-                if Ghostly did it, you can see it.
+                See every like, reply and follow Ghostly made — who it was for,
+                and when it happened. If Ghostly did it, you can see it.
               </p>
             </div>
 

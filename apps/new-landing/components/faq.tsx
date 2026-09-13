@@ -7,36 +7,44 @@ import { Section, SectionHead, Shell } from "./kit";
 
 const QA = [
   {
+    q: "What do I need to do each day?",
+    a: "Nothing, really. Ghostly works on its own during your hours. If you keep reply approval on, just check your waiting replies when you have a minute.",
+  },
+  {
+    q: "Can I choose what it does?",
+    a: "Yes. Turn each action — like, reply, follow, bookmark, repost, quote — on or off. You also pick your topics, the people to watch, your pace and your hours.",
+  },
+  {
     q: "Will this get my account banned?",
-    a: "We can't promise it won't. Automated engagement sits against X's terms however carefully it's paced, and anyone telling you otherwise is selling something. What Ghostly does is take every conservative option: it acts from your own browser session at human speed, with randomised delays, daily caps that scale with your account's age, a 48-hour freshness filter, and an auto-pause the moment X returns anything unexpected. You run it at your own discretion.",
+    a: "No tool can promise that — X's own rules on automation apply. Ghostly keeps things as safe as it can: it uses your own browser, moves at a human pace, stays inside daily limits, and pauses by itself if something looks wrong.",
   },
   {
     q: "Do you need my X password?",
-    a: "No, and we'd refuse it if you offered. Ghostly works inside the session you're already signed into, in your own browser. There is no server anywhere logging into X as you, and no credential is ever collected or stored.",
-  },
-  {
-    q: "Does it keep working when my browser is closed?",
-    a: "No. Everything runs in your browser, which is exactly what makes it safer than cloud tools — but it also means Chrome has to be open. A post scheduled for a moment when your browser is shut goes out as soon as you next open it.",
+    a: "No, never. Ghostly works inside the X account you're already signed into in Chrome.",
   },
   {
     q: "Will the replies sound like a bot?",
-    a: "That's the thing voice training exists to prevent. Ghostly reads your last ~50 posts and learns how you actually write, then writes every reply that way — and it overrides the tone presets rather than averaging with them. Turn on the review queue and you can read each one in context before it goes anywhere.",
+    a: "No. Ghostly learns from your own posts, so replies sound like you. And by default, every reply waits for your OK before it goes out.",
+  },
+  {
+    q: "Does it answer my mentions?",
+    a: "Yes. When someone replies to you or mentions you, Ghostly writes an answer that fits the conversation — and it follows the same approval setting as every other reply.",
+  },
+  {
+    q: "Does it work when my browser is closed?",
+    a: "No — Chrome needs to be open, because Ghostly works from your own browser. Scheduled posts go out as soon as you open it again.",
   },
   {
     q: "What counts as an action?",
-    a: "A like, reply, follow, bookmark, repost or quote. Reading your own profile for the growth scoreboard doesn't count, and neither does drafting a post you never schedule. Free gives you 50 a month, reset on the 1st.",
+    a: "A like, reply, follow, bookmark, repost or quote. Checking your stats, previews and skipped drafts don't count. Free gives you 50 a month.",
   },
   {
-    q: "What happens to my posts when you train the voice?",
-    a: "They're analysed in memory and thrown away. Only a short style summary is kept — you can read it in Settings and delete it whenever you like. Post text sent for reply generation isn't stored beyond the request.",
+    q: "What happens to my posts when it learns my voice?",
+    a: "They're read once and thrown away. Ghostly keeps only a short note about your writing style, which you can see or delete anytime.",
   },
   {
     q: "Can I cancel?",
-    a: "Any time, from the Stripe billing portal in the extension. You keep Pro until the period you've paid for ends, then drop back to the free 50 a month. Deleting your account hard-wipes everything — profile, logs, drafts, settings.",
-  },
-  {
-    q: "Does it work on LinkedIn?",
-    a: "Not any more. Ghostly is X-only and built that way on purpose — one platform, done properly, rather than two done shallowly.",
+    a: "Anytime, in one click from the extension. Delete your account and everything is erased for good.",
   },
 ];
 
@@ -54,7 +62,7 @@ function Item({ q, a, i }: { q: string; a: string; i: number }) {
         <button
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="flex w-full cursor-pointer items-center justify-between gap-5 p-6 text-left"
+          className="flex w-full cursor-pointer items-center justify-between gap-4 p-5 text-left sm:gap-5 sm:p-6"
         >
           <span className="t-h5" style={{ color: "var(--ink)" }}>
             {q}
@@ -88,7 +96,7 @@ function Item({ q, a, i }: { q: string; a: string; i: number }) {
               className="overflow-hidden"
             >
               <p
-                className="t-body max-w-[820px] px-6 pb-6"
+                className="t-body max-w-[820px] px-5 pb-5 sm:px-6 sm:pb-6"
                 style={{ color: "var(--zinc)" }}
               >
                 {a}
@@ -107,8 +115,8 @@ export function FAQ() {
       <Shell className="flex flex-col items-center gap-10">
         <SectionHead
           eyebrow="Questions"
-          title="The ones people actually ask"
-          body="Including the awkward one, answered honestly."
+          title="Common questions"
+          body="Simple answers, honestly."
         />
 
         <div className="flex w-full max-w-[900px] flex-col gap-3">
