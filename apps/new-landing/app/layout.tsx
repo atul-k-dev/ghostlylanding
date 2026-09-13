@@ -18,6 +18,13 @@ const jost = Jost({
 });
 
 /**
+ * Social crawlers (X, LinkedIn, Facebook, Slack) cache card images by URL, so
+ * bump `v` whenever public/og.jpg is replaced or the old image keeps showing.
+ * Width/height must match the real file.
+ */
+const OG_IMAGE = "/og.jpg?v=2";
+
+/**
  * `title.template` lets every sub-page set a bare name — "Privacy policy" —
  * and still render "Privacy policy — Ghostly 247" in the tab and in search
  * results. `metadataBase` is what makes the relative OG image path below
@@ -56,9 +63,9 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "/og.jpg",
-        width: 1200,
-        height: 630,
+        url: OG_IMAGE,
+        width: 1900,
+        height: 1068,
         alt: "Ghostly 247 — grow your X account while you sleep",
       },
     ],
@@ -69,7 +76,7 @@ export const metadata: Metadata = {
     description: SITE.cardDescription,
     site: SITE.xHandle,
     creator: SITE.xHandle,
-    images: ["/og.jpg"],
+    images: [OG_IMAGE],
   },
   robots: {
     index: true,
@@ -106,7 +113,7 @@ const jsonLd = {
       operatingSystem: "Chrome",
       url: SITE_URL,
       description: SITE.cardDescription,
-      image: `${SITE_URL}/og.jpg`,
+      image: `${SITE_URL}${OG_IMAGE}`,
       installUrl: SITE.chromeStoreUrl,
       offers: [
         {
