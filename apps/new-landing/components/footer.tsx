@@ -203,7 +203,7 @@ export function Footer() {
               Terms &amp; Conditions
             </Link>
             <span aria-hidden="true" className="h-4 w-px" style={{ marginInline: 14, background: "#d5d9dd" }} />
-            <span>
+            <span className="!hidden">
               Built by{" "}
               <a
                 href="https://www.buildstory.studio/"
