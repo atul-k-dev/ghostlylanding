@@ -8,8 +8,26 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { TriangleAlertIcon } from "lucide-react";
 import { api, type HealthResponse, type HealthIssue } from "@/lib/api";
-import { Panel, Badge, Eyebrow, Spinner, EmptyState, Select, timeAgo } from "@/components/ui";
+import { cn } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  EmptyState,
+  FilterSelect,
+  FLUSH_TABLE,
+  SectionCard,
+  Spinner,
+  StatusBadge,
+  timeAgo,
+} from "@/components/admin-ui";
 import { PageHeader } from "@/components/Shell";
 
 const KIND_TONE: Record<string, string> = {
@@ -29,6 +47,8 @@ function severityOf(issue: HealthIssue): "critical" | "elevated" | null {
   if (grew && issue.affectedUsers >= 3) return "elevated";
   return null;
 }
+
+const codeClass = "rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground";
 
 export default function HealthPage() {
   const [data, setData] = useState<HealthResponse | null>(null);
@@ -53,7 +73,8 @@ export default function HealthPage() {
         title="Fleet health"
         subtitle="What's breaking inside users' browsers, right now"
         right={
-          <Select
+          <FilterSelect
+            label="Time window"
             value={hours}
             onChange={setHours}
             options={[
@@ -69,28 +90,28 @@ export default function HealthPage() {
       {!data ? (
         <Spinner label="Loading diagnostics…" />
       ) : (
-        <div className="space-y-4">
+        <>
           {critical.length > 0 && (
-            <div className="rounded-lg border border-vivid-crimson/40 bg-vivid-crimson/10 p-4">
-              <p className="text-sm font-semibold text-vivid-crimson">
-                {critical.length === 1 ? "A selector looks broken" : `${critical.length} selectors look broken`}
-              </p>
-              <p className="mt-1 text-xs text-iron-slate">
-                {critical.map((c) => c.context).join(", ")} — rising sharply across multiple users.
-                This is what an X DOM change looks like. Push a corrected selector below; users pick
-                it up within 6 hours or on their next browser restart.
-              </p>
+            <div className="flex gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4">
+              <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
+              <div>
+                <p className="text-sm font-medium text-destructive">
+                  {critical.length === 1 ? "A selector looks broken" : `${critical.length} selectors look broken`}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {critical.map((c) => c.context).join(", ")} — rising sharply across multiple users.
+                  This is what an X DOM change looks like. Push a corrected selector below; users pick
+                  it up within 6 hours or on their next browser restart.
+                </p>
+              </div>
             </div>
           )}
 
-          <Panel className="p-4">
-            <Eyebrow>Selector config</Eyebrow>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
-              <span className="text-iron-slate">Serving version</span>
-              <code className="rounded bg-white/5 px-2 py-0.5 text-xs">
-                {data.selectorConfig.version}
-              </code>
-              <span className="text-iron-slate">
+          <SectionCard title="Selector config">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <span className="text-muted-foreground">Serving version</span>
+              <code className={codeClass}>{data.selectorConfig.version}</code>
+              <span className="text-muted-foreground">
                 {data.selectorConfig.overrideCount === 0
                   ? "no overrides — everyone is on the bundled map"
                   : `${data.selectorConfig.overrideCount} override(s) active`}
@@ -100,22 +121,20 @@ export default function HealthPage() {
               <dl className="mt-3 space-y-1 text-xs">
                 {Object.entries(data.selectorConfig.overrides).map(([key, value]) => (
                   <div key={key} className="flex gap-2">
-                    <dt className="w-48 shrink-0 text-iron-slate">{key}</dt>
-                    <dd className="break-all font-mono">{value}</dd>
+                    <dt className="w-48 shrink-0 text-muted-foreground">{key}</dt>
+                    <dd className="font-mono break-all">{value}</dd>
                   </div>
                 ))}
               </dl>
             )}
-            <p className="mt-3 text-xs text-iron-slate">
-              Push a fix with <code className="rounded bg-white/5 px-1">PUT /api/admin/selectors</code>{" "}
-              — body <code className="rounded bg-white/5 px-1">{'{ "selectors": { "likeButton": "…" } }'}</code>.
-              Send an empty object to clear it.
+            <p className="mt-3 text-sm text-muted-foreground">
+              Push a fix with <code className={codeClass}>PUT /api/admin/selectors</code> — body{" "}
+              <code className={codeClass}>{'{ "selectors": { "likeButton": "…" } }'}</code>. Send an
+              empty object to clear it.
             </p>
-          </Panel>
+          </SectionCard>
 
-          <Panel className="p-4">
-            <Eyebrow>By kind</Eyebrow>
-            <div className="mt-2" />
+          <SectionCard title="By kind">
             {Object.keys(data.byKind).length === 0 ? (
               <EmptyState>Nothing reported in this window — everything is working.</EmptyState>
             ) : (
@@ -123,78 +142,73 @@ export default function HealthPage() {
                 {Object.entries(data.byKind)
                   .sort((a, b) => b[1] - a[1])
                   .map(([kind, count]) => (
-                    <Badge key={kind} tone={KIND_TONE[kind] ?? "default"}>
+                    <StatusBadge key={kind} tone={KIND_TONE[kind] ?? "default"}>
                       {kind} · {count.toLocaleString()}
-                    </Badge>
+                    </StatusBadge>
                   ))}
               </div>
             )}
-          </Panel>
+          </SectionCard>
 
-          <Panel className="p-4">
-            <Eyebrow>Issues</Eyebrow>
-            <p className="mb-2 mt-1 text-xs text-iron-slate">
-              Ranked by volume, compared with the previous window of the same length.
-            </p>
+          <SectionCard
+            flush
+            title="Issues"
+            description="Ranked by volume, compared with the previous window of the same length."
+          >
             {data.issues.length === 0 ? (
               <EmptyState>No diagnostics reported.</EmptyState>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="text-xs uppercase tracking-wider text-iron-slate">
-                    <tr>
-                      <th className="py-2 pr-4">Kind</th>
-                      <th className="py-2 pr-4">Where</th>
-                      <th className="py-2 pr-4 text-right">Events</th>
-                      <th className="py-2 pr-4 text-right">Users</th>
-                      <th className="py-2 pr-4 text-right">Previous</th>
-                      <th className="py-2 pr-4">Last seen</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.issues.map((issue) => {
-                      const severity = severityOf(issue);
-                      return (
-                        <tr
-                          key={`${issue.kind}:${issue.context}`}
-                          className={`border-t border-white/5 ${
-                            severity === "critical" ? "bg-vivid-crimson/5" : ""
-                          }`}
-                        >
-                          <td className="py-2 pr-4">
-                            <Badge tone={KIND_TONE[issue.kind] ?? "default"}>{issue.kind}</Badge>
-                          </td>
-                          <td className="py-2 pr-4 font-mono text-xs">{issue.context}</td>
-                          <td className="py-2 pr-4 text-right tabular-nums">
-                            {issue.count.toLocaleString()}
-                          </td>
-                          <td className="py-2 pr-4 text-right tabular-nums">
-                            {issue.affectedUsers.toLocaleString()}
-                            {severity && (
-                              <span
-                                className={
-                                  severity === "critical"
-                                    ? "ml-2 text-vivid-crimson"
-                                    : "ml-2 text-goldenrod"
-                                }
-                              >
-                                ▲
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2 pr-4 text-right tabular-nums text-iron-slate">
-                            {issue.previousCount.toLocaleString()}
-                          </td>
-                          <td className="py-2 pr-4 text-iron-slate">{timeAgo(issue.lastAt)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <Table className={FLUSH_TABLE}>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead>Kind</TableHead>
+                    <TableHead>Where</TableHead>
+                    <TableHead className="text-right">Events</TableHead>
+                    <TableHead className="text-right">Users</TableHead>
+                    <TableHead className="text-right">Previous</TableHead>
+                    <TableHead>Last seen</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.issues.map((issue) => {
+                    const severity = severityOf(issue);
+                    return (
+                      <TableRow
+                        key={`${issue.kind}:${issue.context}`}
+                        className={cn(severity === "critical" && "bg-destructive/5")}
+                      >
+                        <TableCell>
+                          <StatusBadge tone={KIND_TONE[issue.kind] ?? "default"}>{issue.kind}</StatusBadge>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{issue.context}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {issue.count.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {issue.affectedUsers.toLocaleString()}
+                          {severity && (
+                            <span
+                              className={cn(
+                                "ml-2",
+                                severity === "critical" ? "text-destructive" : "text-amber-500",
+                              )}
+                            >
+                              ▲
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground tabular-nums">
+                          {issue.previousCount.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{timeAgo(issue.lastAt)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             )}
-          </Panel>
-        </div>
+          </SectionCard>
+        </>
       )}
     </>
   );

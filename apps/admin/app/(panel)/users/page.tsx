@@ -2,17 +2,28 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { SearchIcon } from "lucide-react";
 import { api, type UserRow, type UsersResponse } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  Panel,
-  Badge,
-  Button,
-  Spinner,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   EmptyState,
-  Select,
+  FilterSelect,
+  FLUSH_TABLE,
   Pagination,
+  SectionCard,
+  Spinner,
+  StatusBadge,
   timeAgo,
-} from "@/components/ui";
+} from "@/components/admin-ui";
 import { PageHeader } from "@/components/Shell";
 
 const LIMIT = 25;
@@ -76,22 +87,25 @@ export default function UsersPage() {
         title="Users"
         subtitle={`${total.toLocaleString()} total`}
         right={
-          <div className="flex items-center gap-2">
+          <>
             <form
+              className="relative"
               onSubmit={(e) => {
                 e.preventDefault();
                 setPage(1);
                 setSearch(searchInput.trim());
               }}
             >
-              <input
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search email or name…"
-                className="w-56 rounded-lg border border-line bg-panel-2 px-3 py-1.5 text-xs outline-none focus:border-iron-slate"
+                className="h-8 w-56 pl-8"
               />
             </form>
-            <Select
+            <FilterSelect
+              label="Plan"
               value={plan}
               onChange={(v) => {
                 setPage(1);
@@ -103,81 +117,74 @@ export default function UsersPage() {
                 { value: "free", label: "Free only" },
               ]}
             />
-          </div>
+          </>
         }
       />
 
-      <Panel>
+      <SectionCard flush>
         {rows === null ? (
           <Spinner />
         ) : rows.length === 0 ? (
           <EmptyState>No users match.</EmptyState>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-[10px] uppercase tracking-[0.14em] text-iron-slate">
-                <th className="px-4 py-3 font-medium">User</th>
-                <th className="px-4 py-3 font-medium">Plan</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
-                <th className="px-4 py-3 font-medium">Joined</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
+          <Table className={FLUSH_TABLE}>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Actions</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead>
+                  <span className="sr-only">Manage</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((u) => (
-                <tr
-                  key={u.id}
-                  className="border-b border-line/60 transition hover:bg-white/[0.02]"
-                >
-                  <td className="px-4 py-3">
-                    <Link href={`/users/${u.id}`} className="group text-left">
-                      <span className="block font-medium group-hover:text-casper-red">
-                        {u.email}
-                      </span>
-                      <span className="block text-[11px] text-iron-slate">
-                        {u.name}
-                        {u.isAdmin && (
-                          <span className="ml-1.5">
-                            <Badge tone="info">admin</Badge>
-                          </span>
-                        )}
-                        {u.isBanned && (
-                          <span className="ml-1.5">
-                            <Badge tone="fail">banned</Badge>
-                          </span>
-                        )}
-                      </span>
+                <TableRow key={u.id}>
+                  <TableCell>
+                    <Link
+                      href={`/users/${u.id}`}
+                      className="font-medium underline-offset-4 hover:underline"
+                    >
+                      {u.email}
                     </Link>
-                  </td>
-                  <td className="px-4 py-3">
+                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>{u.name}</span>
+                      {u.isAdmin && <StatusBadge tone="info">admin</StatusBadge>}
+                      {u.isBanned && <StatusBadge tone="fail">banned</StatusBadge>}
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     {u.isPro ? (
-                      <Badge tone="pro">Pro · {u.subscriptionPlan}</Badge>
+                      <StatusBadge tone="pro">Pro · {u.subscriptionPlan}</StatusBadge>
                     ) : (
-                      <Badge>Free</Badge>
+                      <StatusBadge>Free</StatusBadge>
                     )}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-subtle-gray">
+                  </TableCell>
+                  <TableCell className="tabular-nums">
                     {u.lifetimeActionCount.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-iron-slate">{timeAgo(u.createdAt)}</td>
-                  <td className="px-4 py-3 text-right">
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{timeAgo(u.createdAt)}</TableCell>
+                  <TableCell className="text-right">
                     <Button
-                      variant={u.isPro ? "danger" : "primary"}
+                      size="sm"
+                      variant={u.isPro ? "destructive" : "default"}
                       disabled={busyId === u.id}
                       onClick={() => togglePro(u)}
                     >
                       {busyId === u.id ? "…" : u.isPro ? "Revoke Pro" : "Grant Pro"}
                     </Button>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
         {rows && rows.length > 0 && (
           <Pagination page={page} limit={LIMIT} total={total} onPage={setPage} />
         )}
-      </Panel>
+      </SectionCard>
     </>
   );
 }

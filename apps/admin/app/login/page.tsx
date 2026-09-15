@@ -2,9 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { login } from "@/lib/api";
 import { setSession } from "@/lib/auth";
-import { Button, Panel } from "@/components/ui";
+import { BrandMark } from "@/components/app-sidebar";
+import { ModeToggle } from "@/components/mode-toggle";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,69 +46,70 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-casper-red shadow-[0_0_24px_-4px_rgba(244,77,96,0.6)]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/ghostly247logo-black.png" alt="Ghostly247" className="h-8 w-8 object-contain" />
-          </div>
-          <h1 className="text-2xl font-light">
-            Ghostly247 <span className="iridescent-text">Admin</span>
-          </h1>
-          <p className="mt-1 text-xs text-iron-slate">Control center — admins only</p>
+    <main className="relative flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+      <div className="absolute top-4 right-4">
+        <ModeToggle />
+      </div>
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <div className="flex items-center gap-2 self-center font-medium">
+          <BrandMark className="size-6" />
+          Ghostly247 Admin
         </div>
 
-        <Panel className="p-6">
-          <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="font-mono text-[10px] uppercase tracking-[0.18em] text-iron-slate">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
-                className="w-full rounded-lg border border-line bg-panel-2 px-3 py-2 text-sm outline-none focus:border-iron-slate"
-                placeholder="you@example.com"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="font-mono text-[10px] uppercase tracking-[0.18em] text-iron-slate">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl">Welcome back</CardTitle>
+            <CardDescription>Control center — admins only</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={submit} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-line bg-panel-2 px-3 py-2 pr-11 text-sm outline-none focus:border-iron-slate"
-                  placeholder="••••••••"
+                  autoFocus
+                  placeholder="you@example.com"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  title={showPassword ? "Hide password" : "Show password"}
-                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-base text-iron-slate transition hover:scale-110"
-                >
-                  {showPassword ? "🐵" : "🙈"}
-                </button>
               </div>
-            </div>
-            {error && (
-              <p className="rounded-lg bg-vivid-crimson/10 px-3 py-2 text-xs text-vivid-crimson">
-                {error}
-              </p>
-            )}
-            <Button type="submit" disabled={busy} className="w-full py-2 text-sm">
-              {busy ? "Signing in…" : "Sign in"}
-            </Button>
-          </form>
-        </Panel>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="pr-9"
+                    placeholder="••••••••"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute top-1/2 right-0.5 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </Button>
+                </div>
+              </div>
+              {error && (
+                <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" disabled={busy} className="w-full">
+                {busy ? "Signing in…" : "Sign in"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </main>
   );

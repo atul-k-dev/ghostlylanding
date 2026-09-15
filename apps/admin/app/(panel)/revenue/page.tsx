@@ -2,35 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { api, type RevenueOverview } from "@/lib/api";
-import { Panel, Eyebrow, Spinner, Badge, EmptyState, formatMoney, timeAgo } from "@/components/ui";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  EmptyState,
+  ErrorCard,
+  FLUSH_TABLE,
+  MetricRow,
+  SectionCard,
+  Spinner,
+  StatCard,
+  StatGrid,
+  StatusBadge,
+  formatMoney,
+  timeAgo,
+} from "@/components/admin-ui";
 import { PageHeader } from "@/components/Shell";
 import { RevenueAreaChart } from "@/components/charts";
-
-function StatCard({
-  label,
-  value,
-  hint,
-  accent,
-}: {
-  label: string;
-  value: string;
-  hint?: React.ReactNode;
-  accent?: boolean;
-}) {
-  return (
-    <Panel className="p-4">
-      <Eyebrow>{label}</Eyebrow>
-      <p
-        className={`mt-1 text-3xl font-light tracking-tight ${
-          accent ? "text-casper-red" : ""
-        }`}
-      >
-        {value}
-      </p>
-      {hint && <div className="mt-1 text-[11px] text-iron-slate">{hint}</div>}
-    </Panel>
-  );
-}
 
 export default function RevenuePage() {
   const [data, setData] = useState<RevenueOverview | null>(null);
@@ -48,7 +43,7 @@ export default function RevenuePage() {
     return (
       <>
         <PageHeader title="Revenue" subtitle="Real-time Stripe data" />
-        <Panel className="p-6 text-sm text-vivid-crimson">{error}</Panel>
+        <ErrorCard>{error}</ErrorCard>
       </>
     );
   }
@@ -65,12 +60,13 @@ export default function RevenuePage() {
     return (
       <>
         <PageHeader title="Revenue" subtitle="Real-time Stripe data" />
-        <Panel className="p-10">
+        <SectionCard>
           <EmptyState>
-            Stripe isn’t configured on the server. Set <code className="text-subtle-gray">STRIPE_SECRET_KEY</code> to
-            see live revenue here.
+            Stripe isn’t configured on the server. Set{" "}
+            <code className="rounded bg-muted px-1 font-mono text-foreground">STRIPE_SECRET_KEY</code>{" "}
+            to see live revenue here.
           </EmptyState>
-        </Panel>
+        </SectionCard>
       </>
     );
   }
@@ -85,11 +81,10 @@ export default function RevenuePage() {
         subtitle="Live Stripe data · refreshes every minute"
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <StatGrid>
         <StatCard
           label="MRR"
           value={formatMoney(data.mrr, c)}
-          accent
           hint={`${formatMoney(data.arpu, c)} ARPU`}
         />
         <StatCard
@@ -97,8 +92,8 @@ export default function RevenuePage() {
           value={subs.active.toLocaleString()}
           hint={
             <span className="flex flex-wrap items-center gap-1.5">
-              {subs.trialing > 0 && <Badge tone="info">{subs.trialing} trialing</Badge>}
-              {subs.pastDue > 0 && <Badge tone="fail">{subs.pastDue} past due</Badge>}
+              {subs.trialing > 0 && <StatusBadge tone="info">{subs.trialing} trialing</StatusBadge>}
+              {subs.pastDue > 0 && <StatusBadge tone="fail">{subs.pastDue} past due</StatusBadge>}
               {subs.trialing === 0 && subs.pastDue === 0 && <span>all in good standing</span>}
             </span>
           }
@@ -113,78 +108,64 @@ export default function RevenuePage() {
           value={formatMoney(data.revenue.lifetime, c)}
           hint={`${formatMoney(data.revenue.today, c)} today`}
         />
-      </div>
+      </StatGrid>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Panel className="p-5 lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <Eyebrow>Gross revenue · last 30 days</Eyebrow>
-            <span className="text-[11px] text-iron-slate">{c.toUpperCase()}</span>
-          </div>
+      <div className="grid grid-cols-1 gap-4 @4xl/main:grid-cols-3">
+        <SectionCard
+          className="@4xl/main:col-span-2"
+          title="Gross revenue"
+          description="Last 30 days"
+          action={<Badge variant="outline">{c.toUpperCase()}</Badge>}
+        >
           <RevenueAreaChart data={data.timeseries} currency={c} />
-        </Panel>
+        </SectionCard>
 
-        <Panel className="p-5">
-          <Eyebrow>Subscription mix</Eyebrow>
-          <div className="mt-3 space-y-3">
-            <Row label="Active" value={subs.active} tone="pro" />
-            <Row label="Trialing" value={subs.trialing} tone="info" />
-            <Row label="Past due" value={subs.pastDue} tone="fail" />
-            <div className="border-t border-line pt-3">
-              <Row label="Total" value={subs.total} />
+        <SectionCard title="Subscription mix" description="Current Stripe subscriptions">
+          <div className="space-y-3">
+            <MetricRow label="Active" value={subs.active} tone="pro" />
+            <MetricRow label="Trialing" value={subs.trialing} tone="info" />
+            <MetricRow label="Past due" value={subs.pastDue} tone="fail" />
+            <div className="border-t pt-3">
+              <MetricRow label="Total" value={subs.total} />
             </div>
           </div>
-        </Panel>
+        </SectionCard>
       </div>
 
-      <Panel className="mt-4">
-        <div className="border-b border-line px-4 py-3">
-          <Eyebrow>Recent payments</Eyebrow>
-        </div>
+      <SectionCard flush title="Recent payments" description="Latest Stripe charges">
         {data.recentPayments.length === 0 ? (
           <EmptyState>No payments yet.</EmptyState>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-[10px] uppercase tracking-[0.14em] text-iron-slate">
-                <th className="px-4 py-3 font-medium">Customer</th>
-                <th className="px-4 py-3 font-medium">Amount</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">When</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className={FLUSH_TABLE}>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>When</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {data.recentPayments.map((p) => (
-                <tr key={p.id} className="border-b border-line/60">
-                  <td className="px-4 py-3 text-subtle-gray">{p.email ?? "—"}</td>
-                  <td className="px-4 py-3 tabular-nums font-medium">
+                <TableRow key={p.id}>
+                  <TableCell>{p.email ?? "—"}</TableCell>
+                  <TableCell className="font-medium tabular-nums">
                     {formatMoney(p.amount, p.currency)}
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell>
                     {p.refunded ? (
-                      <Badge tone="warn">refunded</Badge>
+                      <StatusBadge tone="warn">refunded</StatusBadge>
                     ) : (
-                      <Badge tone="success">{p.status}</Badge>
+                      <StatusBadge tone="success">{p.status}</StatusBadge>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-iron-slate">{timeAgo(p.created)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{timeAgo(p.created)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
-      </Panel>
+      </SectionCard>
     </>
-  );
-}
-
-function Row({ label, value, tone }: { label: string; value: number; tone?: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-iron-slate">{label}</span>
-      <span className="text-sm font-medium">
-        {tone ? <Badge tone={tone}>{value.toLocaleString()}</Badge> : value.toLocaleString()}
-      </span>
-    </div>
   );
 }

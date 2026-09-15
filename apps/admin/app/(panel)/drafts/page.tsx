@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type DraftRow, type DraftsResponse } from "@/lib/api";
 import {
-  Panel,
-  Badge,
-  Spinner,
   EmptyState,
-  Select,
+  FilterSelect,
   Pagination,
+  SectionCard,
+  Spinner,
+  StatusBadge,
   timeAgo,
-} from "@/components/ui";
+} from "@/components/admin-ui";
 import { PageHeader } from "@/components/Shell";
 
 const LIMIT = 50;
@@ -55,7 +55,8 @@ export default function DraftsPage() {
         title="Comment drafts"
         subtitle={`${total.toLocaleString()} AI-generated replies`}
         right={
-          <Select
+          <FilterSelect
+            label="Status"
             value={status}
             onChange={(v) => {
               setPage(1);
@@ -73,34 +74,34 @@ export default function DraftsPage() {
         }
       />
 
-      <Panel>
+      <SectionCard flush>
         {rows === null ? (
           <Spinner />
         ) : rows.length === 0 ? (
           <EmptyState>No drafts match.</EmptyState>
         ) : (
-          <div className="divide-y divide-line/60">
+          <div className="divide-y">
             {rows.map((d) => (
               <div key={d.id} className="px-4 py-3.5">
                 <div className="mb-1.5 flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-[11px] text-iron-slate">
-                    <Badge tone={STATUS_TONE[d.status] ?? "default"}>{d.status}</Badge>
+                  <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                    <StatusBadge tone={STATUS_TONE[d.status] ?? "default"}>{d.status}</StatusBadge>
                     <span>{d.platform}</span>
                     <span>·</span>
                     <span>{d.tone}</span>
                     <span>·</span>
-                    <span className="text-subtle-gray">{d.user?.email ?? "—"}</span>
+                    <span className="truncate text-foreground">{d.user?.email ?? "—"}</span>
                   </span>
-                  <span className="shrink-0 text-[11px] text-iron-slate">
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     {timeAgo(d.createdAt)}
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed text-subtle-gray">{d.draftText}</p>
+                <p className="text-sm leading-relaxed">{d.draftText}</p>
                 <a
                   href={d.postUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-1 inline-block max-w-full truncate text-[11px] text-iridescent-glow hover:underline"
+                  className="mt-1 inline-block max-w-full truncate text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                   title={d.postUrl}
                 >
                   {d.postUrl} ↗
@@ -112,7 +113,7 @@ export default function DraftsPage() {
         {rows && rows.length > 0 && (
           <Pagination page={page} limit={LIMIT} total={total} onPage={setPage} />
         )}
-      </Panel>
+      </SectionCard>
     </>
   );
 }

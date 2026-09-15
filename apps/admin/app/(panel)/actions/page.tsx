@@ -3,14 +3,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type ActionRow, type ActionsResponse } from "@/lib/api";
 import {
-  Panel,
-  Badge,
-  Spinner,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   EmptyState,
-  Select,
+  FilterSelect,
+  FLUSH_TABLE,
   Pagination,
+  SectionCard,
+  Spinner,
+  StatusBadge,
   timeAgo,
-} from "@/components/ui";
+} from "@/components/admin-ui";
 import { PageHeader } from "@/components/Shell";
 
 const LIMIT = 50;
@@ -56,8 +65,9 @@ export default function ActionsPage() {
         title="Action log"
         subtitle={`${total.toLocaleString()} matching events`}
         right={
-          <div className="flex items-center gap-2">
-            <Select
+          <>
+            <FilterSelect
+              label="Platform"
               value={platform}
               onChange={reset(setPlatform)}
               options={[
@@ -66,7 +76,8 @@ export default function ActionsPage() {
                 { value: "linkedin", label: "LinkedIn" },
               ]}
             />
-            <Select
+            <FilterSelect
+              label="Action"
               value={actionType}
               onChange={reset(setActionType)}
               options={[
@@ -76,7 +87,8 @@ export default function ActionsPage() {
                 { value: "follow", label: "Follows" },
               ]}
             />
-            <Select
+            <FilterSelect
+              label="Result"
               value={success}
               onChange={reset(setSuccess)}
               options={[
@@ -85,68 +97,66 @@ export default function ActionsPage() {
                 { value: "false", label: "Failed" },
               ]}
             />
-          </div>
+          </>
         }
       />
 
-      <Panel>
+      <SectionCard flush>
         {rows === null ? (
           <Spinner />
         ) : rows.length === 0 ? (
           <EmptyState>No actions match these filters.</EmptyState>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-[10px] uppercase tracking-[0.14em] text-iron-slate">
-                <th className="px-4 py-3 font-medium">User</th>
-                <th className="px-4 py-3 font-medium">Action</th>
-                <th className="px-4 py-3 font-medium">Target</th>
-                <th className="px-4 py-3 font-medium">Result</th>
-                <th className="px-4 py-3 font-medium">When</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className={FLUSH_TABLE}>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Target</TableHead>
+                <TableHead>Result</TableHead>
+                <TableHead>When</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((a) => (
-                <tr key={a.id} className="border-b border-line/60">
-                  <td className="px-4 py-3">
-                    <span className="text-subtle-gray">{a.user?.email ?? "—"}</span>
-                  </td>
-                  <td className="px-4 py-3">
+                <TableRow key={a.id}>
+                  <TableCell>{a.user?.email ?? "—"}</TableCell>
+                  <TableCell>
                     <span className="flex items-center gap-2">
-                      <Badge tone="info">{a.actionType}</Badge>
-                      <span className="text-[11px] text-iron-slate">{a.platform}</span>
+                      <StatusBadge tone="info">{a.actionType}</StatusBadge>
+                      <span className="text-xs text-muted-foreground">{a.platform}</span>
                     </span>
-                  </td>
-                  <td className="max-w-[260px] px-4 py-3">
+                  </TableCell>
+                  <TableCell className="max-w-[260px]">
                     <a
                       href={a.targetUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="block truncate text-iridescent-glow hover:underline"
+                      className="block truncate underline-offset-4 hover:underline"
                       title={a.targetUrl}
                     >
                       {a.targetHandle ? `@${a.targetHandle}` : a.targetUrl}
                     </a>
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell>
                     {a.success ? (
-                      <Badge tone="success">ok</Badge>
+                      <StatusBadge tone="success">ok</StatusBadge>
                     ) : (
                       <span title={a.errorMessage ?? ""}>
-                        <Badge tone="fail">failed</Badge>
+                        <StatusBadge tone="fail">failed</StatusBadge>
                       </span>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-iron-slate">{timeAgo(a.timestamp)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{timeAgo(a.timestamp)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
         {rows && rows.length > 0 && (
           <Pagination page={page} limit={LIMIT} total={total} onPage={setPage} />
         )}
-      </Panel>
+      </SectionCard>
     </>
   );
 }

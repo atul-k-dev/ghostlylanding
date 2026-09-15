@@ -3,14 +3,36 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import {
+  ActivityIcon,
+  ArrowLeftIcon,
+  HeartIcon,
+  MessageSquareIcon,
+  TagIcon,
+  UserPlusIcon,
+} from "lucide-react";
 import { api, type UserDetail, type ActionRow, type UserComment } from "@/lib/api";
-import { Panel, Eyebrow, Spinner, Badge, Button, EmptyState, timeAgo } from "@/components/ui";
-import { IconBadge, Icons } from "@/components/icons";
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  EmptyState,
+  ErrorCard,
+  IconTile,
+  SectionCard,
+  Spinner,
+  StatCard,
+  StatGrid,
+  StatusBadge,
+  timeAgo,
+} from "@/components/admin-ui";
 
-const ACTION_META: Record<string, { icon: React.ReactNode; tone: "red" | "blue" | "green" }> = {
-  like: { icon: Icons.heart, tone: "red" },
-  comment: { icon: Icons.message, tone: "blue" },
-  follow: { icon: Icons.userPlus, tone: "green" },
+const ACTION_ICON: Record<string, React.ReactNode> = {
+  like: <HeartIcon />,
+  comment: <MessageSquareIcon />,
+  follow: <UserPlusIcon />,
 };
 
 const STATUS_TONE: Record<string, string> = {
@@ -68,7 +90,7 @@ export default function UserDetailPage() {
     return (
       <>
         <BackLink />
-        <Panel className="p-6 text-sm text-vivid-crimson">{error}</Panel>
+        <ErrorCard>{error}</ErrorCard>
       </>
     );
   }
@@ -89,69 +111,56 @@ export default function UserDetailPage() {
       <BackLink />
 
       {/* Profile header */}
-      <Panel className={`mb-4 p-6 ${u.isBanned ? "ring-1 ring-casper-red/30" : ""}`}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-casper-red/15 text-xl font-semibold text-casper-red ring-1 ring-casper-red/20">
-              {initial}
-            </span>
+      <Card className={cn(u.isBanned && "ring-destructive/40")}>
+        <CardContent className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <Avatar className="size-14 rounded-xl">
+              <AvatarFallback className="rounded-xl text-xl font-semibold">{initial}</AvatarFallback>
+            </Avatar>
             <div className="min-w-0">
-              <h1 className="text-xl font-semibold tracking-tight">{u.email}</h1>
-              <p className="text-sm text-iron-slate">{u.name || "—"}</p>
+              <h2 className="truncate text-xl font-semibold tracking-tight">{u.email}</h2>
+              <p className="text-sm text-muted-foreground">{u.name || "—"}</p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {u.isBanned && <Badge tone="fail">Suspended</Badge>}
+                {u.isBanned && <StatusBadge tone="fail">Suspended</StatusBadge>}
                 {u.isPro ? (
-                  <Badge tone="pro">Pro · {u.subscriptionPlan}</Badge>
+                  <StatusBadge tone="pro">Pro · {u.subscriptionPlan}</StatusBadge>
                 ) : (
-                  <Badge>Free</Badge>
+                  <StatusBadge>Free</StatusBadge>
                 )}
-                {u.isAdmin && <Badge tone="info">admin</Badge>}
-                <Badge>{u.lifetimeActionCount.toLocaleString()} lifetime actions</Badge>
+                {u.isAdmin && <StatusBadge tone="info">admin</StatusBadge>}
+                <StatusBadge>{u.lifetimeActionCount.toLocaleString()} lifetime actions</StatusBadge>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant={u.isPro ? "danger" : "primary"}
+              variant={u.isPro ? "destructive" : "default"}
               disabled={busy}
               onClick={togglePro}
-              className="px-4 py-2 text-[13px]"
             >
               {busy ? "…" : u.isPro ? "Revoke Pro" : "Grant Pro"}
             </Button>
             <Button
-              variant={u.isBanned ? "primary" : "danger"}
+              variant={u.isBanned ? "default" : "destructive"}
               disabled={busy || (!u.isBanned && u.isAdmin)}
               onClick={toggleBan}
-              className="px-4 py-2 text-[13px]"
             >
               {busy ? "…" : u.isBanned ? "Reinstate" : "Ban user"}
             </Button>
           </div>
-        </div>
-      </Panel>
+        </CardContent>
+      </Card>
 
       {/* Action breakdown */}
-      <div className="mb-4 grid grid-cols-3 gap-4">
-        <StatCard label="Likes" value={detail.actionCounts.like} icon={Icons.heart} tone="red" />
-        <StatCard
-          label="Comments"
-          value={detail.actionCounts.comment}
-          icon={Icons.message}
-          tone="blue"
-        />
-        <StatCard
-          label="Follows"
-          value={detail.actionCounts.follow}
-          icon={Icons.userPlus}
-          tone="green"
-        />
-      </div>
+      <StatGrid columns={3}>
+        <StatCard label="Likes" value={detail.actionCounts.like} icon={<HeartIcon />} />
+        <StatCard label="Comments" value={detail.actionCounts.comment} icon={<MessageSquareIcon />} />
+        <StatCard label="Follows" value={detail.actionCounts.follow} icon={<UserPlusIcon />} />
+      </StatGrid>
 
       {/* Account · Keywords */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Panel className="p-5">
-          <h3 className="mb-3 text-sm font-semibold">Account</h3>
+      <div className="grid grid-cols-1 gap-4 @4xl/main:grid-cols-3">
+        <SectionCard title="Account">
           <dl className="space-y-2.5 text-sm">
             <Info label="Plan" value={u.isPro ? `Pro · ${u.subscriptionPlan}` : "Free"} />
             <Info label="Status" value={u.isBanned ? "Suspended" : u.subscriptionStatus} />
@@ -160,110 +169,93 @@ export default function UserDetailPage() {
               <Info label="Renews" value={new Date(u.currentPeriodEnd).toLocaleDateString()} />
             )}
           </dl>
-        </Panel>
+        </SectionCard>
 
-        <Panel className="p-5 lg:col-span-2">
-          <div className="mb-3 flex items-center gap-2">
-            <h3 className="text-sm font-semibold">Keywords</h3>
-            <span className="text-iron-slate">{Icons.tag}</span>
-          </div>
+        <SectionCard
+          className="@4xl/main:col-span-2"
+          title="Keywords"
+          action={
+            <IconTile>
+              <TagIcon />
+            </IconTile>
+          }
+        >
           {u.keywords.length === 0 ? (
-            <p className="text-xs text-iron-slate">No keywords set.</p>
+            <p className="text-sm text-muted-foreground">No keywords set.</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {u.keywords.map((k) => (
-                <Badge key={k}>{k}</Badge>
+                <Badge key={k} variant="secondary">
+                  {k}
+                </Badge>
               ))}
             </div>
           )}
-        </Panel>
+        </SectionCard>
       </div>
 
       {/* Recent activity — full width row */}
-      <Panel className="mt-4">
-        <div className="flex items-center gap-2.5 border-b border-line px-5 py-4">
-          <IconBadge tone="violet">{Icons.activity}</IconBadge>
-          <div>
-            <h3 className="text-sm font-semibold">Recent activity</h3>
-            <p className="text-[11px] text-iron-slate">Last {detail.recentActions.length} actions</p>
-          </div>
-        </div>
+      <SectionCard
+        flush
+        title="Recent activity"
+        description={`Last ${detail.recentActions.length} actions`}
+        action={
+          <IconTile>
+            <ActivityIcon />
+          </IconTile>
+        }
+      >
         {detail.recentActions.length === 0 ? (
           <EmptyState>No actions yet.</EmptyState>
         ) : (
-          <div className="grid grid-cols-1 divide-y divide-line/60 md:grid-cols-2 md:divide-y-0">
+          <div className="grid grid-cols-1 md:grid-cols-2">
             {detail.recentActions.map((a) => (
               <ActivityRow key={a.id} a={a} />
             ))}
           </div>
         )}
-      </Panel>
+      </SectionCard>
 
       {/* Comments — full width row */}
-      <Panel className="mt-4">
-        <div className="flex items-center gap-2.5 border-b border-line px-5 py-4">
-          <IconBadge tone="blue">{Icons.message}</IconBadge>
-          <div>
-            <h3 className="text-sm font-semibold">Comments</h3>
-            <p className="text-[11px] text-iron-slate">
-              {detail.recentComments.length} most recent AI replies
-            </p>
-          </div>
-        </div>
+      <SectionCard
+        flush
+        title="Comments"
+        description={`${detail.recentComments.length} most recent AI replies`}
+        action={
+          <IconTile>
+            <MessageSquareIcon />
+          </IconTile>
+        }
+      >
         {detail.recentComments.length === 0 ? (
           <EmptyState>No comments generated yet.</EmptyState>
         ) : (
-          <div className="thin-scroll max-h-[460px] divide-y divide-line/60 overflow-y-auto">
+          <div className="max-h-[460px] divide-y overflow-y-auto">
             {detail.recentComments.map((c) => (
               <CommentRow key={c.id} c={c} />
             ))}
           </div>
         )}
-      </Panel>
+      </SectionCard>
     </>
   );
 }
 
 function BackLink() {
   return (
-    <Link
-      href="/users"
-      className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-iron-slate transition hover:text-subtle-gray"
-    >
-      {Icons.arrowLeft}
-      Back to users
-    </Link>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-  tone,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  tone: "red" | "blue" | "green";
-}) {
-  return (
-    <Panel className="p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <Eyebrow>{label}</Eyebrow>
-          <p className="mt-2 text-3xl font-light tracking-tight">{value.toLocaleString()}</p>
-        </div>
-        <IconBadge tone={tone}>{icon}</IconBadge>
-      </div>
-    </Panel>
+    <Button variant="ghost" size="sm" className="-ml-2 w-fit text-muted-foreground" asChild>
+      <Link href="/users">
+        <ArrowLeftIcon />
+        Back to users
+      </Link>
+    </Button>
   );
 }
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <dt className="text-iron-slate">{label}</dt>
+      <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-medium capitalize">{value}</dd>
     </div>
   );
@@ -271,20 +263,20 @@ function Info({ label, value }: { label: string; value: string }) {
 
 function CommentRow({ c }: { c: UserComment }) {
   return (
-    <div className="px-5 py-3.5">
-      <div className="mb-1.5 flex items-center gap-2 text-[11px] text-iron-slate">
-        <Badge tone={STATUS_TONE[c.status] ?? "default"}>{c.status}</Badge>
+    <div className="px-4 py-3.5">
+      <div className="mb-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+        <StatusBadge tone={STATUS_TONE[c.status] ?? "default"}>{c.status}</StatusBadge>
         <span>{c.platform}</span>
         <span>·</span>
         <span>{c.tone}</span>
         <span className="ml-auto">{timeAgo(c.createdAt)}</span>
       </div>
-      <p className="text-sm leading-relaxed text-subtle-gray">{c.draftText}</p>
+      <p className="text-sm leading-relaxed">{c.draftText}</p>
       <a
         href={c.postUrl}
         target="_blank"
         rel="noreferrer"
-        className="mt-1 inline-block max-w-full truncate text-[11px] text-iridescent-glow hover:underline"
+        className="mt-1 inline-block max-w-full truncate text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         title={c.postUrl}
       >
         {c.postUrl} ↗
@@ -294,28 +286,27 @@ function CommentRow({ c }: { c: UserComment }) {
 }
 
 function ActivityRow({ a }: { a: ActionRow }) {
-  const meta = ACTION_META[a.actionType] ?? { icon: Icons.activity, tone: "blue" as const };
   return (
-    <div className="flex items-center gap-3 border-b border-line/60 px-5 py-3">
-      <IconBadge tone={meta.tone}>{meta.icon}</IconBadge>
+    <div className="flex items-center gap-3 border-b px-4 py-3">
+      <IconTile>{ACTION_ICON[a.actionType] ?? <ActivityIcon />}</IconTile>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium capitalize">{a.actionType}</span>
-          <span className="text-[11px] text-iron-slate">{a.platform}</span>
-          {!a.success && <Badge tone="fail">failed</Badge>}
+          <span className="text-xs text-muted-foreground">{a.platform}</span>
+          {!a.success && <StatusBadge tone="fail">failed</StatusBadge>}
         </div>
         {a.targetHandle && (
           <a
             href={a.targetUrl}
             target="_blank"
             rel="noreferrer"
-            className="text-[11px] text-iridescent-glow hover:underline"
+            className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             @{a.targetHandle}
           </a>
         )}
       </div>
-      <span className="shrink-0 text-[11px] text-iron-slate">{timeAgo(a.timestamp)}</span>
+      <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(a.timestamp)}</span>
     </div>
   );
 }
