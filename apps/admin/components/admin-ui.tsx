@@ -110,7 +110,7 @@ export function StatCard({
         )}
       </CardHeader>
       {hint && (
-        <CardFooter className="flex-col items-start gap-1.5 text-sm text-muted-foreground">
+        <CardFooter className="flex-col items-start gap-1.5 border-t-0 bg-transparent pt-0 text-sm text-muted-foreground">
           {hint}
         </CardFooter>
       )}
