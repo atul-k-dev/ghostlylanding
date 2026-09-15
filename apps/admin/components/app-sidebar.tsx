@@ -16,15 +16,11 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-/** Ghost mark — black on light surfaces, white on dark. */
+/** Ghostly247 app icon — full colour, works on light and dark surfaces. */
 export function BrandMark({ className = "size-5" }: { className?: string }) {
   return (
-    <>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/ghostly247logo-black.png" alt="Ghostly247" className={`${className} object-contain dark:hidden`} />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/ghostly247logo.png" alt="Ghostly247" className={`${className} hidden object-contain dark:block`} />
-    </>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src="/logo.png" alt="Ghostly247" className={`${className} object-contain`} />
   )
 }
 
@@ -46,7 +42,7 @@ export function AppSidebar({
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <Link href="/">
-                <BrandMark className="size-5!" />
+                <BrandMark className="size-7!" />
                 <span className="text-base font-semibold">Ghostly247</span>
                 <span className="ml-auto text-xs text-muted-foreground">Admin</span>
               </Link>

@@ -70,7 +70,7 @@ export default function OverviewPage() {
   if (error) {
     return (
       <>
-        <PageHeader title="Overview" />
+        <PageHeader title="Dashboard" />
         <ErrorCard>{error}</ErrorCard>
       </>
     );
@@ -78,7 +78,7 @@ export default function OverviewPage() {
   if (!stats || !series) {
     return (
       <>
-        <PageHeader title="Overview" />
+        <PageHeader title="Dashboard" />
         <Spinner />
       </>
     );
@@ -95,7 +95,7 @@ export default function OverviewPage() {
   return (
     <>
       <PageHeader
-        title="Overview"
+        title="Dashboard"
         subtitle="Live snapshot of revenue, users, and activity"
       />
 

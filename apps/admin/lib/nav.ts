@@ -15,7 +15,7 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { title: "Overview", url: "/", icon: LayoutDashboardIcon },
+  { title: "Dashboard", url: "/", icon: LayoutDashboardIcon },
   { title: "Revenue", url: "/revenue", icon: DollarSignIcon },
   { title: "Users", url: "/users", icon: UsersIcon },
   { title: "Action log", url: "/actions", icon: ActivityIcon },

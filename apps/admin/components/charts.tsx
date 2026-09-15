@@ -26,7 +26,7 @@ export const CHART_COLORS = {
   like: "#bbdef2",
   comment: "#d1aad7",
   follow: "#72ce7b",
-  brand: "#f44d60",
+  brand: "#3aa0f5",
   signups: "#1a5cff",
 } as const;
 
