@@ -118,7 +118,7 @@ adminRouter.get(
 // -- GET /stats/timeseries — daily actions + signups for charts --------------
 adminRouter.get(
   '/stats/timeseries',
-  validate(z.object({ days: z.coerce.number().int().min(1).max(90).default(14) }), 'query'),
+  validate(z.object({ days: z.coerce.number().int().min(1).max(366).default(14) }), 'query'),
   asyncHandler(async (req, res) => {
     const { days } = req.query as unknown as { days: number };
     const now = new Date();

@@ -27,6 +27,7 @@ export const CHART_COLORS = {
   comment: "#d1aad7",
   follow: "#72ce7b",
   brand: "#f44d60",
+  signups: "#1a5cff",
 } as const;
 
 const PIE_COLORS = [CHART_COLORS.like, CHART_COLORS.comment, CHART_COLORS.follow];
@@ -106,19 +107,38 @@ export function ActionsAreaChart({ data }: { data: TimeseriesDay[] }) {
 }
 
 const signupsConfig = {
-  signups: { label: "Signups", color: CHART_COLORS.brand },
+  signups: { label: "Signups", color: CHART_COLORS.signups },
 } satisfies ChartConfig;
 
-/** Daily new-signups bars. */
-export function SignupsBarChart({ data }: { data: TimeseriesDay[] }) {
+/** New-signups bars — one per day, or one per calendar month. */
+export function SignupsBarChart({
+  data,
+  granularity = "day",
+}: {
+  data: { date: string; signups: number }[];
+  granularity?: "day" | "month";
+}) {
+  const monthly = granularity === "month";
+  const tick = (value: unknown) =>
+    new Date(String(value)).toLocaleDateString(
+      "en-US",
+      monthly ? { month: "short", timeZone: "UTC" } : { month: "short", day: "numeric", timeZone: "UTC" },
+    );
+  const label = (value: unknown) =>
+    new Date(String(value)).toLocaleDateString(
+      "en-US",
+      monthly
+        ? { month: "long", year: "numeric", timeZone: "UTC" }
+        : { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" },
+    );
   return (
-    <ChartContainer config={signupsConfig} className="aspect-auto h-[200px] w-full">
+    <ChartContainer config={signupsConfig} className="aspect-auto h-[280px] w-full">
       <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
         <CartesianGrid vertical={false} />
-        <XAxis dataKey="date" tickFormatter={shortDate} minTickGap={24} {...AXIS} />
+        <XAxis dataKey="date" tickFormatter={tick} minTickGap={24} {...AXIS} />
         <YAxis width={36} allowDecimals={false} {...AXIS} />
-        <ChartTooltip content={<ChartTooltipContent labelFormatter={shortDate} indicator="dot" />} />
-        <Bar dataKey="signups" fill="var(--color-signups)" radius={[4, 4, 0, 0]} />
+        <ChartTooltip content={<ChartTooltipContent labelFormatter={label} indicator="dot" />} />
+        <Bar dataKey="signups" fill="var(--color-signups)" radius={[4, 4, 0, 0]} maxBarSize={48} />
       </BarChart>
     </ChartContainer>
   );

@@ -41,8 +41,8 @@ import {
   ActionsAreaChart,
   CHART_COLORS,
   SeriesLegend,
-  SignupsBarChart,
 } from "@/components/charts";
+import { SignupsOverTime } from "@/components/signups-over-time";
 
 export default function OverviewPage() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -170,6 +170,9 @@ export default function OverviewPage() {
         )}
       </SectionCard>
 
+      {/* Signups over time — range-switchable */}
+      <SignupsOverTime />
+
       {/* Activity charts */}
       <div className="grid grid-cols-1 gap-4 @4xl/main:grid-cols-3">
         <SectionCard
@@ -194,22 +197,13 @@ export default function OverviewPage() {
         </SectionCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 @4xl/main:grid-cols-3">
-        <SectionCard
-          className="@4xl/main:col-span-2"
-          title="Signups over time"
-          description="User registration trend · last 14 days"
-        >
-          <SignupsBarChart data={series} />
-        </SectionCard>
-        <SectionCard title="AI comment drafts" description="Generation pipeline">
-          <div className="space-y-3">
-            <MetricRow label="Total generated" value={stats.drafts.total} />
-            <MetricRow label="Pending" value={stats.drafts.pending} tone="warn" />
-            <MetricRow label="Posted" value={stats.drafts.posted} tone="pro" />
-          </div>
-        </SectionCard>
-      </div>
+      <SectionCard title="AI comment drafts" description="Generation pipeline">
+        <div className="grid grid-cols-1 gap-3 @xl/main:grid-cols-3 @xl/main:gap-8">
+          <MetricRow label="Total generated" value={stats.drafts.total} />
+          <MetricRow label="Pending" value={stats.drafts.pending} tone="warn" />
+          <MetricRow label="Posted" value={stats.drafts.posted} tone="pro" />
+        </div>
+      </SectionCard>
     </>
   );
 }
