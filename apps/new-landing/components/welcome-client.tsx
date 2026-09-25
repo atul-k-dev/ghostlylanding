@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { clearSavedCode, readSavedCode, sendCodeToExtension } from "@/lib/referral";
 
-type State = { kind: "checking" } | { kind: "none" } | { kind: "sent"; code: string } | { kind: "failed"; code: string };
+type State =
+  | { kind: "checking" }
+  | { kind: "none" }
+  | { kind: "sent"; code: string }
+  | { kind: "failed"; code: string };
 
 /**
  * The extension opens this page on first install. If an /invite page saved a
@@ -43,29 +47,40 @@ export function WelcomeClient() {
   ];
 
   return (
-    <>
+    <div className="mt-4 flex w-full flex-col items-center gap-6">
       {state.kind === "sent" && (
-        <p className="mx-auto mt-8 max-w-md rounded-sm border border-emerald-green/30 bg-shadow-tint px-5 py-4 font-inter text-base text-halo-pale">
-          Your invite code <span className="font-mono font-semibold tracking-widest text-ghost-white">{state.code}</span> is
-          saved — it&rsquo;s filled in for you when you sign up.
+        <p className="t-body rounded-2xl px-5 py-4" style={{ background: "var(--line-2)", color: "var(--zinc)" }}>
+          Your invite code{" "}
+          <span className="font-mono font-semibold tracking-widest" style={{ color: "var(--ink)" }}>
+            {state.code}
+          </span>{" "}
+          is saved — it&rsquo;s filled in for you when you sign up.
         </p>
       )}
       {state.kind === "failed" && (
-        <p className="mx-auto mt-8 max-w-md rounded-sm border border-goldenrod/30 bg-shadow-tint px-5 py-4 font-inter text-base text-halo-pale">
-          We couldn&rsquo;t pass your invite code to the extension. When you sign up, tap &ldquo;Have an invite
-          code?&rdquo; and enter{" "}
-          <span className="font-mono font-semibold tracking-widest text-ghost-white select-all">{state.code}</span>.
+        <p className="t-body rounded-2xl px-5 py-4" style={{ background: "var(--line-2)", color: "var(--zinc)" }}>
+          We couldn&rsquo;t pass your invite code to the extension. When you sign up, tap “Have an invite
+          code?” and enter{" "}
+          <span className="font-mono font-semibold tracking-widest select-all" style={{ color: "var(--ink)" }}>
+            {state.code}
+          </span>
+          .
         </p>
       )}
 
-      <ol className="mx-auto mt-10 max-w-md space-y-4 text-left">
+      <ol className="flex w-full max-w-[440px] flex-col gap-4 text-left">
         {steps.map((step, i) => (
-          <li key={step} className="flex gap-4 font-inter text-base text-halo-pale">
-            <span className="font-geist text-[12px] leading-6 tracking-widest text-iron-slate">0{i + 1}</span>
+          <li key={step} className="t-body flex gap-4" style={{ color: "var(--zinc)" }}>
+            <span
+              className="t-sm-med grid h-7 w-7 shrink-0 place-items-center rounded-full"
+              style={{ background: "var(--line-2)", color: "var(--ink)" }}
+            >
+              {i + 1}
+            </span>
             {step}
           </li>
         ))}
       </ol>
-    </>
+    </div>
   );
 }

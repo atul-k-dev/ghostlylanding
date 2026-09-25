@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
   const production = mode === 'production';
   // The website (invite + welcome pages). Unset falls back per build, so a
   // store build can never end up pointing at localhost by accident.
-  const siteUrl = env.VITE_SITE_URL || (production ? 'https://ghostly247.com' : 'http://localhost:3000');
+  const siteUrl = env.VITE_SITE_URL || (production ? 'https://www.ghostly247.com' : 'http://localhost:3000');
   console.log(`[ghostly247] building against API: ${apiBaseUrl} · site: ${siteUrl}`);
   return {
     plugins: [react(), tailwindcss(), crx({ manifest: buildManifest(apiBaseUrl, siteUrl, production) })],

@@ -22,7 +22,15 @@ const apiOriginOf = (baseUrl: string): string => {
  * the Next dev server so the handoff can be tested end to end.
  */
 const externallyConnectableMatches = (siteUrl: string, production: boolean): string[] => {
-  const matches = [`${apiOriginOf(siteUrl)}/*`];
+  const origin = apiOriginOf(siteUrl);
+  const matches = [`${origin}/*`];
+  // ghostly247.com permanently redirects to www.ghostly247.com, so a page can
+  // end up on either host. Trust both spellings of the configured site.
+  const url = new URL(origin);
+  if (url.hostname !== 'localhost') {
+    const twin = url.hostname.startsWith('www.') ? url.hostname.slice(4) : `www.${url.hostname}`;
+    matches.push(`${url.protocol}//${twin}/*`);
+  }
   if (!production) matches.push('http://localhost:3000/*');
   return [...new Set(matches)];
 };

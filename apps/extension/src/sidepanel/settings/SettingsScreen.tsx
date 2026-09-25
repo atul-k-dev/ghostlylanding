@@ -234,7 +234,15 @@ export const SettingsScreen = ({
       </Group>
 
       <Group label="About">
-        <Row icon={Bug01Icon} label="Report a Problem" onClick={() => open('/support')} />
+        <Row
+          icon={Bug01Icon}
+          label="Report a Problem"
+          onClick={() =>
+            window.open(
+              `mailto:support@ghostly247.com?subject=${encodeURIComponent(`Ghostly247 v${chrome.runtime.getManifest().version} — problem report`)}`,
+            )
+          }
+        />
         <Row icon={Activity01Icon} label="Diagnostics" onClick={go('diagnostics')} />
         <Row icon={File01Icon} label="Terms of Use" onClick={() => open('/terms')} />
         <Row icon={Shield01Icon} label="Privacy Policy" onClick={() => open('/privacy')} />

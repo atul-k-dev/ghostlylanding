@@ -13,7 +13,7 @@ import { normalizeReferralCode } from '@casper/shared';
 
 // `import.meta.env` is undefined when this module runs under plain Node (the
 // smoke scripts), so read it defensively.
-export const SITE_URL: string = import.meta.env?.VITE_SITE_URL ?? 'https://ghostly247.com';
+export const SITE_URL: string = import.meta.env?.VITE_SITE_URL ?? 'https://www.ghostly247.com';
 
 /**
  * Origins whose pages may hand us a code: exactly the manifest's

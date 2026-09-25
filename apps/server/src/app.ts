@@ -29,7 +29,11 @@ import { rateLimit } from './middleware/rate-limit.js';
 
 export const createApp = (): Express => {
   const app = express();
-  const siteOrigin = new URL(config.siteUrl).origin;
+  // The site answers on www and on the bare domain (which redirects), so allow
+  // both spellings of it.
+  const siteUrl = new URL(config.siteUrl);
+  const siteTwin = siteUrl.hostname.startsWith('www.') ? siteUrl.hostname.slice(4) : `www.${siteUrl.hostname}`;
+  const siteOrigins = [siteUrl.origin, `${siteUrl.protocol}//${siteTwin}${siteUrl.port ? `:${siteUrl.port}` : ''}`];
 
   app.disable('x-powered-by');
   app.use(helmet());
@@ -41,7 +45,7 @@ export const createApp = (): Express => {
         if (origin.startsWith('chrome-extension://')) return cb(null, true);
         if (config.allowedOrigins.includes(origin)) return cb(null, true);
         // The website calls the public invite lookup from its /invite page.
-        if (origin === siteOrigin) return cb(null, true);
+        if (siteOrigins.includes(origin)) return cb(null, true);
         return cb(new Error(`Origin not allowed: ${origin}`));
       },
       credentials: true,

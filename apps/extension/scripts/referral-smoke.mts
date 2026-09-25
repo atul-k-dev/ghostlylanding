@@ -89,10 +89,11 @@ assert(normalizeReferralCode('ABCDIL2') === null, 'codes never contain I or L');
 assert(normalizeReferralCode('') === null, 'an empty code is no code');
 
 // -- the website → extension handoff -------------------------------------------
-const store = ['https://ghostly247.com'];
-assert(allowedSiteOrigins().includes('https://ghostly247.com'), 'outside an extension, the configured site is trusted');
+const store = ['https://www.ghostly247.com', 'https://ghostly247.com'];
+assert(allowedSiteOrigins().includes('https://www.ghostly247.com'), 'outside an extension, the configured (www) site is trusted');
 const msg = { type: 'REFERRAL', code: 'abcd234' };
-assert(referralFromExternalMessage(msg, 'https://ghostly247.com', store) === 'ABCD234', 'the site can hand over a code');
+assert(referralFromExternalMessage(msg, 'https://www.ghostly247.com', store) === 'ABCD234', 'the site (www) can hand over a code');
+assert(referralFromExternalMessage(msg, 'https://ghostly247.com', store) === 'ABCD234', 'the bare domain can too');
 assert(referralFromExternalMessage(msg, 'https://evil.example', store) === null, 'any other origin is refused');
 assert(referralFromExternalMessage(msg, 'http://localhost:3000', store) === null, 'an origin missing from the manifest (localhost, on a store build) is refused');
 assert(referralFromExternalMessage(msg, undefined, store) === null, 'no origin, no code');
