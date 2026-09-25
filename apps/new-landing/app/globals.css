@@ -1,0 +1,400 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Ghostly247 design tokens.
+
+   The palette is the Chrome extension's DEFAULT appearance, light
+   mode: base colour "Mist", theme colour "Twitter". Every value
+   below is copied from the extension so the site and the side
+   panel read as one product:
+
+     apps/extension/src/ui/appearance-palettes.css
+       :root[data-base="mist"]             — the neutrals
+       :root.dark[data-base="mist"]        — the dark panels
+       :root[data-accent="twitter"]        — the theme colour
+     apps/extension/src/ui/shadcn-theme.css
+       --canvas                            — the page background
+
+   (Defaults live in apps/extension/src/sidepanel/appearance.ts:
+    mode 'light', base 'mist', accent 'twitter'.)
+
+   Hex equivalents are in the comments for reference only — the
+   oklch values are authoritative, exactly as the extension ships
+   them.
+   ============================================================ */
+:root {
+  /* ---- ink — mist neutrals ---- */
+  --ink: oklch(0.148 0.004 228.8); /* mist --foreground       #090b0c */
+  --ink-soft: oklch(0.218 0.008 223.9); /* mist --primary     #161b1d */
+  --ink-warm: oklch(0.148 0.004 228.8); /* mist --foreground  #090b0c */
+  --zinc: oklch(0.45 0.017 213.2); /* mist --chart-3          #4b585b */
+  --muted: oklch(0.56 0.021 213.5); /* mist --muted-foreground #67787c */
+  --muted-2: oklch(0.723 0.014 214.4); /* mist --ring         #9ca8ab */
+
+  /*
+    ---- surfaces ----
+    --page is the extension's own page canvas: shadcn-theme.css builds it
+    from the base's muted-foreground as
+      oklch(from var(--muted-foreground) 0.955 calc(c * 0.75) h)
+    which, for Mist, resolves to the value below.
+
+    The rest of the ladder is that same colour — Mist's hue 213.5, chroma
+    tracking lightness the way the canvas formula does — stepped up and down
+    around it. Cards carry no border and no shadow, so the fill alone has to
+    say what is raised and what is recessed:
+
+      --surface-2  #daedf1  recessed   inner panels behind a screenshot
+      --surface    #deeff3  recessed   the alternating section bands
+      --page       #e5f3f7  ground     the page itself
+      --line-2     #f1f9fb  raised     the muted card fill
+      --card       #ffffff  top        content sitting on a card
+  */
+  --page: oklch(0.955 0.01575 213.5); /* mist --canvas         #e5f3f7 */
+  --surface: oklch(0.941 0.019 213.5); /* section band         #deeff3 */
+  --surface-2: oklch(0.932 0.021 213.5); /* recessed panel     #daedf1 */
+  --card: oklch(1 0 0); /* mist --card                         #ffffff */
+  --card-80: oklch(1 0 0 / 80%);
+  --page-80: oklch(0.955 0.01575 213.5 / 80%); /* the blurred nav bar */
+
+  /* ---- lines ---- */
+  --line: oklch(0.925 0.005 214.3); /* mist --border           #e3e7e8 */
+  --line-2: oklch(0.977 0.0085 213.5); /* muted card fill      #f1f9fb */
+  --line-fade: oklch(0.925 0.005 214.3 / 60%);
+
+  /*
+    ---- theme colour: Twitter ----
+    --brand / --brand-ink / --brand-ring and the 100/200/600/800 steps are
+    the extension's [data-accent="twitter"] primary, primary-foreground,
+    ring and chart-1/2/4/5. 050 and 150 are the same blue mixed further
+    into white, so the four tinted chips on the page stay distinguishable.
+    Dark ink on --brand is 6.6:1; that is the pairing the page uses.
+  */
+  --brand: #1d9bf0; /* twitter --primary / --chart-3 */
+  --brand-ink: #ffffff; /* twitter --primary-foreground */
+  --brand-ring: #1d9bf080; /* twitter --ring */
+  --brand-050: #e8f4fe; /* derived — 12% brand on white */
+  --brand-100: #cfe8fc; /* twitter --chart-1 */
+  --brand-150: #b1d8fc; /* derived — 40% brand on white */
+  --brand-200: #8ecdf8; /* twitter --chart-2 */
+  --brand-600: #1a8cd8; /* twitter --chart-4 */
+  --brand-800: #0b6bb0; /* twitter --chart-5 */
+
+  /*
+    The four accent names the sections were built against, remapped onto
+    the Twitter ramp. Kept as aliases so the tint call sites don't have to
+    change; every one of them puts --ink on top, and all four clear 6.5:1.
+  */
+  --lime: var(--brand);
+  --lime-soft: var(--brand-200);
+  --pink: var(--brand-050);
+  --violet: var(--brand-100);
+
+  /*
+    ---- the dark panels (Pricing Pro, Safety) ----
+    Mist in dark mode, so the inverted cards are the same theme seen the
+    other way up rather than an unrelated green.
+  */
+  --forest: oklch(0.275 0.011 216.9); /* mist dark --secondary   #22292b */
+  --forest-ink: oklch(0.987 0.002 197.1); /* mist dark --foreground #f9fbfb */
+  --forest-soft: oklch(0.872 0.007 219.6); /* mist dark --chart-1 #d0d6d8 */
+  --forest-muted: oklch(0.723 0.014 214.4); /* mist dark --muted-foreground #9ca8ab */
+  --forest-faint: oklch(0.56 0.021 213.5); /* mist dark --ring    #67787c */
+  /* The cards inside those panels carry no hairline, so the fill alone
+     has to lift them off --forest. */
+  --forest-fill: oklch(1 0 0 / 8%);
+
+  --red: oklch(0.577 0.245 27.325); /* mist --destructive        #e7000b */
+
+  /*
+    ---- shadows ----
+    Off. The Framer export lifted every card with a four-stop drop shadow;
+    against Mist that grey haze reads as dirt, so separation comes from the
+    surface ladder above instead. Kept as tokens rather than deleted so the
+    call sites stay honest about where a raised surface is — put the stacks
+    back here and the whole page lifts again.
+  */
+  --shadow-card: none;
+  --shadow-soft: none;
+  --shadow-softer: none;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-lime: var(--lime);
+  --color-pink: var(--pink);
+  --color-violet: var(--violet);
+  --font-display: var(--font-urbanist);
+  --font-sans: var(--font-jost);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-font-smoothing: inherit;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-jost), sans-serif;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+figure {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ============================================================
+   Typography scale — Urbanist display / Jost body.
+   Sizes are desktop / tablet (<1200) / mobile (<810).
+   ============================================================ */
+.t-h1,
+.t-h2,
+.t-h3,
+.t-h5 {
+  font-family: var(--font-urbanist), sans-serif;
+  font-weight: 500;
+  line-height: 1.2em;
+  letter-spacing: 0;
+}
+
+.t-h1 {
+  font-size: 64px;
+}
+.t-h2 {
+  font-size: 54px;
+}
+.t-h3 {
+  font-size: 42px;
+}
+.t-h5 {
+  font-size: 24px;
+}
+
+.t-h6 {
+  font-family: var(--font-jost), sans-serif;
+  font-weight: 400;
+  font-size: 21px;
+  line-height: 1.4em;
+}
+
+.t-body {
+  font-family: var(--font-jost), sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.4em;
+}
+
+.t-nav {
+  font-family: var(--font-jost), sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.4em;
+}
+
+.t-sm {
+  font-family: var(--font-jost), sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.4em;
+}
+
+.t-sm-med {
+  font-family: var(--font-jost), sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.4em;
+}
+
+.t-logo {
+  font-family: var(--font-urbanist), sans-serif;
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1.2em;
+}
+
+@media (max-width: 1199px) {
+  .t-h1 {
+    font-size: 55px;
+  }
+  .t-h2 {
+    font-size: 44px;
+  }
+  .t-h3 {
+    font-size: 32px;
+  }
+  .t-h5 {
+    font-size: 23px;
+  }
+  .t-h6 {
+    font-size: 19px;
+  }
+}
+
+@media (max-width: 809px) {
+  .t-h1 {
+    font-size: 40px;
+  }
+  .t-h2 {
+    font-size: 39px;
+  }
+  .t-h3 {
+    font-size: 26px;
+  }
+  .t-h5 {
+    font-size: 20px;
+  }
+  .t-h6 {
+    font-size: 18px;
+  }
+}
+
+/* ============================================================
+   Layout primitives
+   ============================================================ */
+.shell {
+  width: 100%;
+  max-width: 1240px;
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+
+/*
+  Secondary — a flat pill (See it work / Add to Chrome on the Free plan).
+  No border, and it takes the recessed end of the surface ladder rather
+  than white: it has to stay visible on a white card as well as on the
+  page and the section bands. Hover nudges it toward the theme colour.
+*/
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 24px;
+  border-radius: 24px;
+  border: none;
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.25s ease;
+}
+
+.btn-ghost:hover {
+  background: var(--brand-100);
+}
+
+/*
+  Primary — the page's main CTA, and where the theme colour actually
+  lands. A transparent pill holding a 32px Twitter-blue circle at the
+  left; on hover that circle expands to inset:0 and floods the whole
+  pill. The flood deepens to --brand-800 as it does, because the label
+  turns white on top of it and white on --brand alone is only 3:1.
+*/
+.btn-primary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  height: 40px;
+  padding: 6px 12px 6px 4px;
+  border-radius: 24px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  overflow: visible;
+  isolation: isolate;
+}
+
+.btn-primary__flood {
+  position: absolute;
+  z-index: 0;
+  top: calc(50% - 16px);
+  left: 4px;
+  width: 32px;
+  height: 32px;
+  border-radius: 200px;
+  background: var(--brand);
+  transition: inset 0.35s cubic-bezier(0.44, 0, 0.22, 1),
+    width 0.35s cubic-bezier(0.44, 0, 0.22, 1),
+    height 0.35s cubic-bezier(0.44, 0, 0.22, 1),
+    top 0.35s cubic-bezier(0.44, 0, 0.22, 1),
+    left 0.35s cubic-bezier(0.44, 0, 0.22, 1),
+    background 0.35s cubic-bezier(0.44, 0, 0.22, 1);
+}
+
+.btn-primary:hover .btn-primary__flood {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--brand-800);
+}
+
+.btn-primary__icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--brand);
+  transition: background 0.35s cubic-bezier(0.44, 0, 0.22, 1);
+  flex: none;
+}
+
+.btn-primary:hover .btn-primary__icon {
+  background: var(--brand-800);
+}
+
+.btn-primary__label {
+  position: relative;
+  z-index: 1;
+  transition: color 0.3s ease;
+}
+
+.btn-primary:hover .btn-primary__label {
+  color: var(--brand-ink);
+}
+
+/* ============================================================
+   Motion helpers
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
