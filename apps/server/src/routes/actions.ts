@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ok, err, ACTION_TYPES, PLATFORMS, currentPeriodKey } from '@casper/shared';
+import { ok, err, ACTION_TYPES, PLATFORMS, FREE_TIER, currentPeriodKey } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -120,6 +120,7 @@ actionsRouter.post(
       successCount += anonymous.filter((d) => d.success).length;
     }
     let monthlyActionCount: number | undefined;
+    let bonusCredits: number | undefined;
     if (successCount > 0) {
       const periodKey = currentPeriodKey();
       // Roll the monthly counter over at the month boundary (only matches when
@@ -134,12 +135,33 @@ actionsRouter.post(
         { new: true, projection: { monthlyActionCount: 1 } },
       );
       monthlyActionCount = updated?.monthlyActionCount ?? undefined;
+
+      // Whatever part of this batch landed past the monthly allowance is paid
+      // for from the referral bonus pool. Worked out from this batch's own
+      // before/after (the $inc above is atomic), so concurrent flushes each
+      // spend only their own overflow. Pro users never touch the pool — their
+      // credits wait for them if they ever go back to Free.
+      if (monthlyActionCount !== undefined) {
+        const before = monthlyActionCount - successCount;
+        const overflow =
+          Math.max(0, monthlyActionCount - FREE_TIER.monthlyActions) -
+          Math.max(0, before - FREE_TIER.monthlyActions);
+        if (overflow > 0) {
+          const spent = await UserModel.findOneAndUpdate(
+            { _id: req.auth.sub, subscriptionStatus: { $nin: ['active', 'trialing'] } },
+            [{ $set: { bonusCredits: { $max: [0, { $subtract: [{ $ifNull: ['$bonusCredits', 0] }, overflow] }] } } }],
+            { new: true, projection: { bonusCredits: 1 } },
+          );
+          bonusCredits = spent?.bonusCredits ?? undefined;
+        }
+      }
     }
     res.json(
       ok({
         inserted: insertedCount,
         duplicates: docs.length - insertedCount,
         ...(monthlyActionCount !== undefined ? { monthlyActionCount } : {}),
+        ...(bonusCredits !== undefined ? { bonusCredits } : {}),
       }),
     );
   }),

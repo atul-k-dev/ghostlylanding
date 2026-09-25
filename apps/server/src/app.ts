@@ -23,11 +23,13 @@ import { billingWebhookRouter } from './routes/billing-webhook.js';
 import { returnPagesRouter } from './routes/return-pages.js';
 import { adminRouter } from './routes/admin.js';
 import { supportRouter } from './routes/support.js';
+import { referralRouter } from './routes/referral.js';
 import { enforceBan } from './middleware/enforce-ban.js';
 import { rateLimit } from './middleware/rate-limit.js';
 
 export const createApp = (): Express => {
   const app = express();
+  const siteOrigin = new URL(config.siteUrl).origin;
 
   app.disable('x-powered-by');
   app.use(helmet());
@@ -38,6 +40,8 @@ export const createApp = (): Express => {
         if (!origin) return cb(null, true);
         if (origin.startsWith('chrome-extension://')) return cb(null, true);
         if (config.allowedOrigins.includes(origin)) return cb(null, true);
+        // The website calls the public invite lookup from its /invite page.
+        if (origin === siteOrigin) return cb(null, true);
         return cb(new Error(`Origin not allowed: ${origin}`));
       },
       credentials: true,
@@ -95,6 +99,7 @@ export const createApp = (): Express => {
   app.use('/api/config', configRouter);
   app.use('/api/diagnostics', diagnosticsRouter);
   app.use('/api/billing', billingRouter);
+  app.use('/api/referral', referralRouter);
   app.use('/api/admin', adminRouter);
 
   // Stripe checkout redirect targets — minimal HTML, no nav/marketing.

@@ -13,6 +13,7 @@ const NAV = [
   { href: "/actions", label: "Action log", icon: Icons.activity },
   { href: "/health", label: "Fleet health", icon: Icons.check },
   { href: "/drafts", label: "Comment drafts", icon: Icons.message },
+  { href: "/settings", label: "Settings", icon: Icons.tag },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {

@@ -43,7 +43,7 @@
  */
 import type { ExtensionSettings, Platform } from '@casper/shared';
 import { setWorkerTabWorking } from '../platforms/common/tab-driver.js';
-import { FREE_TIER, isPro, monthlyActionsUsed, bumpMonthly } from '@casper/shared';
+import { FREE_TIER, isPro, freeLimitReached, bumpMonthly } from '@casper/shared';
 import {
   getSettings,
   setSettings,
@@ -398,10 +398,10 @@ export const handleTick = async (): Promise<void> => {
         // 5-actions-per-month allowance — likes + comments + follows combined.
         // The server's count is authoritative (and resets monthly); we bump
         // locally after each action to avoid racing past it between syncs.
-        if (monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions) {
+        if (freeLimitReached(auth?.user)) {
           await updateTask(task.id, {
             status: 'skipped',
-            lastError: `Free plan: ${FREE_TIER.monthlyActions} actions/month used. Upgrade to Pro.`,
+            lastError: `Free plan: ${FREE_TIER.monthlyActions} actions/month and bonus credits used. Upgrade to Pro, or invite a friend for more.`,
           });
           await setBlockReason('free-cap');
           await maybeFlush();
@@ -720,7 +720,7 @@ const maybeRefillScans = async (settings: ExtensionSettings): Promise<void> => {
 const profileVisitHasBudget = async (settings: ExtensionSettings): Promise<boolean> => {
   const auth = await getAuth();
   if (!isPro(auth?.user.subscriptionStatus ?? 'free')) {
-    if (monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions) return false;
+    if (freeLimitReached(auth?.user)) return false;
   }
   const counters = await ensureToday(settings);
   return (
@@ -733,7 +733,7 @@ const profileVisitHasBudget = async (settings: ExtensionSettings): Promise<boole
 const followBackHasBudget = async (settings: ExtensionSettings): Promise<boolean> => {
   const auth = await getAuth();
   if (!isPro(auth?.user.subscriptionStatus ?? 'free')) {
-    if (monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions) return false;
+    if (freeLimitReached(auth?.user)) return false;
   }
   const counters = await ensureToday(settings);
   return isUnderCap(counters, 'twitter', 'follow');
@@ -744,7 +744,7 @@ const followBackHasBudget = async (settings: ExtensionSettings): Promise<boolean
 const homeHasBudget = async (settings: ExtensionSettings, platform: Platform): Promise<boolean> => {
   const auth = await getAuth();
   if (!isPro(auth?.user.subscriptionStatus ?? 'free')) {
-    if (monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions) return false;
+    if (freeLimitReached(auth?.user)) return false;
   }
   const counters = await ensureToday(settings);
   const hf = settings.homeFeed;
@@ -798,7 +798,7 @@ const reportIdleReason = async (settings: ExtensionSettings): Promise<void> => {
     signedInToX: (await getOwnHandle()) !== null,
     // A free account is not a lapsed one — only a paid plan that stopped.
     subscriptionLapsed: status === 'canceled' || status === 'past_due',
-    freeCapHit: !pro && monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions,
+    freeCapHit: !pro && freeLimitReached(auth?.user),
     // The engine keeps liking and following without the API; only replies need
     // it, so an unreachable server is reported but never treated as fatal here.
     serverReachable: true,

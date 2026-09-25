@@ -15,6 +15,7 @@ import {
   File01Icon,
   Flag01Icon,
   GaugeIcon,
+  GiftIcon,
   HashtagIcon,
   Logout01Icon,
   MessageMultiple01Icon,
@@ -33,6 +34,7 @@ import {
   ViewIcon,
 } from '@hugeicons/core-free-icons';
 import { sendToBackground } from '../../lib/messages.js';
+import { SITE_URL } from '../../lib/referral.js';
 import { SAFETY_PRESETS } from '../../lib/presets.js';
 import { isTrusted } from '../../lib/trust.js';
 import { DETAIL_TITLES, Detail, type DetailKey } from './details';
@@ -44,8 +46,7 @@ import { label as nameOf, useAppearance } from '../appearance';
 
 export type SettingsRoute = 'list' | DetailKey;
 
-const SITE = 'https://ai-casper.vercel.app';
-const open = (path: string) => void chrome.tabs.create({ url: `${SITE}${path}` });
+const open = (path: string) => void chrome.tabs.create({ url: `${SITE_URL}${path}` });
 const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
 const onOff = (v: boolean) => (v ? 'On' : 'Off');
 
@@ -117,8 +118,18 @@ export const SettingsScreen = ({
         <Row
           icon={GaugeIcon}
           label="Limits"
-          value={pro ? 'Unlimited' : `${monthlyActionsUsed(user)} / ${FREE_TIER.monthlyActions} this month`}
+          value={
+            pro
+              ? 'Unlimited'
+              : `${monthlyActionsUsed(user)} / ${FREE_TIER.monthlyActions} this month${user.bonusCredits ? ` · +${user.bonusCredits}` : ''}`
+          }
           onClick={go('limits')}
+        />
+        <Row
+          icon={GiftIcon}
+          label="Invite Friends"
+          hint="You both get free credits"
+          onClick={go('invite')}
         />
         <Row icon={Flag01Icon} label="Setup guide" value={s.setupCompletedAt ? 'Done' : 'Not finished'} onClick={onOpenSetup} />
         <Row

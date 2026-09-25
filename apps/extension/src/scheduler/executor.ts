@@ -8,7 +8,7 @@
  *   - 'comment', 'follow' → stub for now (M5/M6)
  */
 import type { ActionType } from '@casper/shared';
-import { FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
+import { FREE_TIER, isPro, freeActionsLeft } from '@casper/shared';
 import type { ExecutorResult, QueuedTask } from './types.js';
 import { driveTab } from '../platforms/common/tab-driver.js';
 import { FRESH_WINDOW_HOURS } from '../platforms/common/freshness.js';
@@ -290,7 +290,7 @@ const runInlineFollowList = async (
   const remainingFollows = c ? Math.max(0, c.effectiveCap.followsPerDay - c.byActionType.follow) : 0;
   const monthlyLeft = pro
     ? Number.MAX_SAFE_INTEGER
-    : Math.max(0, FREE_TIER.monthlyActions - monthlyActionsUsed(auth?.user));
+    : freeActionsLeft(auth?.user);
   const max = Math.min(remainingFollows, monthlyLeft, 30);
   if (max <= 0) return { kind: 'budget' };
 
@@ -615,7 +615,7 @@ const runInlineAutopilot = async (
   // combined). Pro is uncapped. Every feature works for both.
   const monthlyLeft = pro
     ? Number.MAX_SAFE_INTEGER
-    : Math.max(0, FREE_TIER.monthlyActions - monthlyActionsUsed(auth?.user));
+    : freeActionsLeft(auth?.user);
   const totalBudget = Math.min(
     monthlyLeft,
     maxLikes + maxComments + maxFollows + maxBookmarks + maxReposts + maxQuotes,
@@ -635,7 +635,7 @@ const runInlineAutopilot = async (
   if (totalBudget === 0) {
     const detail =
       !pro && monthlyLeft === 0
-        ? `Free plan: ${FREE_TIER.monthlyActions} actions/month used. Upgrade to Pro to keep going.`
+        ? `Free plan: ${FREE_TIER.monthlyActions} actions/month and bonus credits used. Upgrade to Pro, or invite a friend for more.`
         : 'Daily caps already reached for every enabled action — resets at your local midnight.';
     await appendDiagnostic({ kind: 'rate_limited', context: `${platform}:${label}`, detail });
     return { success: true, errorMessage: `${label}: ${detail}` };

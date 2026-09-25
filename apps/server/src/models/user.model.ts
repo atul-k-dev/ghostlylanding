@@ -76,6 +76,22 @@ const userSchema = new Schema(
     monthlyActionCount: { type: Number, default: 0 },
     /** "YYYY-MM" (UTC) window that monthlyActionCount belongs to. */
     actionPeriodKey: { type: String, default: null },
+    /** Referral bonus pool (see REFERRAL_DEFAULTS in @casper/shared): actions
+     *  that never expire, spent by /api/actions/log only once the monthly
+     *  allowance is. */
+    bonusCredits: { type: Number, default: 0, min: 0 },
+    /** This user's share code. Deliberately no default: `sparse` skips missing
+     *  fields but NOT nulls, so a null default would collide on the unique
+     *  index. Accounts from before referrals get one lazily (GET /api/referrals). */
+    referralCode: { type: String, unique: true, sparse: true },
+    /** Who invited this user, if anyone. Set once, at account creation. */
+    referredBy: { type: Schema.Types.ObjectId, ref: 'User', default: null, index: true },
+    /** Friends whose signup earned this user credits — capped at the
+     *  configured maxRewardedReferrals by a conditional $inc. */
+    referralCount: { type: Number, default: 0 },
+    /** Total credits those friends earned this user. Stored rather than derived
+     *  so a later change to creditsPerReferral doesn't rewrite history. */
+    referralCreditsEarned: { type: Number, default: 0 },
     /** Grants access to the admin panel. Set via the set-admin script. */
     isAdmin: { type: Boolean, default: false },
     /** When true the account is suspended — blocked from sign-in and all API use. */
@@ -118,6 +134,7 @@ export const toUserDTO = (
     currentPeriodEnd: doc.currentPeriodEnd ? doc.currentPeriodEnd.toISOString() : null,
     monthlyActionCount: doc.monthlyActionCount ?? 0,
     actionPeriodKey: doc.actionPeriodKey ?? null,
+    bonusCredits: doc.bonusCredits ?? 0,
     isAdmin: doc.isAdmin ?? false,
     isBanned: doc.isBanned ?? false,
     voiceProfile: doc.voiceProfile

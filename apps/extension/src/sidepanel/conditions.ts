@@ -105,7 +105,7 @@ export const ENGINE_COPY: Record<BlockReasonCode, CopyRow> = {
   },
   'free-cap': {
     title: "You've used your {n} free actions this month.",
-    body: 'They reset on the 1st.',
+    body: 'They reset on the 1st — or invite a friend from Settings and you both get 10 more.',
     buttons: ['See plans'],
     tone: 'calm',
   },

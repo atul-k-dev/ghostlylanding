@@ -48,6 +48,10 @@ export const config = {
   // Public origin that serves branded email assets (the logo). Defaults to the
   // live marketing site so images resolve in real inboxes without extra setup.
   emailAssetBaseUrl: required('EMAIL_ASSET_BASE_URL', 'https://ghostly247.com'),
+  // The public website. Invite links are `${siteUrl}/invite/<code>`, and its
+  // origin is allowed through CORS for the invite page's code lookup. Point it
+  // at http://localhost:3000 for local development.
+  siteUrl: required('SITE_URL', 'https://ghostly247.com'),
   stripeSecretKey: optional('STRIPE_SECRET_KEY'),
   stripeWebhookSecret: optional('STRIPE_WEBHOOK_SECRET'),
   stripePrices: {

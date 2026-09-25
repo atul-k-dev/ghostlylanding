@@ -9,9 +9,18 @@ import { buildManifest } from './manifest.config.js';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', 'VITE_');
   const apiBaseUrl = env.VITE_API_BASE_URL ?? 'http://localhost:4000';
-  console.log(`[ghostly247] building against API: ${apiBaseUrl}`);
+  const production = mode === 'production';
+  // The website (invite + welcome pages). Unset falls back per build, so a
+  // store build can never end up pointing at localhost by accident.
+  const siteUrl = env.VITE_SITE_URL || (production ? 'https://ghostly247.com' : 'http://localhost:3000');
+  console.log(`[ghostly247] building against API: ${apiBaseUrl} · site: ${siteUrl}`);
   return {
-    plugins: [react(), tailwindcss(), crx({ manifest: buildManifest(apiBaseUrl) })],
+    plugins: [react(), tailwindcss(), crx({ manifest: buildManifest(apiBaseUrl, siteUrl, production) })],
+    define: {
+      // Resolved here (with the fallback above) so the code and the manifest's
+      // externally_connectable always agree on the site.
+      'import.meta.env.VITE_SITE_URL': JSON.stringify(siteUrl),
+    },
     resolve: {
       alias: { '@': path.resolve(import.meta.dirname, './src') },
     },

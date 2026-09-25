@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
-import { ok, err, PLATFORMS, TONE_PRESETS, FREE_TIER, isPro, monthlyActionsUsed } from '@casper/shared';
+import { ok, err, PLATFORMS, TONE_PRESETS, FREE_TIER, isPro, freeLimitReached } from '@casper/shared';
 import type { CommentLength } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -63,7 +63,7 @@ commentsRouter.post(
     }
     if (
       !isPro(user.subscriptionStatus as Parameters<typeof isPro>[0]) &&
-      monthlyActionsUsed(user) >= FREE_TIER.monthlyActions
+      freeLimitReached(user)
     ) {
       res.status(402).json(
         err(

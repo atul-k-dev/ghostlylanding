@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { ok, err, type AuthResponse } from '@casper/shared';
 import { asyncHandler } from '../middleware/async-handler.js';
@@ -10,8 +10,10 @@ import { hashPassword, verifyPassword } from '../auth/password.js';
 import { hasGoogle, verifyGoogleIdToken } from '../auth/google.js';
 import { sendPasswordResetCode } from '../email/resend.js';
 import { isProd } from '../config.js';
-import type { HydratedDocument } from 'mongoose';
+import type { HydratedDocument, Types } from 'mongoose';
 import { UserModel, toUserDTO } from '../models/user.model.js';
+import { findReferrer, referredUserFields, rewardReferrer } from '../referrals/referrals.js';
+import { getReferralSettings } from '../referrals/settings.js';
 
 export const authRouter = Router();
 
@@ -27,11 +29,56 @@ const issueAuth = (user: HydratedDocument<unknown>): AuthResponse => {
   return { token, user: dto };
 };
 
+/**
+ * Resolve an invite code sent with a sign-up. Anything wrong with it — bad
+ * format, unknown code, suspended inviter, even a failed lookup — yields null:
+ * an invite code is a bonus, and must never be the reason a sign-up fails.
+ */
+const resolveReferral = async (req: Request, raw: string | undefined) => {
+  if (!raw) return null;
+  try {
+    const referrer = await findReferrer(raw);
+    if (!referrer) {
+      req.log.info({ code: raw }, 'sign-up with an invalid invite code (ignored)');
+      return null;
+    }
+    return { referrer, settings: await getReferralSettings() };
+  } catch (e) {
+    req.log.error({ err: e }, 'invite code lookup failed (ignored)');
+    return null;
+  }
+};
+
+type Referral = Awaited<ReturnType<typeof resolveReferral>>;
+
+/**
+ * Pay the inviter, AFTER the new account has been saved (callers only get here
+ * once the insert succeeded, so a duplicate email or failed create pays no
+ * one). Best-effort: the new user already has their account and their bonus,
+ * and a failure here must never turn a successful sign-up into an error.
+ */
+const payReferrer = async (req: Request, referral: Referral, newUserId: Types.ObjectId): Promise<void> => {
+  if (!referral) return;
+  const referrerId = referral.referrer._id;
+  try {
+    const paid = await rewardReferrer(referrerId, referral.settings);
+    req.log.info({ referrerId, newUserId, paid }, 'referral sign-up');
+  } catch (e) {
+    req.log.error({ err: e, referrerId, newUserId }, 'failed to reward referrer');
+  }
+};
+
+const optionalReferralCode = z.string().trim().max(64).optional().catch(undefined);
+
 // -- POST /signup -----------------------------------------------------------
 const signupSchema = z.object({
   name: z.string().trim().min(1).max(80),
   email: z.string().email().max(254),
   password: z.string().min(8).max(128),
+  /** Optional invite code — typed in, or handed over by the website. Anything
+   *  malformed (wrong type, too long) becomes undefined instead of failing
+   *  validation: a bad invite code must never block a sign-up. */
+  referralCode: optionalReferralCode,
 });
 
 authRouter.post(
@@ -39,16 +86,36 @@ authRouter.post(
   rateLimit({ windowMs: 60_000, max: 5 }),
   validate(signupSchema),
   asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body as z.infer<typeof signupSchema>;
+    const { name, email, password, referralCode } = req.body as z.infer<typeof signupSchema>;
     const normalizedEmail = email.toLowerCase();
     const existing = await UserModel.findOne({ email: normalizedEmail });
     if (existing) {
       res.status(409).json(err('email_in_use', 'An account already exists for that email.'));
       return;
     }
+    const referral = await resolveReferral(req, referralCode);
     const passwordHash = await hashPassword(password);
-    const user = await UserModel.create({ name, email: normalizedEmail, passwordHash });
-    res.json(ok(issueAuth(user)));
+    let user;
+    try {
+      user = await UserModel.create({
+        name,
+        email: normalizedEmail,
+        passwordHash,
+        ...(referral ? referredUserFields(referral.referrer._id, referral.settings) : {}),
+      });
+    } catch (e) {
+      // Two sign-ups for the same email racing past the findOne above: the
+      // unique index lets exactly one through. The other gets the same 409 —
+      // and, never having been saved, pays no referral.
+      if ((e as { code?: number }).code === 11000) {
+        res.status(409).json(err('email_in_use', 'An account already exists for that email.'));
+        return;
+      }
+      throw e;
+    }
+    await payReferrer(req, referral, user._id);
+    const body: AuthResponse = { ...issueAuth(user), referralApplied: referral !== null };
+    res.json(ok(body));
   }),
 );
 
@@ -166,6 +233,8 @@ authRouter.post(
 // -- POST /google -----------------------------------------------------------
 const googleSchema = z.object({
   idToken: z.string().min(20).max(4_096),
+  /** Only used when this sign-in creates a brand-new account. */
+  referralCode: optionalReferralCode,
 });
 
 authRouter.post(
@@ -177,7 +246,7 @@ authRouter.post(
       res.status(503).json(err('google_unconfigured', 'Google Sign-In is not configured.'));
       return;
     }
-    const { idToken } = req.body as z.infer<typeof googleSchema>;
+    const { idToken, referralCode } = req.body as z.infer<typeof googleSchema>;
 
     let verified;
     try {
@@ -194,6 +263,7 @@ authRouter.post(
       return;
     }
 
+    let referralApplied = false;
     // Find existing by googleId, then by email (link), else create.
     let user = await UserModel.findOne({ googleId: verified.googleId });
     if (!user) {
@@ -203,17 +273,24 @@ authRouter.post(
         if (!user.name) user.name = verified.name;
         await user.save();
       } else {
+        // Only a brand-new account can use an invite code — never a sign-in
+        // to an existing one, Google-linked or not.
+        const referral = await resolveReferral(req, referralCode);
         user = await UserModel.create({
           name: verified.name,
           email: verified.email,
           googleId: verified.googleId,
+          ...(referral ? referredUserFields(referral.referrer._id, referral.settings) : {}),
         });
+        await payReferrer(req, referral, user._id);
+        referralApplied = referral !== null;
       }
     }
     if (user.isBanned) {
       res.status(403).json(err('account_suspended', 'This account has been suspended.'));
       return;
     }
-    res.json(ok(issueAuth(user)));
+    const body: AuthResponse = { ...issueAuth(user), referralApplied };
+    res.json(ok(body));
   }),
 );

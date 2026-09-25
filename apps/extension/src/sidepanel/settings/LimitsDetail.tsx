@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import type { ExtensionSettings, User } from '@casper/shared';
-import { FREE_TIER, PLAN_PRICING, isPro, monthlyActionsUsed } from '@casper/shared';
+import { FREE_TIER, PLAN_PRICING, freeLimitReached, isPro, monthlyActionsUsed } from '@casper/shared';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Bookmark02Icon,
   Clock01Icon,
   Comment01Icon,
+  GiftIcon,
   FavouriteIcon,
   QuillWrite02Icon,
   QuoteDownIcon,
@@ -34,12 +35,24 @@ const nextReset = () => {
 
 const Check = () => <HugeiconsIcon icon={Tick02Icon} strokeWidth={2.6} className="mx-auto size-4 text-casper-working" />;
 
-export const LimitsDetail = ({ settings, user, onUpgrade }: { settings: ExtensionSettings; user: User; onUpgrade: () => void }) => {
+export const LimitsDetail = ({
+  settings,
+  user,
+  onUpgrade,
+  onInvite,
+}: {
+  settings: ExtensionSettings;
+  user: User;
+  onUpgrade: () => void;
+  onInvite: () => void;
+}) => {
   const pro = isPro(user.subscriptionStatus ?? 'free');
   const used = monthlyActionsUsed(user);
   const cap = FREE_TIER.monthlyActions;
   const left = Math.max(0, cap - used);
+  const bonus = user.bonusCredits ?? 0;
   const fraction = Math.min(1, used / cap);
+  const outOfActions = freeLimitReached(user);
 
   const preset = presetOf(settings);
   const full = preset.caps;
@@ -96,14 +109,27 @@ export const LimitsDetail = ({ settings, user, onUpgrade }: { settings: Extensio
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              {fraction >= 1
+              {outOfActions
                 ? 'You’ve used this month’s actions — I’ll pause until it resets, or upgrade to keep going.'
-                : 'Every like, reply and follow counts as one action. Every feature works on Free.'}
+                : fraction >= 1
+                  ? `This month’s actions are used — I’m working from your ${bonus} bonus credits now.`
+                  : 'Every like, reply and follow counts as one action. Every feature works on Free.'}
             </p>
             <AccentButton onClick={onUpgrade}>Upgrade for unlimited</AccentButton>
           </>
         )}
       </section>
+
+      {!pro && (
+        <Group footer={`Credits never expire and are only used once the monthly ${cap} run out — one credit is one action. Invite a friend and you both get some.`}>
+          <Row
+            icon={GiftIcon}
+            label="Bonus credits"
+            value={<span className="font-semibold text-foreground tabular-nums">{bonus}</span>}
+          />
+          <Row icon={GiftIcon} label="Invite friends for more" onClick={onInvite} />
+        </Group>
+      )}
 
       {/* Free vs Pro */}
       <Group label="Free vs Pro">
