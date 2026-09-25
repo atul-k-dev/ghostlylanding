@@ -69,3 +69,12 @@ export const CAP_ROWS = [
   { key: "reposts", label: "Reposts" },
   { key: "quotes", label: "Quotes" },
 ] as const;
+
+/**
+ * `packages/shared/src/types/user.ts` — REFERRAL_DEFAULTS. Admin-configurable
+ * at runtime; these are the shipped defaults the page describes.
+ */
+export const REFERRAL = {
+  creditsPerReferral: 10,
+  maxRewardedReferrals: 20,
+} as const;

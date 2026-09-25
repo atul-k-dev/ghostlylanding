@@ -43,6 +43,10 @@ const QA = [
     a: "They're read once and thrown away. Ghostly keeps only a short note about your writing style, which you can see or delete anytime.",
   },
   {
+    q: "How do invite credits work?",
+    a: "Share your invite link. When a friend signs up with it, you each get 10 free credits — one credit is one extra action on top of your monthly allowance. Credits never expire, and you're rewarded for up to 20 friends.",
+  },
+  {
     q: "Can I cancel?",
     a: "Anytime, in one click from the extension. Delete your account and everything is erased for good.",
   },

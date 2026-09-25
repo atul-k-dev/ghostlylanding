@@ -10,6 +10,7 @@ import { Growth } from "@/components/growth";
 import { Control } from "@/components/control";
 import { HowItWorks } from "@/components/how-it-works";
 import { Pricing } from "@/components/pricing";
+import { InviteFriends } from "@/components/invite-friends";
 import { FAQ } from "@/components/faq";
 import { Closing } from "@/components/closing";
 import { Footer } from "@/components/footer";
@@ -31,6 +32,7 @@ export default function Home() {
         <Control />
         <HowItWorks />
         <Pricing />
+        <InviteFriends />
         <FAQ />
         <Closing />
       </main>
