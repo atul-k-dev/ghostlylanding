@@ -75,7 +75,7 @@ export const FOOTER_COLUMNS: { header: string; links: FooterLink[] }[] = [
     links: [
       { label: "Help & docs", href: "/docs" },
       { label: "FAQ", href: "/#faq" },
-      { label: "Contact support", href: `mailto:${SITE.email}` },
+      { label: "Contact support", href: "/support" },
       { label: "Status", href: "/status" },
     ],
   },
@@ -95,6 +95,7 @@ export const FOOTER_COLUMNS: { header: string; links: FooterLink[] }[] = [
 export const ROUTES = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
   { path: "/docs", priority: 0.7, changeFrequency: "monthly" },
+  { path: "/support", priority: 0.6, changeFrequency: "yearly" },
   { path: "/changelog", priority: 0.5, changeFrequency: "weekly" },
   { path: "/status", priority: 0.3, changeFrequency: "daily" },
   { path: "/privacy", priority: 0.3, changeFrequency: "yearly" },
