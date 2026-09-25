@@ -18,6 +18,9 @@ interface FetchOptions {
    * dedupe key — so it opts in explicitly.
    */
   retries?: number;
+  /** Don't record a network failure in Diagnostics — for background syncs
+   *  where being offline is expected and nothing is lost. */
+  quiet?: boolean;
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -68,7 +71,7 @@ export const apiFetch = async <T>(path: string, opts: FetchOptions = {}): Promis
   if (!res) {
     // Only report once the retries are spent, so one flaky moment doesn't
     // produce three diagnostics for a single logical failure.
-    void appendDiagnostic({ kind: 'network_error', context: path, detail: lastNetworkError });
+    if (!opts.quiet) void appendDiagnostic({ kind: 'network_error', context: path, detail: lastNetworkError });
     return {
       ok: false,
       error: { code: 'network_error', message: lastNetworkError },

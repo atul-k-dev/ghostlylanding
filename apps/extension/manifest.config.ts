@@ -15,14 +15,34 @@ const apiOriginOf = (baseUrl: string): string => {
   }
 };
 
-export const buildManifest = (apiBaseUrl: string) => {
+/**
+ * Pages allowed to message the extension (chrome.runtime.sendMessage with our
+ * ID) — the website's /invite and /welcome pages hand over an invite code that
+ * way. Store builds allow only the configured site; local builds also allow
+ * the Next dev server so the handoff can be tested end to end.
+ */
+const externallyConnectableMatches = (siteUrl: string, production: boolean): string[] => {
+  const origin = apiOriginOf(siteUrl);
+  const matches = [`${origin}/*`];
+  // ghostly247.com permanently redirects to www.ghostly247.com, so a page can
+  // end up on either host. Trust both spellings of the configured site.
+  const url = new URL(origin);
+  if (url.hostname !== 'localhost') {
+    const twin = url.hostname.startsWith('www.') ? url.hostname.slice(4) : `www.${url.hostname}`;
+    matches.push(`${url.protocol}//${twin}/*`);
+  }
+  if (!production) matches.push('http://localhost:3000/*');
+  return [...new Set(matches)];
+};
+
+export const buildManifest = (apiBaseUrl: string, siteUrl: string, production: boolean) => {
   const apiOrigin = apiOriginOf(apiBaseUrl);
   return defineManifest({
     manifest_version: 3,
     name: 'Ghostly247 — Twitter/X Growth Autopilot',
     description:
       'Twitter/X growth autopilot — auto-like, AI reply, follow, repost & quote, plus AI create & schedule posts and a daily recap email.',
-    version: '3.0.0',
+    version: '3.1.0',
     icons: {
       16: 'icons/icon-16.png',
       32: 'icons/icon-32.png',
@@ -74,7 +94,11 @@ export const buildManifest = (apiBaseUrl: string) => {
         js: ['src/content/checkout-return.ts'],
         run_at: 'document_start',
       },
+
     ],
+    externally_connectable: {
+      matches: externallyConnectableMatches(siteUrl, production),
+    },
     // The floating card on x.com shows the logo, so the page must be allowed to load it.
     web_accessible_resources: [
       {

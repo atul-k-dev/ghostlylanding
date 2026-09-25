@@ -13,6 +13,7 @@ import { RemoteConfigModel, SELECTOR_CONFIG_KEY } from '../models/remote-config.
 import { isSelectorKey } from '../config/selectors.js';
 import { resolveSelectorConfig } from './config.js';
 import { getRevenueOverview } from '../stripe/revenue.js';
+import { getReferralSettings, setReferralSettings } from '../referrals/settings.js';
 
 export const adminRouter = Router();
 
@@ -581,5 +582,29 @@ adminRouter.put(
       'selector override updated',
     );
     res.json(ok(await resolveSelectorConfig()));
+  }),
+);
+
+// -- GET/PUT /settings/referral — credits per referral and the per-inviter cap
+adminRouter.get(
+  '/settings/referral',
+  asyncHandler(async (_req, res) => {
+    res.json(ok(await getReferralSettings()));
+  }),
+);
+
+const referralSettingsSchema = z.object({
+  creditsPerReferral: z.number().int().min(0).max(1_000),
+  maxRewardedReferrals: z.number().int().min(0).max(10_000),
+});
+
+adminRouter.put(
+  '/settings/referral',
+  validate(referralSettingsSchema),
+  asyncHandler(async (req, res) => {
+    const next = req.body as z.infer<typeof referralSettingsSchema>;
+    const saved = await setReferralSettings(next, req.auth?.sub ?? null);
+    req.log.warn({ admin: req.auth?.sub, ...saved }, 'referral settings updated');
+    res.json(ok(saved));
   }),
 );

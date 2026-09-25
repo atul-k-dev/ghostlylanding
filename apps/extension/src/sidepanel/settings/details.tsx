@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ExtensionSettings, PaidPlan, SafetyPresetName, User, VoiceProfile } from '@casper/shared';
 import { COMMENT_LENGTHS, PAID_PLANS, PLAN_PRICING, TONE_PRESETS, VOICE_LIMITS, isPro } from '@casper/shared';
-import { CreditCardIcon, Delete02Icon, Mic01Icon, UserAdd01Icon } from '@hugeicons/core-free-icons';
+import { CreditCardIcon, Delete02Icon, GiftIcon, Mic01Icon, UserAdd01Icon } from '@hugeicons/core-free-icons';
 import { sendToBackground } from '../../lib/messages.js';
 import {
   appendGrowthMilestone,
@@ -16,12 +16,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { HomeFeedDetail, TargetsDetail, TopicFeedsDetail, WhitelistDetail } from './sources';
 import { AppearanceDetail } from './AppearanceDetail';
 import { LimitsDetail } from './LimitsDetail';
+import { InviteDetail } from './InviteDetail';
 import { Slider } from '@/components/ui/slider';
 import { AccentButton, Group, Pad, Row, ProBadge } from './kit';
 
 export type DetailKey =
   | 'appearance'
   | 'limits'
+  | 'invite'
   | 'plan'
   | 'intensity'
   | 'hours'
@@ -39,6 +41,7 @@ export type DetailKey =
 export const DETAIL_TITLES: Record<DetailKey, string> = {
   appearance: 'Appearance',
   limits: 'Limits',
+  invite: 'Invite Friends',
   plan: 'Plan',
   intensity: 'Work pace',
   hours: 'Active hours',
@@ -70,9 +73,18 @@ export const Detail = ({ id, ...p }: DetailProps & { id: DetailKey }) => {
     case 'appearance':
       return <AppearanceDetail />;
     case 'limits':
-      return <LimitsDetail settings={p.settings} user={p.user} onUpgrade={() => p.go?.('plan')} />;
+      return (
+        <LimitsDetail
+          settings={p.settings}
+          user={p.user}
+          onUpgrade={() => p.go?.('plan')}
+          onInvite={() => p.go?.('invite')}
+        />
+      );
+    case 'invite':
+      return <InviteDetail />;
     case 'plan':
-      return <PlanDetail user={p.user} />;
+      return <PlanDetail user={p.user} onInvite={() => p.go?.('invite')} />;
     case 'intensity':
       return <IntensityDetail {...p} />;
     case 'hours':
@@ -122,7 +134,7 @@ export const Detail = ({ id, ...p }: DetailProps & { id: DetailKey }) => {
   }
 };
 
-const PlanDetail = ({ user }: { user: User }) => {
+const PlanDetail = ({ user, onInvite }: { user: User; onInvite: () => void }) => {
   const [plan, setPlan] = useState<PaidPlan>(PAID_PLANS[PAID_PLANS.length - 1]!);
   const pro = isPro(user.subscriptionStatus ?? 'free');
 
@@ -154,6 +166,15 @@ const PlanDetail = ({ user }: { user: User }) => {
       <AccentButton onClick={() => void sendToBackground({ type: 'START_CHECKOUT', payload: { plan } })}>
         Continue to checkout
       </AccentButton>
+      <Group footer="Not ready to pay? Every friend who signs up with your link gets you both free credits — one credit is one extra action.">
+        <Row
+          icon={GiftIcon}
+          label="Earn free credits"
+          hint="Invite friends to Ghostly247"
+          value={user.bonusCredits ? `${user.bonusCredits} now` : undefined}
+          onClick={onInvite}
+        />
+      </Group>
     </>
   );
 };

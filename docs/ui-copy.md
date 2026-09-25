@@ -39,7 +39,7 @@ The `code` column is the `BlockReasonCode` — match on it exactly.
 | 3 | `caps-spent` | **Done for today.** | I've used today's safe limit — back at {resumeTime}. | *(none)* | calm |
 | 4 | `outside-hours` | **Resting until {startHour}.** | Running at 4am is the most machine-like thing there is. | `Change hours` | calm |
 | 5 | `signed-out` | **I can't see your account.** | Sign in to X and I'll pick straight back up. | `Open X` | attention |
-| 6 | `free-cap` | **You've used your {n} free actions this month.** | They reset on the 1st. | `See plans` | calm |
+| 6 | `free-cap` | **You've used your {n} free actions this month.** | They reset on the 1st — or invite a friend from Settings and you both get 10 more. | `See plans` | calm |
 | 7 | `sub-lapsed` | **Your plan ended, so I've stopped.** | Everything's saved — nothing's lost. | `Restart it` | attention |
 | 8 | `degraded` | **X changed something and I can't read the feed.** | I've stopped rather than guess. I'll retry automatically. | `Tell us` | attention |
 | 9 | `server-unreachable` | **Can't reach Ghostly — replies are paused.** | Likes and follows are still running. | *(none)* | calm |

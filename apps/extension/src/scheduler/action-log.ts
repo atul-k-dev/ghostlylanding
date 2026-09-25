@@ -47,7 +47,7 @@ export const flushActionLog = async (): Promise<{ sent: number; kept: number }> 
   // Send the user's timezone alongside the batch so the server can time the
   // end-of-day recap email to their local day (kept fresh on every flush).
   const settings = await getSettings();
-  const resp = await apiFetch<{ inserted: number; monthlyActionCount?: number }>(
+  const resp = await apiFetch<{ inserted: number; monthlyActionCount?: number; bonusCredits?: number }>(
     '/api/actions/log',
     {
       method: 'POST',
@@ -84,6 +84,8 @@ export const flushActionLog = async (): Promise<{ sent: number; kept: number }> 
           ...auth.user,
           monthlyActionCount: resp.data.monthlyActionCount,
           actionPeriodKey: currentPeriodKey(),
+          // Only present when this batch spent from the referral bonus pool.
+          ...(typeof resp.data.bonusCredits === 'number' ? { bonusCredits: resp.data.bonusCredits } : {}),
         },
       });
     }

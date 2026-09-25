@@ -1,6 +1,6 @@
 {
   "name": "@casper/extension",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "package": "pnpm build && mkdir -p ../../releases && rm -f \"../../releases/ghostly247-extension-$npm_package_version.zip\" && (cd dist && zip -qr \"../../../releases/ghostly247-extension-$npm_package_version.zip\" .) && echo \"-> releases/ghostly247-extension-$npm_package_version.zip\"",
     "preview": "vite preview",
-    "test": "pnpm smoke && pnpm reply-queue-smoke && pnpm relevance-smoke && pnpm selectors-smoke && pnpm schedule-smoke && pnpm resilience-smoke && pnpm block-reason-smoke && pnpm pacing-smoke && pnpm presets-smoke && pnpm setup-smoke && pnpm conditions-smoke && pnpm floating-smoke && pnpm mentions-smoke && pnpm browser-notify-smoke && pnpm best-times-smoke && pnpm trust-smoke && pnpm quote-card-smoke && pnpm follow-filter-smoke && pnpm attribution-smoke && pnpm auto-tune-smoke && pnpm proactive-smoke && pnpm voice-tune-smoke",
+    "test": "pnpm smoke && pnpm reply-queue-smoke && pnpm relevance-smoke && pnpm selectors-smoke && pnpm schedule-smoke && pnpm resilience-smoke && pnpm block-reason-smoke && pnpm pacing-smoke && pnpm presets-smoke && pnpm setup-smoke && pnpm conditions-smoke && pnpm floating-smoke && pnpm mentions-smoke && pnpm browser-notify-smoke && pnpm best-times-smoke && pnpm trust-smoke && pnpm quote-card-smoke && pnpm follow-filter-smoke && pnpm attribution-smoke && pnpm auto-tune-smoke && pnpm proactive-smoke && pnpm voice-tune-smoke && pnpm referral-smoke",
     "smoke": "tsx scripts/scheduler-smoke.mts",
     "reply-queue-smoke": "tsx scripts/reply-queue-smoke.mts",
     "relevance-smoke": "tsx scripts/relevance-smoke.mts",
@@ -32,7 +32,8 @@
     "attribution-smoke": "tsx scripts/attribution-smoke.mts",
     "auto-tune-smoke": "tsx scripts/auto-tune-smoke.mts",
     "proactive-smoke": "tsx scripts/proactive-smoke.mts",
-    "voice-tune-smoke": "tsx scripts/voice-tune-smoke.mts"
+    "voice-tune-smoke": "tsx scripts/voice-tune-smoke.mts",
+    "referral-smoke": "tsx scripts/referral-smoke.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

@@ -4,6 +4,7 @@ import {
   HeartPulseIcon,
   LayoutDashboardIcon,
   MessageSquareTextIcon,
+  SettingsIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -21,6 +22,7 @@ export const NAV: NavItem[] = [
   { title: "Action log", url: "/actions", icon: ActivityIcon },
   { title: "Fleet health", url: "/health", icon: HeartPulseIcon },
   { title: "Comment drafts", url: "/drafts", icon: MessageSquareTextIcon },
+  { title: "Settings", url: "/settings", icon: SettingsIcon },
 ];
 
 export const isNavActive = (pathname: string, url: string): boolean =>

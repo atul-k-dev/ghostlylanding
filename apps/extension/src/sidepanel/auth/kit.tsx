@@ -2,12 +2,13 @@ import { useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import { Alert02Icon, ArrowLeft01Icon, Loading03Icon, ViewIcon, ViewOffIcon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
+import { SITE_URL } from '../../lib/referral.js';
 
 /**
  * The pieces the sign-in, sign-up and reset screens are built from — one
  * column, sized for the side panel, in the same theme as the rest of it.
  */
-const SITE = 'https://ai-casper.vercel.app';
+const SITE = SITE_URL;
 
 export const AuthShell = ({
   title,

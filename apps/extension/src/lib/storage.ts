@@ -82,6 +82,8 @@ export const STORAGE_KEYS = {
   /** Onboarding progress — the step reached, the goal picked, and whether the
    *  user chose "later" — so it resumes, and Settings can offer to finish it. */
   onboarding: 'casper.onboarding',
+  /** Invite code picked up from an invite link, waiting for sign-up. */
+  pendingReferral: 'casper.pendingReferral',
 } as const;
 
 /**
@@ -1048,4 +1050,37 @@ export const removeStandingInstruction = async (instruction: string): Promise<st
   const next = existing.filter((i) => i.toLowerCase() !== instruction.trim().toLowerCase());
   await chrome.storage.local.set({ [STORAGE_KEYS.standingInstructions]: next });
   return next;
+};
+
+// -- pending referral ---------------------------------------------------------
+// The website's /invite and /welcome pages hand the code over (see
+// lib/referral.ts) — usually before the user has an account — so it's parked
+// here until they sign up, and cleared after any successful sign-in. Kept for 30 days —
+// long enough for "install now, sign up at the weekend", short enough that a
+// stale code doesn't get applied to someone else's account on a shared machine.
+export interface PendingReferral {
+  code: string;
+  capturedAt: number;
+}
+
+const PENDING_REFERRAL_TTL_MS = 30 * 24 * 60 * 60_000;
+
+export const getPendingReferral = async (): Promise<string | null> => {
+  const got = await chrome.storage.local.get(STORAGE_KEYS.pendingReferral);
+  const p = got[STORAGE_KEYS.pendingReferral] as PendingReferral | undefined;
+  if (!p) return null;
+  if (Date.now() - p.capturedAt > PENDING_REFERRAL_TTL_MS) {
+    await chrome.storage.local.remove(STORAGE_KEYS.pendingReferral);
+    return null;
+  }
+  return p.code;
+};
+
+export const setPendingReferral = async (code: string): Promise<void> => {
+  const entry: PendingReferral = { code, capturedAt: Date.now() };
+  await chrome.storage.local.set({ [STORAGE_KEYS.pendingReferral]: entry });
+};
+
+export const clearPendingReferral = async (): Promise<void> => {
+  await chrome.storage.local.remove(STORAGE_KEYS.pendingReferral);
 };

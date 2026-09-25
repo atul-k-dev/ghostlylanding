@@ -98,6 +98,14 @@ Everything else Ghostly records is what it **did**. This is what it **got**.
 - **Free** — 50 actions per month (likes + replies + follows + bookmarks + reposts + quotes combined), resets monthly.
 - **Pro** — unlimited actions, billed **$7.99/month** or **$2.99/week** (pick either at checkout). Stripe checkout + self-serve billing portal; subscriptions stay in sync via webhooks.
 
+## Invite friends (referrals)
+- **Give 10, get 10** — every user has a personal invite code (7 characters, no 0/O/1/I/L) and link, `ghostly247.com/invite/<code>`, under Settings → **Invite Friends**. When a friend signs up with it, **both** get **10 credits** (one credit = one extra action). Refer 5 friends → +50.
+- **Credits never expire** — they sit on top of the monthly allowance and are only spent once the month's 50 are used up. Pro users keep theirs for if they ever go back to Free. Free users see their balance as a 🎁 badge in the header.
+- **Capped at 20 rewarded friends** per inviter (200 credits), so throwaway accounts can't farm unlimited use. Friends past the cap still get their own credits. Credits per referral and the cap are editable in the admin panel (Settings).
+- **The code survives the install** — the Chrome Web Store drops link parameters, so the invite page saves the code, and on first install Ghostly opens `/welcome`, which hands it to the extension. The sign-up screen then shows "<Name> invited you" with the code filled in (email or Google). There's also a "Have an invite code?" field for typing it in.
+- **Never blocks a sign-up** — an unknown, mistyped, or suspended user's code is simply ignored. Codes only apply when an account is created, never on sign-in.
+- **Share** in one tap to WhatsApp, Telegram, LinkedIn, X or Email, or copy the link or code. The invite page shows a personalised link preview.
+
 ## Support & misc
 - **Contact Support** — opens a pre-addressed email to `support@ghostly247.com`.
 - **Crash-safe popup** — an error boundary recovers the UI instead of going blank.

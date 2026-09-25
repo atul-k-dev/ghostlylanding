@@ -59,6 +59,28 @@ export const App = () => {
     return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
+  // Re-sync the signed-in user (credit balance, plan) whenever the panel comes
+  // back into focus — credits earned from a friend's sign-up land on the
+  // server, not here. Throttled, and silent: SYNC_ME leaves the stored user
+  // untouched on a network error, so an offline laptop just keeps showing
+  // the last known balance.
+  const signedIn = auth.kind === 'logged-in';
+  useEffect(() => {
+    if (!signedIn) return;
+    let last = 0;
+    const sync = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - last < 15_000) return;
+      last = Date.now();
+      void sendToBackground({ type: 'SYNC_ME', payload: {} }).catch(() => undefined);
+    };
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, [signedIn]);
+
   /** Where a condition card's one button sends you. */
   const navigate = (target: PanelTarget) => {
     setNotificationsOpen(false);
@@ -168,6 +190,7 @@ export const App = () => {
         unread={notifications.count}
         onOpenProfile={() => setSettings('list')}
         onOpenNotifications={() => setNotificationsOpen(true)}
+        onOpenInvite={() => setSettings('invite')}
       />
       {/* The only scroll container; the bottom padding keeps content (and
           Ask's input) clear of the floating nav. */}

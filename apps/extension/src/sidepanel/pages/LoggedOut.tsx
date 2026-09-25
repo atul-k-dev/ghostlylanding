@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowRight02Icon, LockPasswordIcon, Mail01Icon, UserIcon } from '@hugeicons/core-free-icons';
+import { ArrowRight02Icon, GiftIcon, LockPasswordIcon, Mail01Icon, UserIcon } from '@hugeicons/core-free-icons';
+import { normalizeReferralCode, type ReferralLookup } from '@casper/shared';
 import { cn } from '@/lib/utils';
 import { sendToBackground } from '../../lib/messages.js';
-import { getPendingReset } from '../../lib/storage.js';
+import { STORAGE_KEYS, getPendingReferral, getPendingReset } from '../../lib/storage.js';
 import { AuthCard, AuthShell, Divider, ErrorNote, Field, GoogleMark, PrimaryButton, StrengthMeter } from '../auth/kit';
 import { ForgotPassword } from './ForgotPassword.js';
 
@@ -26,14 +27,35 @@ export const LoggedOut = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
+  /** The invite field starts folded away behind "Have an invite code?" —
+   *  unless the website handed us a code, which is shown filled in. */
+  const [showCode, setShowCode] = useState(false);
+  /** Who the code in the field belongs to, once looked up. */
+  const [invite, setInvite] = useState<ReferralLookup | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [resumeReset, setResumeReset] = useState(false);
   const [booted, setBooted] = useState(false);
 
   // Closed mid-reset (e.g. to fetch the code from email)? Reopen at code entry.
+  // Arrived from an invite link? Open on Sign up with the code filled in —
+  // someone holding an invite is almost certainly new.
   useEffect(() => {
-    void getPendingReset().then((p) => {
+    const applyPending = (code: string | null) => {
+      if (!code) return;
+      setReferralCode(code);
+      setShowCode(true);
+      setMode('signup');
+    };
+    // The welcome page can hand the code over while this screen is already
+    // open, so keep listening rather than reading it once.
+    const listener = (changes: { [key: string]: chrome.storage.StorageChange }, area: chrome.storage.AreaName) => {
+      if (area === 'local' && STORAGE_KEYS.pendingReferral in changes) void getPendingReferral().then(applyPending);
+    };
+    chrome.storage.onChanged.addListener(listener);
+    void Promise.all([getPendingReset(), getPendingReferral()]).then(([p, pendingCode]) => {
+      applyPending(pendingCode);
       if (p) {
         setEmail(p.email);
         setResumeReset(true);
@@ -41,7 +63,29 @@ export const LoggedOut = () => {
       }
       setBooted(true);
     });
+    return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
+
+  // Look up whoever owns the code in the field — for the "<Name> invited you"
+  // banner. A code that doesn't check out just shows no banner: sign-up still
+  // goes ahead, and the server ignores it.
+  const normalizedCode = normalizeReferralCode(referralCode);
+  useEffect(() => {
+    setInvite(null);
+    if (!normalizedCode) return;
+    let cancelled = false;
+    void sendToBackground<{ ok: true; data: ReferralLookup } | { ok: false }>({
+      type: 'LOOKUP_REFERRAL',
+      payload: { code: normalizedCode },
+    })
+      .then((resp) => {
+        if (!cancelled && resp.ok && resp.data.valid) setInvite(resp.data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [normalizedCode]);
 
   // Hold the first paint until that check resolves, so the sign-in form never flashes first.
   if (!booted) return <div className="h-full bg-canvas" />;
@@ -76,7 +120,7 @@ export const LoggedOut = () => {
     try {
       const resp = await sendToBackground<AuthResp>(
         mode === 'signup'
-          ? { type: 'SIGNUP', payload: { name: name.trim(), email, password } }
+          ? { type: 'SIGNUP', payload: { name: name.trim(), email, password, referralCode: referralCode.trim() } }
           : { type: 'LOGIN', payload: { email, password } },
       );
       if (!resp.payload.ok) {
@@ -93,7 +137,12 @@ export const LoggedOut = () => {
     setError(null);
     setStatus('googling');
     try {
-      const resp = await sendToBackground<AuthResp>({ type: 'GOOGLE_LOGIN', payload: {} });
+      // On Sign up the invite field is visible, so its value (even empty) is
+      // what counts; on Sign in the background falls back to a parked code.
+      const resp = await sendToBackground<AuthResp>({
+        type: 'GOOGLE_LOGIN',
+        payload: mode === 'signup' ? { referralCode: referralCode.trim() } : {},
+      });
       if (!resp.payload.ok) {
         setError(resp.payload.error ?? 'Google sign-in failed.');
         setStatus('idle');
@@ -109,6 +158,16 @@ export const LoggedOut = () => {
       title={mode === 'login' ? 'Welcome back' : 'Create your account'}
       subtitle={mode === 'login' ? 'Sign in and Ghostly picks up where it left off.' : 'Free to start — no card needed.'}
     >
+      {invite && mode === 'signup' && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl bg-primary/10 px-4 py-3 text-sm ring-1 ring-primary/20">
+          <HugeiconsIcon icon={GiftIcon} strokeWidth={1.8} className="size-6 shrink-0 text-primary" />
+          <span className="leading-snug">
+            <span className="font-semibold">{invite.inviterName ?? 'A friend'} invited you</span>
+            <span className="block text-muted-foreground">You’ll get +{invite.bonusCredits} bonus credits when you sign up.</span>
+          </span>
+        </div>
+      )}
+
       {/* Sign in / Sign up */}
       <div className="mb-4 grid grid-cols-2 rounded-full bg-card p-1 shadow-sm ring-1 ring-[color:var(--card-ring)]" role="tablist">
         {(['login', 'signup'] as Mode[]).map((m) => (
@@ -189,6 +248,32 @@ export const LoggedOut = () => {
             }
           />
           {mode === 'signup' && <StrengthMeter password={password} />}
+          {mode === 'signup' &&
+            (showCode ? (
+              <Field
+                label="Invite code"
+                icon={GiftIcon}
+                autoComplete="off"
+                placeholder="Optional"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                disabled={busy}
+                maxLength={16}
+                trailing={
+                  invite ? (
+                    <span className="text-xs font-medium text-primary">+{invite.bonusCredits} bonus credits</span>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowCode(true)}
+                className="-mt-1 cursor-pointer self-start px-1 text-xs font-semibold text-primary hover:underline"
+              >
+                Have an invite code?
+              </button>
+            ))}
 
           {error && <ErrorNote>{error}</ErrorNote>}
 

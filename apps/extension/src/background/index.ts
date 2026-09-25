@@ -19,14 +19,20 @@ import {
   VOICE_LIMITS,
   isPro,
   bumpMonthly,
-  monthlyActionsUsed,
-  FREE_TIER,
+  freeLimitReached,
+  normalizeReferralCode,
+  type ReferralLookup,
+  type ReferralSummary,
 } from '@casper/shared';
 import type { PendingReply } from '@casper/shared';
 import { apiFetch, API_BASE } from '../lib/api.js';
+import { SITE_URL, referralFromExternalMessage } from '../lib/referral.js';
 import {
   getAuth,
   setAuth,
+  getPendingReferral,
+  setPendingReferral,
+  clearPendingReferral,
   appendDiagnostic,
   markLiked,
   markCommented,
@@ -141,8 +147,41 @@ const refreshTodaysCaps = async (): Promise<void> => {
   }
 };
 
+/**
+ * First install only: open the website's welcome page. That page is the other
+ * half of the invite handoff — it reads the code the /invite page saved and
+ * sends it here (chrome.runtime.onMessageExternal below). Updates and Chrome
+ * restarts must never open a tab.
+ */
+const openWelcomePage = async (): Promise<void> => {
+  try {
+    await chrome.tabs.create({ url: `${SITE_URL.replace(/\/$/, '')}/welcome` });
+  } catch (err) {
+    console.warn('[casper] could not open the welcome page —', err);
+  }
+};
+
+/**
+ * An invite code from the website's /invite or /welcome page. Only pages listed
+ * in the manifest's externally_connectable can reach this at all; the origin
+ * and the code's shape are checked again here anyway, and nothing but a
+ * well-formed code is ever stored. The reply tells the page whether it worked.
+ */
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  const code = referralFromExternalMessage(message, sender.origin);
+  if (!code) {
+    sendResponse({ ok: false });
+    return false;
+  }
+  void setPendingReferral(code)
+    .then(() => sendResponse({ ok: true }))
+    .catch(() => sendResponse({ ok: false }));
+  return true;
+});
+
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('[casper] installed', details.reason);
+  if (details.reason === 'install') void openWelcomePage();
   void installScheduler();
   void installSidePanelBehavior();
   void refreshTodaysCaps();
@@ -231,6 +270,10 @@ const asyncHandlers: Record<string, AsyncHandler<unknown, unknown>> = {
   SIGNUP: handleSignup as AsyncHandler<unknown, unknown>,
   LOGIN: handleLogin as AsyncHandler<unknown, unknown>,
   GOOGLE_LOGIN: handleGoogleLogin as AsyncHandler<unknown, unknown>,
+  GET_REFERRAL: handleGetReferral as AsyncHandler<unknown, unknown>,
+  LOOKUP_REFERRAL: handleLookupReferral as AsyncHandler<unknown, unknown>,
+  GET_PENDING_REFERRAL: handleGetPendingReferral as AsyncHandler<unknown, unknown>,
+  SYNC_ME: handleSyncMe as AsyncHandler<unknown, unknown>,
   FORGOT_PASSWORD: handleForgotPassword as AsyncHandler<unknown, unknown>,
   RESET_PASSWORD: handleResetPassword as AsyncHandler<unknown, unknown>,
   LOGOUT: handleLogout as AsyncHandler<unknown, unknown>,
@@ -435,6 +478,9 @@ const storeAuth = async (data: { token: string; user: User }): Promise<void> => 
   };
   await setAuth(stored);
   console.log('[casper] auth stored for', stored.user.email);
+  // Signed in: a parked invite code has either just been used or can't apply
+  // to this (existing) account any more.
+  await clearPendingReferral();
   // Seed the user's saved keywords from the server so they don't have to
   // re-enter them after a reinstall or on a new device.
   await seedKeywordsFromServer(data.user);
@@ -570,17 +616,21 @@ const authResult = (resp: { ok: false; error: { code: string; message: string } 
 };
 
 async function handleSignup(payload: unknown) {
-  const { name, email, password } = (payload ?? {}) as {
+  const { name, email, password, referralCode } = (payload ?? {}) as {
     name?: unknown;
     email?: unknown;
     password?: unknown;
+    referralCode?: unknown;
   };
   if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
     return { type: 'AUTH_RESULT', payload: { ok: false, error: 'invalid_payload' } };
   }
+  // The form shows the code (prefilled from a parked one) and the user may have
+  // cleared it — so what the form sends is final; nothing is filled in here.
+  const code = typeof referralCode === 'string' && referralCode.trim() ? referralCode.trim() : undefined;
   const resp = await apiFetch<{ token: string; user: User }>('/api/auth/signup', {
     method: 'POST',
-    body: { name, email, password },
+    body: { name, email, password, ...(code ? { referralCode: code } : {}) },
     auth: false,
   });
   if (!resp.ok) return authResult(resp);
@@ -603,7 +653,14 @@ async function handleLogin(payload: unknown) {
   return { type: 'AUTH_RESULT', payload: { ok: true } };
 }
 
-async function handleGoogleLogin() {
+async function handleGoogleLogin(payload: unknown) {
+  const { referralCode } = (payload ?? {}) as { referralCode?: unknown };
+  // Only used by the server if this sign-in creates a new account. From the
+  // sign-up tab the form's value is final (an empty string means the user
+  // cleared it); from the sign-in tab, where the invite field isn't shown, fall
+  // back to a parked invite code.
+  const code =
+    typeof referralCode === 'string' ? referralCode.trim() || null : await getPendingReferral();
   let idToken: string;
   try {
     idToken = await fetchGoogleIdToken();
@@ -614,12 +671,44 @@ async function handleGoogleLogin() {
   }
   const resp = await apiFetch<{ token: string; user: User }>('/api/auth/google', {
     method: 'POST',
-    body: { idToken },
+    body: { idToken, ...(code ? { referralCode: code } : {}) },
     auth: false,
   });
   if (!resp.ok) return authResult(resp);
   await storeAuth(resp.data);
   return { type: 'AUTH_RESULT', payload: { ok: true } };
+}
+
+/** The Invite Friends screen: the share link and what it has earned. */
+async function handleGetReferral() {
+  return apiFetch<ReferralSummary>('/api/referral');
+}
+
+/** Is this invite code real, and whose is it? For the sign-up banner. */
+async function handleLookupReferral(payload: unknown) {
+  const code = normalizeReferralCode((payload as { code?: string } | undefined)?.code);
+  if (!code) return { ok: true, data: { valid: false, inviterName: null, bonusCredits: 0 } };
+  return apiFetch<ReferralLookup>(`/api/referral/lookup/${code}`, { auth: false, quiet: true });
+}
+
+/** The code the website handed over, if any, waiting for sign-up. */
+async function handleGetPendingReferral() {
+  return { ok: true, data: { code: await getPendingReferral() } };
+}
+
+/**
+ * Quiet re-sync of the signed-in user, for when the panel regains focus (the
+ * credit badge). A network error changes nothing: the last known user stays in
+ * storage, no diagnostic is logged, and nothing is surfaced — the panel just
+ * keeps showing what it had.
+ */
+async function handleSyncMe() {
+  const resp = await apiFetch<User>('/api/me', { retries: 1, quiet: true });
+  if (resp.ok) {
+    const current = await getAuth();
+    if (current) await setAuth({ ...current, user: resp.data });
+  }
+  return { ok: resp.ok };
 }
 
 async function handleForgotPassword(payload: unknown) {
@@ -709,7 +798,7 @@ async function handleCanReply() {
   }
   const auth = await getAuth();
   const pro = isPro(auth?.user.subscriptionStatus ?? 'free');
-  if (!pro && monthlyActionsUsed(auth?.user) >= FREE_TIER.monthlyActions) {
+  if (!pro && freeLimitReached(auth?.user)) {
     return { ok: true, data: { allowed: false, reason: 'free-cap' as const } };
   }
   if (!(await canActNow())) {
