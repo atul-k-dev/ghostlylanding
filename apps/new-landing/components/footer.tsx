@@ -8,6 +8,7 @@ import {
   XIcon,
   YouTubeIcon,
 } from "./brand-icons";
+import BuiltByBrandmattic from "./BuiltByBrandmattic";
 import { FOOTER_COLUMNS, SITE, SOCIALS, type FooterLink } from "@/lib/site";
 
 /**
@@ -84,7 +85,7 @@ export function Footer() {
     <div className="flex w-full max-w-[1600px] flex-col px-4 sm:px-6 lg:px-8">
       {/* ---- grey shell ---- */}
       <footer
-        className="relative z-[1] w-full overflow-hidden"
+        className="relative z-[1] w-full"
         style={{
           padding: 4,
           background: "#eceef0",
@@ -203,18 +204,7 @@ export function Footer() {
               Terms &amp; Conditions
             </Link>
             <span aria-hidden="true" className="h-4 w-px" style={{ marginInline: 14, background: "#d5d9dd" }} />
-            <span className="!hidden">
-              Built by{" "}
-              <a
-                href="https://www.buildstory.studio/"
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium underline-offset-4 transition-colors hover:underline"
-                style={{ color: "var(--ink)" }}
-              >
-                BuildStory
-              </a>
-            </span>
+            <BuiltByBrandmattic />
           </div>
         </div>
       </footer>
